@@ -1,6 +1,7 @@
 import { streamText, convertToModelMessages, stepCountIs } from "ai";
 import type { UIMessage } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { createOpenAI } from "@ai-sdk/openai";
+import { withTracing } from "@posthog/ai";
 import {
   createMotherDuckClient,
   getMotherDuckTools,
@@ -13,6 +14,11 @@ import {
   renderBarChartTool,
   renderPoliticianCardTool,
 } from "@/lib/tools";
+import { posthogClient } from "@/lib/posthog";
+
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 export const maxDuration = 120;
 
@@ -126,8 +132,16 @@ export async function POST(req: Request) {
       render_politician_card: renderPoliticianCardTool,
     };
 
+    // Wrap model with PostHog tracing for LLM observability
+    const tracedModel = withTracing(openai("gpt-5-mini"), posthogClient, {
+      posthogDistinctId: "anonymous", // TODO: Replace with actual user ID when auth is added
+      posthogProperties: {
+        source: "chat-api",
+      },
+    });
+
     const result = streamText({
-      model: openai("gpt-5-mini"),
+      model: tracedModel,
       providerOptions: {
         openai: {
           reasoningSummary: "auto", // 'auto' for condensed or 'detailed' for comprehensive

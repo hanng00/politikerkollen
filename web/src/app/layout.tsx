@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { QueryProvider } from "@/components/providers/QueryProvider";
+import { PostHogProvider } from "@/components/providers/PostHogProvider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -35,7 +36,9 @@ export default function RootLayout({
           "antialiased dark"
         )}
       >
-        <QueryProvider>{children}</QueryProvider>
+        <PostHogProvider>
+          <QueryProvider>{children}</QueryProvider>
+        </PostHogProvider>
       </body>
     </html>
   );
