@@ -8,11 +8,13 @@ import {
   PromptInputSubmit,
 } from "@/components/ai-elements/prompt-input";
 import { fadeInUp, defaultTransition } from "@/lib/animations";
-import type { UseChatReturn } from "@ai-sdk/react";
+import { useChat } from "@ai-sdk/react";
+
+type ChatStatus = ReturnType<typeof useChat>["status"];
 
 interface ChatInputProps {
   onSubmit: (text: string) => void;
-  status: UseChatReturn["status"];
+  status: ChatStatus;
   onStop: () => void;
 }
 

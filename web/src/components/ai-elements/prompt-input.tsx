@@ -983,7 +983,11 @@ export const PromptInputActionMenuTrigger = ({
   children,
   ...props
 }: PromptInputActionMenuTriggerProps) => (
-  <DropdownMenuTrigger render={<PromptInputButton className={className} {...props} />}>{children ?? <PlusIcon className="size-4" />}</DropdownMenuTrigger>
+  <DropdownMenuTrigger
+    render={<PromptInputButton className={className} {...props} />}
+  >
+    {children ?? <PlusIcon className="size-4" />}
+  </DropdownMenuTrigger>
 );
 
 export type PromptInputActionMenuContentProps = ComponentProps<
@@ -1042,7 +1046,9 @@ export const PromptInputSubmit = ({
       onStop();
       return;
     }
-    onClick?.(e);
+    if (onClick) {
+      onClick(e as any);
+    }
   };
 
   return (
@@ -1116,12 +1122,8 @@ export const PromptInputSelectValue = ({
 export type PromptInputHoverCardProps = ComponentProps<typeof HoverCard>;
 
 export const PromptInputHoverCard = ({
-  openDelay = 0,
-  closeDelay = 0,
   ...props
-}: PromptInputHoverCardProps) => (
-  <HoverCard closeDelay={closeDelay} openDelay={openDelay} {...props} />
-);
+}: PromptInputHoverCardProps) => <HoverCard {...props} />;
 
 export type PromptInputHoverCardTriggerProps = ComponentProps<
   typeof HoverCardTrigger
