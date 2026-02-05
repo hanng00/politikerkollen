@@ -115,6 +115,9 @@ Good deafults are last year, if no time interval is specified.
 Begin.`;
 
 export async function POST(req: Request) {
+  // Extract PostHog session ID from tracing headers
+  const sessionId = req.headers.get("x-posthog-session-id");
+
   const { messages }: { messages: UIMessage[] } = await req.json();
 
   let client: MCPClient | null = null;
@@ -137,6 +140,7 @@ export async function POST(req: Request) {
       posthogDistinctId: "anonymous", // TODO: Replace with actual user ID when auth is added
       posthogProperties: {
         source: "chat-api",
+        ...(sessionId && { $session_id: sessionId }),
       },
     });
 

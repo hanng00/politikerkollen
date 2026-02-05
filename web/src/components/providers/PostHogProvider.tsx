@@ -13,6 +13,7 @@ if (typeof window !== "undefined") {
     person_profiles: "identified_only",
     capture_pageview: "history_change",
     capture_pageleave: true,
+    __add_tracing_headers: [window.location.host], // Sends session ID to backend on every request
   });
 }
 
