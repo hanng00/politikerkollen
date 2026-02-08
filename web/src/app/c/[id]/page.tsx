@@ -64,11 +64,17 @@ export default function ConversationPage({ params }: PageProps) {
     [conversationId, customFetch],
   );
 
-  const { messages, sendMessage, status, stop } = useChat({
+  const { messages, sendMessage, status, stop, setMessages } = useChat({
     id: conversationId,
-    messages: messagesData?.messages ?? [],
     transport,
   });
+
+  // Sync fetched messages into useChat state when data loads
+  useEffect(() => {
+    if (messagesData?.messages && messagesData.messages.length > 0) {
+      setMessages(messagesData.messages);
+    }
+  }, [messagesData?.messages, setMessages]);
 
   // Auto-send initial message from URL params (when redirected from home page)
   useEffect(() => {
