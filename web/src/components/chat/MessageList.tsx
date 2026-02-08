@@ -5,6 +5,7 @@ import { Message, MessageContent } from "@/components/ai-elements/message";
 import { slideInLeft, slideInRight, defaultTransition } from "@/lib/animations";
 import { PartRenderer } from "./PartRenderer";
 import { ToolLoading } from "./ToolLoading";
+import { useEffect, useRef } from "react";
 
 import type { UIMessage } from "@ai-sdk/react";
 
@@ -14,8 +15,23 @@ interface MessageListProps {
 }
 
 export function MessageList({ messages, isLoading }: MessageListProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when messages change or during streaming
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  }, [messages, isLoading]);
+
   return (
-    <div className="flex-1 min-h-0 space-y-4 overflow-y-auto py-5 scrollbar-thin">
+    <div 
+      ref={scrollRef}
+      className="flex-1 min-h-0 space-y-4 overflow-y-auto py-5 scrollbar-thin"
+    >
       {messages.length === 0 ? null : (
         <>
           {messages.map((m) => {

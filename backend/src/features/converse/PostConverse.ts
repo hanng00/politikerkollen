@@ -1,26 +1,18 @@
-import { streamText, convertToModelMessages, stepCountIs } from "ai";
-import type { UIMessage } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
-import { withTracing } from "@posthog/ai";
-import {
-  createMotherDuckClient,
-  getMotherDuckTools,
-  safeClose,
-  type MCPClient,
-} from "@/lib/mcp";
-import {
-  fetchRiksdagDocumentTool,
-  renderPieChartTool,
-  renderBarChartTool,
-  renderPoliticianCardTool,
-} from "@/lib/tools";
-import { posthogClient } from "@/lib/posthog";
+import { getOpenAIKey } from '@/utils/secrets';
+import { createOpenAI } from '@ai-sdk/openai';
+import { convertToModelMessages, createIdGenerator, stepCountIs, streamText, type UIMessage } from 'ai';
+import { z } from 'zod';
+import { requireAuth } from '../../utils/auth';
+import { pipeResponseToLambdaStream, writeErrorToLambdaStream } from '../../utils/lambdaStreaming';
+import { createMotherDuckClient, getMotherDuckTools, safeClose, type MCPClient } from '../../utils/mcp';
+import { repository } from './repository';
+import { fetchRiksdagDocumentTool, renderBarChartTool, renderPieChartTool, renderPoliticianCardTool } from './tools';
+import { UIMessageSchema } from './types';
 
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+// Request schema: Frontend sends only the new message (conversationId comes from path)
+const RequestBody = z.object({
+  message: UIMessageSchema.describe('The new message from the user'),
 });
-
-export const maxDuration = 120;
 
 const SYSTEM_PROMPT = `You are a **strictly factual, neutral, and precise political data analyst** working exclusively for **Politikerkollen** — a Swedish platform focused on political transparency, voting records, parliamentary activity, and accountability.
 
@@ -114,17 +106,48 @@ Good deafults are last year, if no time interval is specified.
 
 Begin.`;
 
-export async function POST(req: Request) {
-  // Extract PostHog session ID from tracing headers
-  const sessionId = req.headers.get("x-posthog-session-id");
-
-  const { messages }: { messages: UIMessage[] } = await req.json();
-
-  let client: MCPClient | null = null;
+/**
+ * POST /c/{id}/chat - Streaming chat endpoint for AI SDK's useChat hook.
+ *
+ * Authentication is handled by API Gateway Cognito authorizer.
+ * User claims are available in event.requestContext.authorizer.claims.
+ *
+ * Message persistence (following AI SDK best practices):
+ * - Frontend sends only the last message
+ * - Backend loads previous messages from DynamoDB
+ * - After streaming completes, new messages are saved
+ *
+ * @see https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
+ * @see https://ai-sdk.dev/docs/ai-sdk-ui/chatbot-message-persistence
+ */
+export const handler = awslambda.streamifyResponse(async (event, responseStream, _context) => {
+  // Lambda Function URL event has rawPath instead of pathParameters
+  const rawPath = (event as { rawPath?: string }).rawPath;
+  let mcpClient: MCPClient | null = null;
 
   try {
-    client = await createMotherDuckClient();
-    const motherDuckTools = await getMotherDuckTools(client);
+    // Verify JWT from Authorization header
+    const user = await requireAuth(event.headers?.Authorization || event.headers?.authorization);
+    console.log('Authenticated user:', user.userId);
+
+    const body = RequestBody.parse(JSON.parse(event.body ?? '{}'));
+    const { message: newMessage } = body;
+
+    // Get conversationId from path: /c/{id}/chat
+    const pathMatch = rawPath?.match(/^\/c\/([^/]+)\/chat$/);
+    const conversationId = pathMatch?.[1];
+    if (!conversationId) {
+      throw new Error(`Invalid path: ${rawPath}. Expected /c/{id}/chat`);
+    }
+
+    // Initialize OpenAI client
+    const openai = createOpenAI({
+      apiKey: getOpenAIKey(),
+    });
+
+    // Initialize MCP client for MotherDuck
+    mcpClient = await createMotherDuckClient();
+    const motherDuckTools = await getMotherDuckTools(mcpClient);
 
     // Merge MotherDuck tools with custom tools
     const allTools = {
@@ -135,37 +158,57 @@ export async function POST(req: Request) {
       render_politician_card: renderPoliticianCardTool,
     };
 
-    // Wrap model with PostHog tracing for LLM observability
-    const tracedModel = withTracing(openai("gpt-5-mini"), posthogClient, {
-      posthogDistinctId: "anonymous", // TODO: Replace with actual user ID when auth is added
-      posthogProperties: {
-        source: "chat-api",
-        ...(sessionId && { $session_id: sessionId }),
-      },
+    // Load last 50 messages from DynamoDB (for token/cost efficiency)
+    const { messages: previousMessages } = await repository.getMessages(conversationId, {
+      limit: 50,
+      fromEnd: true,
     });
 
+    // Combine previous messages with the new one
+    const allMessages = [...previousMessages, newMessage as UIMessage];
+
+    // Convert UI messages to model format
+    const modelMessages = await convertToModelMessages(allMessages);
+
+    // Stream the response
     const result = streamText({
-      model: tracedModel,
+      model: openai('gpt-4o-mini'),
       providerOptions: {
         openai: {
-          reasoningSummary: "auto", // 'auto' for condensed or 'detailed' for comprehensive
+          reasoningSummary: 'auto',
         },
       },
       system: SYSTEM_PROMPT,
-      messages: await convertToModelMessages(messages),
+      messages: modelMessages,
       tools: allTools,
       stopWhen: stepCountIs(10),
-      onFinish: () => safeClose(client),
-      onError: () => safeClose(client),
+      onFinish: () => safeClose(mcpClient),
+      onError: () => safeClose(mcpClient),
     });
 
-    return result.toUIMessageStreamResponse({ sendReasoning: true });
-  } catch (error) {
-    await safeClose(client);
+    // Consume the stream to ensure it runs to completion even if client disconnects
+    result.consumeStream();
 
-    return Response.json(
-      { error: "Failed to process request", message: String(error) },
-      { status: 500 }
-    );
+    // Create the response with message persistence
+    const sseResponse = result.toUIMessageStreamResponse({
+      sendReasoning: true,
+      originalMessages: allMessages,
+      generateMessageId: createIdGenerator({ prefix: 'msg', size: 16 }),
+      onFinish: async ({ messages }) => {
+        // Find new messages (those not in previousMessages)
+        const previousIds = new Set(previousMessages.map((m) => m.id));
+        const newMessages = messages.filter((m) => !previousIds.has(m.id));
+
+        if (newMessages.length > 0) {
+          await repository.saveMessages(conversationId, newMessages);
+        }
+      },
+    });
+
+    await pipeResponseToLambdaStream(sseResponse, responseStream);
+  } catch (error) {
+    console.error('PostConverse handler error:', error);
+    await safeClose(mcpClient);
+    writeErrorToLambdaStream(error, responseStream);
   }
-}
+});

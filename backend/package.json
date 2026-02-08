@@ -1,0 +1,24 @@
+{
+    "name": "politikerkollen-backend",
+    "module": "index.ts",
+    "type": "module",
+    "private": true,
+    "devDependencies": {
+        "@aws-sdk/credential-provider-sso": "^3.946.0",
+        "@types/aws-lambda": "^8.10.159",
+        "@types/bun": "^1.3.4"
+    },
+    "peerDependencies": {
+        "typescript": "^5"
+    },
+    "dependencies": {
+        "@ai-sdk/mcp": "^1.0.18",
+        "@ai-sdk/openai": "^3.0.25",
+        "@aws-sdk/client-dynamodb": "^3.940.0",
+        "@aws-sdk/lib-dynamodb": "^3.940.0",
+        "@aws-sdk/util-dynamodb": "^3.940.0",
+        "ai": "^6.0.50",
+        "aws-jwt-verify": "^5.1.1",
+        "zod": "^4.1.13"
+    }
+}

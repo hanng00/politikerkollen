@@ -1,25 +1,25 @@
 "use client";
 
-import { useState } from "react";
 import {
   Artifact,
+  ArtifactAction,
+  ArtifactActions,
+  ArtifactDescription,
   ArtifactHeader,
   ArtifactTitle,
-  ArtifactDescription,
-  ArtifactActions,
-  ArtifactAction,
 } from "@/components/ai-elements/artifact";
-import { 
-  ExternalLinkIcon, 
-  FileTextIcon, 
-  DownloadIcon, 
-  FileIcon,
-  TextIcon,
-  Loader2Icon,
-  AlertCircleIcon,
-  MaximizeIcon,
-} from "lucide-react";
 import { useRiksdagDocument } from "@/hooks/useRiksdagDocument";
+import {
+  AlertCircleIcon,
+  DownloadIcon,
+  ExternalLinkIcon,
+  FileIcon,
+  FileTextIcon,
+  Loader2Icon,
+  MaximizeIcon,
+  TextIcon,
+} from "lucide-react";
+import { useState } from "react";
 
 export interface RiksdagDocumentData {
   dokId: string;
@@ -40,20 +40,27 @@ interface RiksdagDocumentProps {
 
 type ViewMode = "pdf" | "text";
 
-export function RiksdagDocument({ dokId, document: initialData }: RiksdagDocumentProps) {
+export function RiksdagDocument({
+  dokId,
+  document: initialData,
+}: RiksdagDocumentProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("pdf");
   const [isFullscreen, setIsFullscreen] = useState(false);
-  
+
   // Use TanStack Query to fetch document metadata if only dokId is provided
-  const { data: fetchedData, isLoading, error } = useRiksdagDocument(
-    initialData ? undefined : dokId
-  );
-  
+  const {
+    data: fetchedData,
+    isLoading,
+    error,
+  } = useRiksdagDocument(initialData ? undefined : dokId);
+
   // Use initial data if provided, otherwise use fetched data
   const document = initialData || fetchedData;
-  
+
   // Construct PDF URL from dokId
-  const pdfUrl = document?.pdfUrl || (dokId ? `https://data.riksdagen.se/dokument/${dokId}.pdf` : undefined);
+  const pdfUrl =
+    document?.pdfUrl ||
+    (dokId ? `https://data.riksdagen.se/dokument/${dokId}.pdf` : undefined);
 
   const handleOpenExternal = () => {
     if (pdfUrl) {
@@ -85,7 +92,9 @@ export function RiksdagDocument({ dokId, document: initialData }: RiksdagDocumen
             </div>
             <div>
               <ArtifactTitle>Hämtar dokument...</ArtifactTitle>
-              <ArtifactDescription className="font-mono">{dokId}</ArtifactDescription>
+              <ArtifactDescription className="font-mono">
+                {dokId}
+              </ArtifactDescription>
             </div>
           </div>
         </ArtifactHeader>
@@ -104,7 +113,9 @@ export function RiksdagDocument({ dokId, document: initialData }: RiksdagDocumen
             </div>
             <div>
               <ArtifactTitle>Kunde inte hämta dokument</ArtifactTitle>
-              <ArtifactDescription className="font-mono">{dokId}</ArtifactDescription>
+              <ArtifactDescription className="font-mono">
+                {dokId}
+              </ArtifactDescription>
             </div>
           </div>
         </ArtifactHeader>
@@ -112,20 +123,20 @@ export function RiksdagDocument({ dokId, document: initialData }: RiksdagDocumen
     );
   }
 
-  const containerClass = isFullscreen 
-    ? "fixed inset-4 z-50 flex flex-col bg-background border rounded-lg shadow-2xl" 
+  const containerClass = isFullscreen
+    ? "fixed inset-4 z-50 flex flex-col bg-background border rounded-lg shadow-2xl"
     : "w-full max-w-full min-w-0";
 
   return (
     <>
       {/* Backdrop for fullscreen */}
       {isFullscreen && (
-        <div 
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" 
+        <div
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
           onClick={toggleFullscreen}
         />
       )}
-      
+
       <Artifact className={containerClass}>
         <ArtifactHeader>
           <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -143,12 +154,18 @@ export function RiksdagDocument({ dokId, document: initialData }: RiksdagDocumen
                   </span>
                 )}
                 {document?.subtype && document.subtype !== document.type && (
-                  <span className="text-muted-foreground/70">{document.subtype}</span>
+                  <span className="text-muted-foreground/70">
+                    {document.subtype}
+                  </span>
                 )}
                 {document?.date && (
-                  <span className="text-muted-foreground/70">{document.date.split(" ")[0]}</span>
+                  <span className="text-muted-foreground/70">
+                    {document.date.split(" ")[0]}
+                  </span>
                 )}
-                <span className="font-mono text-muted-foreground/50">{document?.dokId || dokId}</span>
+                <span className="font-mono text-muted-foreground/50">
+                  {document?.dokId || dokId}
+                </span>
               </ArtifactDescription>
             </div>
           </div>
@@ -178,10 +195,12 @@ export function RiksdagDocument({ dokId, document: initialData }: RiksdagDocumen
             />
           </ArtifactActions>
         </ArtifactHeader>
-        
+
         {/* PDF View */}
         {viewMode === "pdf" && pdfUrl && (
-          <div className={isFullscreen ? "flex-1 min-h-0" : "h-[500px] min-h-0"}>
+          <div
+            className={isFullscreen ? "flex-1 min-h-0" : "h-[500px] min-h-0"}
+          >
             <iframe
               src={pdfUrl}
               className="w-full h-full border-0 min-w-0"
@@ -189,10 +208,12 @@ export function RiksdagDocument({ dokId, document: initialData }: RiksdagDocumen
             />
           </div>
         )}
-        
+
         {/* Text View */}
         {viewMode === "text" && document?.content && (
-          <div className={`overflow-y-auto bg-muted/30 p-4 min-w-0 ${isFullscreen ? "flex-1 min-h-0" : "max-h-[500px]"}`}>
+          <div
+            className={`overflow-y-auto bg-muted/30 p-4 min-w-0 ${isFullscreen ? "flex-1 min-h-0" : "max-h-[500px]"}`}
+          >
             <article className="prose prose-sm prose-neutral dark:prose-invert max-w-none">
               <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90 font-sans">
                 {document.content}

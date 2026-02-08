@@ -4,6 +4,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { PostHogProvider } from "@/components/providers/PostHogProvider";
+import { AuthProvider } from "@/components/providers/AuthProvider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -37,7 +38,9 @@ export default function RootLayout({
         )}
       >
         <PostHogProvider>
-          <QueryProvider>{children}</QueryProvider>
+          <QueryProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </QueryProvider>
         </PostHogProvider>
       </body>
     </html>

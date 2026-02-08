@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export const renderPieChartTool = {
   description: `Pie chart for showing composition or distribution.
@@ -13,11 +13,11 @@ export const renderPieChartTool = {
 Optional: description, colors ({"Ja": "#22c55e"}). Auto-colors: Ja=green, Nej=red, Frånvarande=gray.`,
 
   inputSchema: z.object({
-    title: z.string().describe("Headline with main insight"),
+    title: z.string().describe('Headline with main insight'),
     description: z.string().optional(),
     data: z.array(z.record(z.string(), z.unknown())).min(2).max(12),
-    labelColumn: z.string().describe("Column for slice labels"),
-    valueColumn: z.string().describe("Column for numeric values"),
+    labelColumn: z.string().describe('Column for slice labels'),
+    valueColumn: z.string().describe('Column for numeric values'),
     colors: z.record(z.string(), z.string().regex(/^#([0-9a-fA-F]{6})$/)).optional(),
   }),
 
@@ -35,9 +35,7 @@ Optional: description, colors ({"Ja": "#22c55e"}). Auto-colors: Ja=green, Nej=re
     if (!parsed.success) {
       return {
         error: true,
-        message: "Invalid input:\n" + parsed.error.issues
-          .map(i => `  • ${i.path.join(".")}: ${i.message}`)
-          .join("\n"),
+        message: 'Invalid input:\n' + parsed.error.issues.map((i) => `  • ${i.path.join('.')}: ${i.message}`).join('\n'),
       };
     }
 
@@ -67,15 +65,15 @@ Optional: description, colors ({"Ja": "#22c55e"}). Auto-colors: Ja=green, Nej=re
     const slices: Array<{ label: string; value: number; color?: string }> = [];
 
     for (const row of data) {
-      const label = String(row[labelColumn] ?? "").trim();
+      const label = String(row[labelColumn] ?? '').trim();
       if (!label) continue; // skip empty labels
 
       const raw = row[valueColumn];
       let value: number;
 
-      if (typeof raw === "number") {
+      if (typeof raw === 'number') {
         value = raw;
-      } else if (typeof raw === "string") {
+      } else if (typeof raw === 'string') {
         value = Number.parseFloat(raw);
         if (Number.isNaN(value)) {
           return { error: true, message: `Non-numeric value in ${valueColumn}: "${raw}"` };
@@ -96,14 +94,14 @@ Optional: description, colors ({"Ja": "#22c55e"}). Auto-colors: Ja=green, Nej=re
     }
 
     if (slices.length < 2) {
-      return { error: true, message: "Not enough valid rows after cleaning (need ≥ 2)" };
+      return { error: true, message: 'Not enough valid rows after cleaning (need ≥ 2)' };
     }
 
     // Optional: sort descending by value (very common in Economist-style pies)
     slices.sort((a, b) => b.value - a.value);
 
     return {
-      type: "pie_chart",
+      type: 'pie_chart',
       title: parsed.data.title.trim(),
       description: parsed.data.description?.trim() ?? undefined,
       data: slices,

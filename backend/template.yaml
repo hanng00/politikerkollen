@@ -1,0 +1,152 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Politikerkollen backend
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs22.x
+    MemorySize: 512
+    Environment:
+      Variables:
+        CONVERSE_TABLE: !Ref ConversationTable
+        COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+        COGNITO_CLIENT_ID: !Ref CognitoUserPoolClient
+
+Resources:
+  # Cognito - Passwordless Email OTP
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${AWS::StackName}-user-pool"
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      UserPoolTier: ESSENTIALS
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: false
+          RequireUppercase: false
+          RequireNumbers: false
+          RequireSymbols: false
+        SignInPolicy:
+          AllowedFirstAuthFactors: [EMAIL_OTP, PASSWORD]
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref CognitoUserPool
+      ExplicitAuthFlows: [ALLOW_USER_AUTH, ALLOW_REFRESH_TOKEN_AUTH]
+
+  # DynamoDB
+  ConversationTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - { AttributeName: PK, AttributeType: S }
+        - { AttributeName: SK, AttributeType: S }
+      KeySchema:
+        - { AttributeName: PK, KeyType: HASH }
+        - { AttributeName: SK, KeyType: RANGE }
+      BillingMode: PAY_PER_REQUEST
+
+  # API Gateway for non-streaming endpoints
+  Api:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      Cors:
+        AllowOrigin: "'*'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowMethods: "'GET,POST,OPTIONS'"
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        AddDefaultAuthorizerToCorsPreflight: false
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt CognitoUserPool.Arn
+
+  # GET /c - List conversations (API Gateway + Cognito auth)
+  GetConversations:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/features/converse/GetConversations.handler
+      Policies:
+        - DynamoDBReadPolicy: { TableName: !Ref ConversationTable }
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /c
+            Method: GET
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties: { Sourcemap: true }
+
+  # POST /c - Create conversation (API Gateway + Cognito auth)
+  PostConversation:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/features/converse/PostConversation.handler
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref ConversationTable }
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /c
+            Method: POST
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties: { Sourcemap: true }
+
+  # GET /c/{id}/messages - Get messages for a conversation (API Gateway + Cognito auth)
+  GetConversationMessages:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/features/converse/GetConversationMessages.handler
+      Policies:
+        - DynamoDBReadPolicy: { TableName: !Ref ConversationTable }
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /c/{id}/messages
+            Method: GET
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties: { Sourcemap: true }
+
+  # POST /c/{id} - Streaming chat (Function URL + JWT in code)
+  PostConverse:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/features/converse/PostConverse.handler
+      Timeout: 900
+      FunctionUrlConfig:
+        AuthType: NONE
+        Cors:
+          AllowOrigins: ["*"]
+          AllowHeaders: ["*"]
+          AllowMethods: ["POST"]
+        InvokeMode: RESPONSE_STREAM
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref ConversationTable }
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties: { Sourcemap: true }
+
+Outputs:
+  CognitoUserPoolId: { Value: !Ref CognitoUserPool }
+  CognitoUserPoolClientId: { Value: !Ref CognitoUserPoolClient }
+  ApiEndpoint:
+    Description: API Gateway endpoint for non-streaming endpoints
+    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/Prod"
+  # Note: FunctionUrlConfig creates a resource named {FunctionName}Url automatically
+  PostConverseUrl: 
+    Description: Streaming chat endpoint for AI SDK useChat
+    Value: !GetAtt PostConverseUrl.FunctionUrl
+
