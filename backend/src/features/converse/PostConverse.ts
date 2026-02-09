@@ -172,7 +172,8 @@ export const handler = awslambda.streamifyResponse(async (event, responseStream,
 
     // Stream the response
     const result = streamText({
-      model: openai('gpt-4o-mini'),
+      model: openai('gpt-5.1-codex-mini'),
+      // model: openai('gpt-4o-mini'),
       providerOptions: {
         openai: {
           reasoningSummary: 'auto',

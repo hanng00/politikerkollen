@@ -15,6 +15,7 @@ import {
 } from "aws-amplify/auth";
 import { Hub } from "aws-amplify/utils";
 import { configureAmplify } from "@/lib/amplify";
+import posthog from "posthog-js";
 
 configureAmplify();
 
@@ -74,6 +75,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     gcTime: Infinity,
     retry: false,
   });
+
+  // Identify user to PostHog when auth state changes
+  useEffect(() => {
+    if (user) {
+      posthog.identify(user.userId, {
+        email: user.email,
+        username: user.username,
+      });
+    } else if (!isLoading) {
+      posthog.reset();
+    }
+  }, [user, isLoading]);
 
   useEffect(() => {
     const unsubscribe = Hub.listen("auth", ({ payload }) => {
