@@ -1,10 +1,10 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
-import "./globals.css";
-import { cn } from "@/lib/utils";
-import { QueryProvider } from "@/components/providers/QueryProvider";
-import { PostHogProvider } from "@/components/providers/PostHogProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
+import { PostHogProvider } from "@/components/providers/PostHogProvider";
+import { QueryProvider } from "@/components/providers/QueryProvider";
+import { cn } from "@/lib/utils";
+import type { Metadata } from "next";
+import { Geist, Geist_Mono, Inter, Source_Serif_4 } from "next/font/google";
+import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -15,6 +15,11 @@ const geistSans = Geist({
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+const sourceSerif = Source_Serif_4({
+  variable: "--font-serif",
   subsets: ["latin"],
 });
 
@@ -29,12 +34,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={cn(inter.variable, sourceSerif.variable)}>
       <body
         className={cn(
           geistSans.variable,
           geistMono.variable,
-          "antialiased dark"
+          "antialiased dark",
         )}
       >
         <PostHogProvider>

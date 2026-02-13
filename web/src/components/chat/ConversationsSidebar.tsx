@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { formatDistanceToNow } from "date-fns";
+import { Button } from "@/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
@@ -14,10 +13,11 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { MessageIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { useConversationsList } from "@/hooks/useConversations";
+import { MessageIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { formatDistanceToNow } from "date-fns";
+import { useRouter } from "next/navigation";
 
 interface ConversationsSidebarProps {
   currentConversationId: string | null;
@@ -40,7 +40,7 @@ export function ConversationsSidebar({
   };
 
   const handleNew = () => {
-    router.push("/");
+    router.push("/c");
     if (isMobile) setOpenMobile(false);
     onNew?.();
   };
@@ -50,7 +50,12 @@ export function ConversationsSidebar({
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold">Conversations</h2>
-          <Button variant="ghost" size="icon-sm" onClick={handleNew} className="h-7 w-7">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={handleNew}
+            className="h-7 w-7"
+          >
             <HugeiconsIcon icon={PlusSignIcon} className="size-4" />
             <span className="sr-only">New conversation</span>
           </Button>
@@ -81,12 +86,17 @@ export function ConversationsSidebar({
                       onClick={() => handleSelect(conv.id)}
                       className="w-full justify-start"
                     >
-                      <HugeiconsIcon icon={MessageIcon} className="size-4 shrink-0" />
+                      <HugeiconsIcon
+                        icon={MessageIcon}
+                        className="size-4 shrink-0"
+                      />
                       <span className="truncate flex-1 text-left">
                         {conv.title || "New Conversation"}
                       </span>
                       <span className="text-xs text-muted-foreground shrink-0 ml-2">
-                        {formatDistanceToNow(new Date(conv.updatedAt), { addSuffix: true })}
+                        {formatDistanceToNow(new Date(conv.updatedAt), {
+                          addSuffix: true,
+                        })}
                       </span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

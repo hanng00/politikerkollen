@@ -1,10 +1,9 @@
 "use client";
 
-import { ConversationsSidebarTrigger } from "@/components/chat/ConversationsSidebar";
-import { useAuth } from "@/components/providers/AuthProvider";
+import { SearchBar } from "@/components/search";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { FileText, LogOut } from "lucide-react";
+import { FileText } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -15,21 +14,20 @@ const navItems = [
   { href: "/c", label: "Chat", secondary: true },
 ];
 
-export function ChatHeader() {
+export function SiteHeader() {
   const pathname = usePathname();
-  const { user, signOut } = useAuth();
 
   const isActive = (href: string, exact?: boolean) =>
     exact ? pathname === href : pathname.startsWith(href);
 
   return (
-    <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur shrink-0">
-      <div className="flex h-14 items-center gap-4 px-2">
-        <ConversationsSidebarTrigger />
-
+    <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
+      <div className="page-container-wide flex h-14 items-center gap-4">
         <Link href="/" className="font-semibold shrink-0">
           Politikerkollen
         </Link>
+
+        <SearchBar className="hidden sm:block flex-1 max-w-sm" />
 
         <nav className="flex items-center gap-1 ml-auto">
           {navItems.map((item) => {
@@ -83,19 +81,6 @@ export function ChatHeader() {
               Val 2026
             </Button>
           </Link>
-
-          {/* Sign out */}
-          {user && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => signOut()}
-              className="h-8 ml-1 text-muted-foreground hover:text-foreground"
-            >
-              <LogOut className="size-4" />
-              <span className="sr-only">Logga ut</span>
-            </Button>
-          )}
         </nav>
       </div>
     </header>
