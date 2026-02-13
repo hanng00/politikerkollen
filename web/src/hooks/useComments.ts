@@ -4,8 +4,8 @@ import type { Comment, CommentInput } from "@/types";
 // Mock initial comments - replace with API later
 const MOCK_COMMENTS: Comment[] = [
   {
-    id: "c1",
-    contradictionId: "contra-1",
+    id: "comment-1",
+    contradictionId: "c1",
     userId: "user-1",
     userName: "Erik L",
     content: "Otroligt att detta inte uppmärksammats mer i media. Tack för att ni gräver fram detta.",
@@ -15,8 +15,8 @@ const MOCK_COMMENTS: Comment[] = [
     parentId: null,
   },
   {
-    id: "c2",
-    contradictionId: "contra-1",
+    id: "comment-2",
+    contradictionId: "c1",
     userId: "user-2",
     userName: "Maria S",
     content: "Dock värt att notera att det var en budgetförhandling där S fick igenom annat i utbyte.",
@@ -26,15 +26,37 @@ const MOCK_COMMENTS: Comment[] = [
     parentId: null,
   },
   {
-    id: "c3",
-    contradictionId: "contra-1",
+    id: "comment-3",
+    contradictionId: "c1",
     userId: "user-3",
     userName: "Johan K",
     content: "Källa på det? Har inte sett något om det.",
     createdAt: "2026-02-10T16:02:00Z",
     upvotes: 5,
     upvotedBy: [],
-    parentId: "c2",
+    parentId: "comment-2",
+  },
+  {
+    id: "comment-4",
+    contradictionId: "c4",
+    userId: "user-4",
+    userName: "Anna P",
+    content: "Detta är verkligen häpnadsväckande. Hur kan man ändra sig så totalt på så kort tid?",
+    createdAt: "2026-02-11T09:15:00Z",
+    upvotes: 31,
+    upvotedBy: [],
+    parentId: null,
+  },
+  {
+    id: "comment-5",
+    contradictionId: "c4",
+    userId: "user-5",
+    userName: "Lars B",
+    content: "Faktiskt ganska vanligt att politiker byter fot efter valet. Tyvärr.",
+    createdAt: "2026-02-11T10:22:00Z",
+    upvotes: 12,
+    upvotedBy: [],
+    parentId: "comment-4",
   },
 ];
 

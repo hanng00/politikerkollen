@@ -22,14 +22,14 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
-      <div className="page-container-wide flex h-14 items-center gap-4">
-        <Link href="/" className="font-semibold shrink-0">
+      <div className="page-container-wide flex h-14 min-w-0 items-center gap-2 sm:gap-4">
+        <Link href="/" className="font-semibold shrink-0 text-sm sm:text-base">
           Politikerkollen
         </Link>
 
-        <SearchBar className="hidden sm:block flex-1 max-w-sm" />
+        <SearchBar className="hidden sm:block flex-1 min-w-0 max-w-sm" />
 
-        <nav className="flex items-center gap-1 ml-auto">
+        <nav className="flex min-w-0 shrink-0 items-center gap-0.5 sm:gap-1 ml-auto">
           {navItems.map((item) => {
             const active = isActive(item.href, item.exact);
             const Icon = item.icon;
@@ -73,12 +73,13 @@ export function SiteHeader() {
           })}
 
           {/* Voter Guide */}
-          <Link href="/val" className="ml-2">
+          <Link href="/val" className="ml-1 sm:ml-2 shrink-0">
             <Button
               size="sm"
-              className={cn("h-8", isActive("/val") && "bg-primary/90")}
+              className={cn("h-8 text-xs sm:text-sm px-2 sm:px-3", isActive("/val") && "bg-primary/90")}
             >
-              Val 2026
+              <span className="hidden sm:inline">Val 2026</span>
+              <span className="sm:hidden">Val</span>
             </Button>
           </Link>
         </nav>

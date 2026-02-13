@@ -121,9 +121,9 @@ export default function PoliticianPage({
 
   if (loadingPolitician) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen min-w-0 overflow-x-clip bg-background">
         <SiteHeader />
-        <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-4">
+        <main className="page-container max-w-4xl py-6 space-y-4">
           <div className="flex items-center gap-3">
             <Skeleton className="size-12 rounded-full" />
             <div className="space-y-2">
@@ -157,10 +157,10 @@ export default function PoliticianPage({
   const featuredContradiction = contradictions?.[0];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-background">
       <SiteHeader />
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+      <main className="page-container max-w-4xl py-6">
         {/* Page actions bar */}
         <div className="flex items-center justify-between mb-6">
           <Button

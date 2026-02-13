@@ -5,7 +5,7 @@ import Link from "next/link";
 
 export default function ManifestoPage() {
   return (
-    <div className="min-h-dvh">
+    <div className="min-h-dvh min-w-0 overflow-x-clip">
       <SiteHeader />
 
       <article className="page-container-narrow py-12 space-y-12">

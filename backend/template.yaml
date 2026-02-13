@@ -146,7 +146,6 @@ Outputs:
     Description: API Gateway endpoint for non-streaming endpoints
     Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/Prod"
   # Note: FunctionUrlConfig creates a resource named {FunctionName}Url automatically
-  PostConverseUrl: 
+  PostConverseUrl:
     Description: Streaming chat endpoint for AI SDK useChat
     Value: !GetAtt PostConverseUrl.FunctionUrl
-

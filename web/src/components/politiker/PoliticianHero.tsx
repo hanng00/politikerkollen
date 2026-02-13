@@ -17,8 +17,8 @@ export function PoliticianHero({ politician }: PoliticianHeroProps) {
   return (
     <section className="space-y-4">
       {/* Profile header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
           <PoliticianAvatar politician={politician} size="lg" />
           <div>
             <h1 className="text-lg font-semibold flex items-center gap-2">
@@ -38,7 +38,7 @@ export function PoliticianHero({ politician }: PoliticianHeroProps) {
       {/* The Hook - Rank card */}
       <Card className="bg-linear-to-r from-destructive/5 to-transparent border-destructive/20">
         <CardContent className="pt-4">
-          <div className="flex items-center justify-between">
+          <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs text-muted-foreground mb-1">Konsekvensranking</p>
               <div className="flex items-center gap-3">

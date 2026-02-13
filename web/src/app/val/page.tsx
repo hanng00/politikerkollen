@@ -54,7 +54,7 @@ export default function VoterGuidePage() {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen min-w-0 overflow-x-clip">
       <SiteHeader />
 
       <main className="page-container py-12 md:py-20">

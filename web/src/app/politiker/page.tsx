@@ -48,7 +48,7 @@ export default function PoliticiansPage() {
   const currentSort = sortOptions.find((s) => s.value === sortBy)!;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen min-w-0 overflow-x-clip">
       <SiteHeader />
 
       <main className="page-container py-8 space-y-8">

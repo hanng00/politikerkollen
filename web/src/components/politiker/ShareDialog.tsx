@@ -30,12 +30,20 @@ export function ShareDialog({
   const fullName = `${politician.firstName} ${politician.lastName}`;
   const initials = `${politician.firstName[0]}${politician.lastName[0]}`;
 
+  const shareUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/motsagelse/${contradiction.id}`
+      : "";
+
   const handleCopy = () => {
-    // In real implementation, copy actual URL
-    navigator.clipboard.writeText(window.location.href);
+    navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const shareText = `${fullName} sa: "${contradiction.said.content.slice(0, 80)}..." men ${contradiction.daysApart} dagar senare: ${contradiction.done.content}`;
+  const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
+  const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -76,14 +84,24 @@ export function ShareDialog({
 
           {/* Share options */}
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" size="sm" className="h-9">
-              <Twitter className="size-4 mr-2" />
+            <a
+              href={twitterUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-background px-3 text-sm font-medium hover:bg-muted transition-colors"
+            >
+              <Twitter className="size-4" />
               Twitter
-            </Button>
-            <Button variant="outline" size="sm" className="h-9">
-              <Facebook className="size-4 mr-2" />
+            </a>
+            <a
+              href={facebookUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-background px-3 text-sm font-medium hover:bg-muted transition-colors"
+            >
+              <Facebook className="size-4" />
               Facebook
-            </Button>
+            </a>
           </div>
           <div className="flex gap-2">
             <Button

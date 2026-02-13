@@ -72,7 +72,7 @@ export default function ConstituencyResultsPage({
 
   if (!constituency) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen min-w-0 overflow-x-clip">
         <SiteHeader />
         <main className="page-container py-12 text-center">
           <p className="text-muted-foreground">Valkretsen hittades inte.</p>
@@ -85,7 +85,7 @@ export default function ConstituencyResultsPage({
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen min-w-0 overflow-x-clip">
       <SiteHeader />
 
       <main className="page-container py-6">

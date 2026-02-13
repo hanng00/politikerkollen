@@ -52,8 +52,6 @@ MotherDuck / DuckDB Quick Reference (keep in memory)
 
 Current setup:
 • Main database → spatial_dagster
-• Main schema   → main_stg
-• Most important tables usually live in main_stg → table_name is enough
 
 Exploration commands you should know by heart:
 

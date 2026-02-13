@@ -42,7 +42,7 @@ export default function HomePage() {
   const currentSort = sortOptions.find((s) => s.value === sortBy)!;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen min-w-0 overflow-x-clip">
       <SiteHeader />
 
       <main className="page-container py-6 space-y-6">
