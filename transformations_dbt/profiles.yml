@@ -1,0 +1,11 @@
+riksbevakning:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      # MotherDuck connection with token from environment variable
+      # Uses default empty token for parsing (DbtProjectComponent needs to parse without connection)
+      # Actual execution will use the real token from environment
+      path: "md:spatial_dagster?motherduck_token={{env_var('MOTHERDUCK_ACCESS_TOKEN', default='')}}"
+      threads: 4
+

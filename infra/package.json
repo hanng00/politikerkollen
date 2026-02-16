@@ -1,0 +1,26 @@
+{
+  "name": "politikerkollen-infra",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "CDK infrastructure for Politikerkollen - cost-optimized Dagster on AWS",
+  "scripts": {
+    "build": "bun build src/app.ts --outdir dist --target node",
+    "cdk": "cdk",
+    "synth": "cdk synth",
+    "diff": "cdk diff",
+    "deploy": "cdk deploy --all",
+    "deploy:dev": "cdk deploy --all -c environment=dev",
+    "deploy:prod": "cdk deploy --all -c environment=prod",
+    "destroy": "cdk destroy --all",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.170.0",
+    "constructs": "^10.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0",
+    "aws-cdk": "^2.170.0"
+  }
+}

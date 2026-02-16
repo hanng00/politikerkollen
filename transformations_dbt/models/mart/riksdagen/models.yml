@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: mart_betankande_traversal
+    description: |
+      Aggregated view of betänkanden with voting and source document stats.
+      One row per betänkande. Shows: antal voteringar, antal röstande, 
+      antal källdokument (motioner, propositioner), antal författare.
+
+  - name: mart_betankande_roster
+    description: |
+      Detailed vote records per betänkande.
+      One row per person per votering. Includes vote choice (Ja/Nej/Avstår),
+      party, valkrets.
+
+  - name: mart_betankande_kallor
+    description: |
+      Source documents (motioner, propositioner) that fed into each betänkande.
+      One row per source document per author. Shows referens_typ (behandlar, 
+      följdmotion, etc.), author details.

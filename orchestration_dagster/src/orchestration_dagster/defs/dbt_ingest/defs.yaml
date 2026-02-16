@@ -1,0 +1,10 @@
+type: orchestration_dagster.lib.custom_dbt_component.CustomDbtProjectComponent
+
+attributes:
+  select: "resource_type:model"
+  project:
+    # Locally: ../transformations_dbt (relative to orchestration_dagster/)
+    # In Docker: ./transformations_dbt (copied during build)
+    # Use parent directory for local development
+    project_dir: "{{ project_root }}/../transformations_dbt"
+    profiles_dir: "{{ project_root }}/../transformations_dbt"

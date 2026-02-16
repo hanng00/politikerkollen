@@ -1,0 +1,42 @@
+name: riksbevakning
+version: 1.0.0
+config-version: 2
+
+profile: riksbevakning
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+test-paths: ["tests"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  riksbevakning:
+    +materialized: view
+    
+    # Staging layer - one-to-one with sources. Only views.
+    stg:
+      +schema: stg
+      +materialized: view
+      +persist_docs:
+        relation: true
+        columns: true
+    
+    # Intermediate layer - feature-scoped transformations. Tables
+    int:
+      +schema: int
+      +materialized: table
+      +persist_docs:
+        relation: true
+        columns: true
+
+    # Mart layer - final datasets for consumption
+    mart:
+      +schema: mart
+      +materialized: table
+      +persist_docs:
+        relation: true
+        columns: true
+

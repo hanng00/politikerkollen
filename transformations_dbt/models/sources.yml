@@ -1,0 +1,30 @@
+version: 2
+
+sources:
+  - name: raw_riksdagen
+    database: spatial_dagster
+    # Schema matches dlt dataset_name - all raw riksdagen tables are in 'raw_riksdagen' schema
+    # Database is the MotherDuck database 'spatial_dagster' configured in profiles.yml
+    # Asset keys follow structure: raw/riksdagen/raw_anforandelista
+    schema: raw_riksdagen
+    tables:
+      - name: dokumentlista
+      - name: personlista
+      - name: voteringlista
+      - name: anforandelista
+      - name: anforande
+      - name: dokumentstatus
+      - name: dokumentstatus__dokaktivitet__aktivitet
+      - name: dokumentstatus__dokbilaga__bilaga
+      - name: dokumentstatus__dokforslag__forslag
+      - name: dokumentstatus__dokintressent__intressent
+      - name: dokumentstatus__dokmotforslag__motforslag
+      - name: dokumentstatus__dokreferens__referens
+      - name: dokumentstatus__dokumentuppgift__uppgift
+      - name: dokumentstatus__dokuppgift__uppgift
+      - name: dokumentstatus__dokutskottsforslag__utskottsforslag
+      - name: personlista__personuppdrag__uppdrag
+      - name: personlista__personuppdrag__uppdrag__uppgift
+      - name: personlista__personuppgift__uppgift
+      - name: personlista__personuppgift__uppgift__uppgift
+

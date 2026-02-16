@@ -1,0 +1,518 @@
+version: 2
+
+models:
+  - name: stg_personlista
+    description: "Staging model for personlista - raw passthrough from Riksdagen member list API. Contains information about current and former members of the Swedish Parliament (Riksdag) from approximately 1990 onwards."
+    columns:
+      - name: hangar_guid
+        description: "Globally unique identifier (GUID) for the person record in the Hangar system. Hangar is Riksdagen's internal content management system. Format: UUID string."
+      - name: sourceid
+        description: "Source system identifier - unique identifier from the original source system. Format: UUID string (e.g., d7c31b84-83e4-11d4-ae60-0050040c9b55)."
+      - name: intressent_id
+        description: "Primary key - unique politician identifier in Riksdagen's database. This is the official Riksdagen person-ID (Wikidata Property P1214). Format: 9-13 digit numeric string (e.g., '0897304708905'). This identifier never changes once assigned and is stable across all Riksdagen data sources. Used as the main foreign key to link politicians across documents, votes, speeches, and assignments."
+        tests:
+          - not_null
+      - name: hangar_id
+        description: "Internal Hangar system identifier for the person. Hangar is Riksdagen's content management system. This is a numeric string identifier used internally by the Hangar CMS."
+      - name: fodd_ar
+        description: "Birth year of the parliamentarian. Format: 4-digit year as string (e.g., '1947'). Used for age calculations and demographic analysis."
+      - name: kon
+        description: "Gender of the parliamentarian. Values: 'kvinna' (woman), 'man' (man). Used for gender representation analysis in Swedish politics."
+      - name: efternamn
+        description: "Last name (surname) of the parliamentarian. Swedish: 'efternamn'. This is the family name used for official identification."
+      - name: tilltalsnamn
+        description: "First name (given name) - the name the parliamentarian prefers to be called. Swedish: 'tilltalsnamn'. This may differ from their legal first name and is used in official communications and public appearances."
+      - name: sorteringsnamn
+        description: "Sorting name - standardized name format used for alphabetical sorting in member lists. Format: typically 'Lastname,Firstname' (e.g., 'Bohlin,Sinikka'). Used as the default sort order in Riksdagen's member directory and API responses."
+      - name: iort
+        description: "Birthplace (födelseort) - the city or location where the parliamentarian was born. May be empty string if not provided. Used for geographic analysis of representation."
+      - name: parti
+        description: "Political party name. Swedish political parties include: 'S' (Socialdemokraterna), 'M' (Moderaterna), 'SD' (Sverigedemokraterna), 'C' (Centerpartiet), 'V' (Vänsterpartiet), 'KD' (Kristdemokraterna), 'L' (Liberalerna), 'MP' (Miljöpartiet). Party affiliation can change over time for individual members."
+      - name: valkrets
+        description: "Electoral district (constituency) - the geographic area the parliamentarian represents. Sweden has 29 electoral districts (valkretsar) corresponding to counties (län). Examples: 'Stockholms län', 'Gävleborgs län', 'Skåne läns norra och östra valkrets'. Each district elects members proportionally based on population."
+      - name: status
+        description: "Current membership status in the Riksdag. Common values: 'Tjänstgörande riksdagsledamot' (serving member), 'Tidigare riksdagsledamot' (former member), 'Ledig' (on leave), 'Ersättare' (substitute). Status indicates whether the person is currently active, historical, or temporarily replaced."
+      - name: person_url_xml
+        description: "URL to the parliamentarian's detailed XML data page on Riksdagen's open data API. Format: 'https://data.riksdagen.se/person/[sourceid]'. Contains comprehensive information about the person's parliamentary activities, assignments, and history."
+      - name: bild_url_80
+        description: "URL to the parliamentarian's portrait image at 80x80 pixels resolution. Format: 'https://data.riksdagen.se/filarkiv/bilder/ledamot/[sourceid]_80.jpg'. Used for small profile thumbnails in member directories."
+      - name: bild_url_192
+        description: "URL to the parliamentarian's portrait image at 192x192 pixels resolution. Format: 'https://data.riksdagen.se/filarkiv/bilder/ledamot/[sourceid]_192.jpg'. Standard size for member profile pages."
+      - name: bild_url_max
+        description: "URL to the parliamentarian's portrait image at maximum resolution (highest quality available). Format: 'https://data.riksdagen.se/filarkiv/bilder/ledamot/[sourceid]_max.jpg'. Used for high-quality displays and print media."
+      - name: personuppdrag
+        description: "JSON structure containing the parliamentarian's assignments and roles (uppdrag). Structure: { 'uppdrag': [{ 'organ_kod': string (e.g., 'kam' for chamber), 'roll_kod': string (e.g., 'Riksdagsledamot'), 'ordningsnummer': string, 'status': string (e.g., 'Tjänstgörande'), 'typ': string (e.g., 'kammaruppdrag'), 'from': date, 'tom': date, 'uppgift': array, 'intressent_id': string, 'hangar_id': string, ... }] }. Contains historical and current assignments including committee memberships, leadership roles, and special assignments. Extract using json_array_length() and json_extract_string() in intermediate models."
+      - name: personuppgift
+        description: "JSON structure containing additional personal information about the parliamentarian. May include contact details, professional background, education, and other biographical data. Structure varies and should be parsed as needed in intermediate models using JSON extraction functions."
+      - name: _dlt_load_id
+        description: "DLT (data load tool) load identifier - unique identifier for each data ingestion run. Used to track when data was loaded and for incremental processing. Format: string/timestamp identifier."
+      - name: _dlt_id
+        description: "DLT (data load tool) record identifier - unique identifier for each row within a load. Used for deduplication and change tracking. Format: string identifier, unique per record."
+
+  - name: stg_personlista_personuppdrag_uppdrag
+    description: "Staging model for parliamentary assignments (personuppdrag). Links to parent via _dlt_parent_id."
+    columns:
+      - name: _dlt_parent_id
+        description: "Links to parent personlista._dlt_id"
+        tests:
+          - not_null
+      - name: _dlt_id
+        description: "DLT record identifier"
+        tests:
+          - not_null
+
+  - name: stg_personlista_personuppdrag_uppdrag_uppgift
+    description: "Staging model for tasks under assignments (uppdrag.uppgift). Links to parent via _dlt_parent_id."
+    columns:
+      - name: _dlt_parent_id
+        description: "Links to parent personuppdrag__uppdrag._dlt_id"
+        tests:
+          - not_null
+      - name: _dlt_id
+        description: "DLT record identifier"
+        tests:
+          - not_null
+
+  - name: stg_personlista_personuppgift_uppgift
+    description: "Staging model for person info fields (personuppgift). Links to parent via _dlt_parent_id."
+    columns:
+      - name: _dlt_parent_id
+        description: "Links to parent personlista._dlt_id"
+        tests:
+          - not_null
+      - name: _dlt_id
+        description: "DLT record identifier"
+        tests:
+          - not_null
+
+  - name: stg_personlista_personuppgift_uppgift_uppgift
+    description: "Staging model for nested values under uppgift (personuppgift.uppgift.uppgift). Links to parent via _dlt_parent_id."
+    columns:
+      - name: _dlt_parent_id
+        description: "Links to parent personuppgift__uppgift._dlt_id"
+        tests:
+          - not_null
+      - name: _dlt_id
+        description: "DLT record identifier"
+        tests:
+          - not_null
+
+  - name: stg_dokumentlista
+    description: "Staging model for dokumentlista - raw passthrough from source"
+    columns:
+      - name: traff
+        description: "Traffic/access indicator (TEXT)"
+      - name: domain
+        description: "Domain (TEXT)"
+      - name: database
+        description: "Database (TEXT)"
+      - name: datum
+        description: "Document date (TEXT)"
+      - name: id
+        description: "ID (TEXT)"
+      - name: slutdatum
+        description: "End date (TEXT)"
+      - name: plats
+        description: "Location/place (TEXT)"
+      - name: klockslag
+        description: "Time (TEXT)"
+      - name: publicerad
+        description: "Published date (TEXT)"
+      - name: systemdatum
+        description: "System date (TIMESTAMP)"
+      - name: undertitel
+        description: "Subtitle (TEXT)"
+      - name: kalla
+        description: "Source (TEXT)"
+      - name: kall_id
+        description: "Source ID (TEXT)"
+      - name: dok_id
+        description: "Document identifier (TEXT, nullable)"
+      - name: dokumentformat
+        description: "Document format (TEXT)"
+      - name: dokument_url_text
+        description: "Document URL text (TEXT)"
+      - name: dokument_url_html
+        description: "Document URL HTML (TEXT)"
+      - name: dokumentstatus_url_xml
+        description: "Document status URL XML (TEXT)"
+      - name: inlamnad
+        description: "Submitted date (TEXT)"
+      - name: motionstid
+        description: "Motion time (TEXT)"
+      - name: tilldelat
+        description: "Assigned (TEXT)"
+      - name: lang
+        description: "Language (TEXT)"
+      - name: url
+        description: "URL (TEXT)"
+      - name: relurl
+        description: "Relative URL (TEXT)"
+      - name: titel
+        description: "Document title (TEXT)"
+      - name: rm
+        description: "Parliamentary session (TEXT, format: YYYY/YY)"
+      - name: organ
+        description: "Organ/body (TEXT)"
+      - name: relaterat_id
+        description: "Related ID (TEXT)"
+      - name: doktyp
+        description: "Document type (TEXT)"
+      - name: typ
+        description: "Type (TEXT)"
+      - name: subtyp
+        description: "Subtype (TEXT)"
+      - name: beteckning
+        description: "Designation (TEXT)"
+      - name: tempbeteckning
+        description: "Temporary designation (TEXT)"
+      - name: nummer
+        description: "Number (TEXT)"
+      - name: status
+        description: "Status (TEXT)"
+      - name: score
+        description: "Score (TEXT)"
+      - name: sokdata__titel
+        description: "Search data title (TEXT)"
+      - name: sokdata__undertitel
+        description: "Search data subtitle (TEXT)"
+      - name: sokdata__soktyp
+        description: "Search data type (TEXT)"
+      - name: sokdata__statusrad
+        description: "Search data status row (TEXT)"
+      - name: sokdata__brodsmula
+        description: "Search data breadcrumb (TEXT)"
+      - name: sokdata__parti_kod
+        description: "Search data party code (TEXT)"
+      - name: sokdata__parti_namn
+        description: "Search data party name (TEXT)"
+      - name: sokdata__parti_website_url
+        description: "Search data party website URL (TEXT)"
+      - name: sokdata__parti_website_namn
+        description: "Search data party website name (TEXT)"
+      - name: sokdata__parti_epost
+        description: "Search data party email (TEXT)"
+      - name: sokdata__parti_telefon
+        description: "Search data party phone (TEXT)"
+      - name: sokdata__parti_telefontider
+        description: "Search data party phone hours (TEXT)"
+      - name: sokdata__parti_logotyp_img_id
+        description: "Search data party logo image ID (TEXT)"
+      - name: sokdata__parti_logotyp_img_url
+        description: "Search data party logo image URL (TEXT)"
+      - name: sokdata__parti_logotyp_img_alt
+        description: "Search data party logo image alt text (TEXT)"
+      - name: sokdata__parti_mandat
+        description: "Search data party mandates (TEXT)"
+      - name: sokdata__kalenderprio
+        description: "Search data calendar priority (TEXT)"
+      - name: summary
+        description: "Summary (TEXT)"
+      - name: notisrubrik
+        description: "Notice headline (TEXT)"
+      - name: notis
+        description: "Notice (TEXT)"
+      - name: filbilaga__fil
+        description: "File attachments (JSON)"
+      - name: avdelning
+        description: "Department (TEXT)"
+      - name: avdelningar__avdelning
+        description: "Departments (JSON)"
+      - name: struktur
+        description: "Structure (TEXT)"
+      - name: audio
+        description: "Audio (TEXT)"
+      - name: video
+        description: "Video (TEXT)"
+      - name: debattgrupp
+        description: "Debate group (TEXT)"
+      - name: debattdag
+        description: "Debate day (TEXT)"
+      - name: beslutsdag
+        description: "Decision day (TEXT)"
+      - name: beredningsdag
+        description: "Preparation day (TEXT)"
+      - name: justeringsdag
+        description: "Adjustment day (TEXT)"
+      - name: beslutat
+        description: "Decided (TEXT)"
+      - name: debattsekunder
+        description: "Debate seconds (TEXT)"
+      - name: ardometyp
+        description: "Ardome type (TEXT)"
+      - name: reservationer
+        description: "Reservations (TEXT)"
+      - name: debattnamn
+        description: "Debate name (TEXT)"
+      - name: dokumentnamn
+        description: "Document name (TEXT)"
+      - name: _dlt_load_id
+        description: "DLT load ID (TEXT, non-nullable)"
+        tests:
+          - not_null
+      - name: _dlt_id
+        description: "DLT ID (TEXT, non-nullable) - unique within a load, but may repeat across loads when using merge disposition"
+        tests:
+          - not_null
+      - name: row_key
+        description: "Row key (TEXT)"
+      - name: dokintressent__intressent
+        description: "Nested JSON with politician involvement (JSON)"
+      - name: cmstyp
+        description: "CMS type (TEXT)"
+      - name: img_url
+        description: "Image URL (TEXT)"
+      - name: img_text
+        description: "Image text (TEXT)"
+      - name: img_title
+        description: "Image title (TEXT)"
+      - name: img_large
+        description: "Large image (TEXT)"
+      - name: img_id
+        description: "Image ID (TEXT)"
+      - name: cms_rubrikniva
+        description: "CMS heading level (TEXT)"
+      - name: img_fotograf
+        description: "Image photographer (TEXT)"
+      - name: img_tumnagel_url
+        description: "Thumbnail image URL (TEXT)"
+      - name: notisslutdatum
+        description: "Notice end date (TIMESTAMP)"
+      - name: debatt__anforande
+        description: "Debate speeches (JSON)"
+      - name: cmskategorier__cmskategori
+        description: "CMS categories (JSON)"
+      - name: egenskaper__egenskap
+        description: "Properties (JSON)"
+      - name: linklista__link
+        description: "Link list (JSON)"
+      - name: cmsetiketter__cmsetikett
+        description: "CMS tags (JSON)"
+      - name: dokreferens__referens
+        description: "Document references (JSON)"
+      - name: dokintressent_len
+        description: "Count of entries in dokintressent__intressent (BIGINT)"
+      - name: dokreferens_len
+        description: "Count of entries in dokreferens__referens (BIGINT)"
+      - name: dok_id_normalized
+        description: "Trimmed dok_id with empty strings set to null"
+
+  - name: stg_voteringlista
+    description: "Staging model for voteringlista - raw passthrough from source"
+    columns:
+      - name: votering_id
+        description: "Voting identifier (VARCHAR)"
+      - name: intressent_id
+        description: "Politician identifier (VARCHAR)"
+        tests:
+          - not_null
+      - name: rost
+        description: "Vote choice (VARCHAR, values: 'Ja', 'Nej', 'Avstår')"
+      - name: rm
+        description: "Parliamentary session (VARCHAR, format: YYYY/YY)"
+
+  - name: stg_anforandelista
+    description: "Staging model for anforandelista - raw passthrough from source. Contains truncated speech text. For full speech text, use stg_anforande."
+    columns:
+      - name: systemnyckel
+        description: "Unique speech identifier (VARCHAR)"
+      - name: dok_datum
+        description: "Speech date (VARCHAR)"
+      - name: dok_id
+        description: "Document identifier (VARCHAR)"
+      - name: dok_id_normalized
+        description: "Trimmed dok_id with empty strings set to null"
+      - name: talare
+        description: "Speaker name (VARCHAR)"
+      - name: parti
+        description: "Party name (VARCHAR)"
+      - name: intressent_id
+        description: "Politician identifier (VARCHAR)"
+      - name: rel_dok_id
+        description: "Related document id (VARCHAR, trimmed/nullified)"
+      - name: anforandetext
+        description: "Speech text (VARCHAR) - truncated, use stg_anforande for full text"
+
+  - name: stg_anforande
+    description: "Staging model for anforande - full speech text from Riksdagen debates. This source provides complete anforandetext (vs truncated in anforandelista). Deduplicated on systemnyckel."
+    columns:
+      - name: systemnyckel
+        description: "Primary key - unique speech identifier in Riksdagen's database. Format: numeric string (e.g., '538886'). Used as the main identifier to link speeches across data sources."
+        tests:
+          - not_null
+      - name: dok_datum
+        description: "Date of the protocol/debate session. Format: YYYY-MM-DD with timezone (e.g., '2022-02-01 01:00:00+01')."
+      - name: dok_rm
+        description: "Parliamentary session (riksmöte). Format: YYYY/YY (e.g., '2021/22')."
+      - name: dok_id
+        description: "Protocol document identifier. Links to the protocol document in dokumentlista. Format: e.g., 'H90962'."
+      - name: dok_id_normalized
+        description: "Trimmed dok_id with empty strings set to null. Use for joins."
+      - name: dok_titel
+        description: "Protocol document title. Format: 'Protokoll YYYY/YY:NN Weekday den D Month' (e.g., 'Protokoll 2021/22:62 Tisdagen den 1 februari')."
+      - name: dok_nummer
+        description: "Protocol number within the session. Format: numeric string (e.g., '62')."
+      - name: dok_hangar_id
+        description: "Internal Hangar system identifier for the protocol document."
+      - name: anforande_id
+        description: "Unique speech identifier (GUID format). Format: UUID string (e.g., 'bba859bc-3cbb-ec11-9167-901b0eac4c78')."
+      - name: anforande_nummer
+        description: "Speech number within the protocol. Used with dok_id to form composite key for API lookups. Format: numeric (e.g., 108)."
+      - name: talare
+        description: "Speaker name with title and party. Format: 'Title Firstname Lastname (Party)' (e.g., 'Statsrådet Khashayar Farmanbar (S)')."
+      - name: parti
+        description: "Political party abbreviation of the speaker. Values: S, M, SD, C, V, KD, L, MP, etc."
+      - name: intressent_id
+        description: "Foreign key to stg_personlista.intressent_id. Links the speech to the politician who delivered it."
+      - name: anforandetext
+        description: "Full speech text in HTML format. Contains the complete speech content with HTML paragraph tags (<p>). May include STYLEREF markers from Word conversion."
+      - name: anforandetext_clean
+        description: "Speech text with HTML tags stripped. Plain text version for text analysis and search."
+      - name: rel_dok_id
+        description: "Related document identifier - the document being debated (e.g., interpellation, motion). Format: e.g., 'H910274' for interpellation 2021/22:274."
+      - name: rel_dok_id_normalized
+        description: "Trimmed rel_dok_id with empty strings set to null. Use for joins to dokumentlista."
+      - name: avsnittsrubrik
+        description: "Section heading - the agenda item or topic being discussed. Format: e.g., 'Svar på interpellation 2021/22:274 om elförsörjningens betydelse för jobb och företagande'."
+      - name: underrubrik
+        description: "Subsection heading. Often empty string."
+      - name: kammaraktivitet
+        description: "Type of chamber activity. Values include: 'interpellationsdebatt' (interpellation debate), 'allmänpolitisk debatt', 'frågestund', etc."
+      - name: replik
+        description: "Reply indicator. Values: 'N' (not a reply), 'Y' (is a reply to previous speech). Used to identify debate exchanges."
+      - name: systemdatum
+        description: "System timestamp when the record was created/updated. Format: YYYY-MM-DD HH:MM:SS+TZ."
+      - name: protokoll_url_www
+        description: "URL to the speech in the protocol on riksdagen.se. Format: 'https://www.riksdagen.se/sv/dokument-och-lagar/dokument/protokoll/protokoll_H90962/#anf108'."
+      - name: _dlt_load_id
+        description: "DLT load identifier - unique identifier for each data ingestion run."
+        tests:
+          - not_null
+      - name: _dlt_id
+        description: "DLT record identifier - unique identifier for each row within a load."
+        tests:
+          - not_null
+
+  - name: stg_dokumentstatus
+    description: "Staging model for dokumentstatus - detailed document status from Riksdagen. Contains flattened document metadata, activities, proposals, and references. 1:1 passthrough from raw."
+    columns:
+      - name: dokument__dok_id
+        description: "Primary document identifier"
+        tests:
+          - not_null
+      - name: _dlt_load_id
+        description: "DLT load identifier"
+        tests:
+          - not_null
+      - name: _dlt_id
+        description: "DLT record identifier - links to subtables via _dlt_root_id"
+        tests:
+          - not_null
+
+  - name: stg_dokumentstatus_aktivitet
+    description: "Staging model for document activities (dokaktivitet). Links to parent via _dlt_root_id."
+    columns:
+      - name: _dlt_root_id
+        description: "Links to parent dokumentstatus._dlt_id"
+        tests:
+          - not_null
+      - name: _dlt_id
+        description: "DLT record identifier"
+        tests:
+          - not_null
+
+  - name: stg_dokumentstatus_bilaga
+    description: "Staging model for document attachments (dokbilaga). Links to parent via _dlt_root_id."
+    columns:
+      - name: _dlt_root_id
+        description: "Links to parent dokumentstatus._dlt_id"
+        tests:
+          - not_null
+      - name: _dlt_id
+        description: "DLT record identifier"
+        tests:
+          - not_null
+
+  - name: stg_dokumentstatus_forslag
+    description: "Staging model for document proposals (dokforslag). Links to parent via _dlt_root_id."
+    columns:
+      - name: _dlt_root_id
+        description: "Links to parent dokumentstatus._dlt_id"
+        tests:
+          - not_null
+      - name: _dlt_id
+        description: "DLT record identifier"
+        tests:
+          - not_null
+
+  - name: stg_dokumentstatus_intressent
+    description: "Staging model for document stakeholders (dokintressent). Links to parent via _dlt_root_id."
+    columns:
+      - name: _dlt_root_id
+        description: "Links to parent dokumentstatus._dlt_id"
+        tests:
+          - not_null
+      - name: _dlt_id
+        description: "DLT record identifier"
+        tests:
+          - not_null
+
+  - name: stg_dokumentstatus_motforslag
+    description: "Staging model for counter-proposals (dokmotforslag). Links to parent via _dlt_root_id."
+    columns:
+      - name: _dlt_root_id
+        description: "Links to parent dokumentstatus._dlt_id"
+        tests:
+          - not_null
+      - name: _dlt_id
+        description: "DLT record identifier"
+        tests:
+          - not_null
+
+  - name: stg_dokumentstatus_referens
+    description: "Staging model for document references (dokreferens). Links to parent via _dlt_root_id."
+    columns:
+      - name: _dlt_root_id
+        description: "Links to parent dokumentstatus._dlt_id"
+        tests:
+          - not_null
+      - name: _dlt_id
+        description: "DLT record identifier"
+        tests:
+          - not_null
+
+  - name: stg_dokumentstatus_dokumentuppgift_uppgift
+    description: "Staging model for document metadata fields (dokumentuppgift). Links to parent via _dlt_root_id."
+    columns:
+      - name: _dlt_root_id
+        description: "Links to parent dokumentstatus._dlt_id"
+        tests:
+          - not_null
+      - name: _dlt_id
+        description: "DLT record identifier"
+        tests:
+          - not_null
+
+  - name: stg_dokumentstatus_dokuppgift_uppgift
+    description: "Staging model for document info fields (dokuppgift). Links to parent via _dlt_root_id."
+    columns:
+      - name: _dlt_root_id
+        description: "Links to parent dokumentstatus._dlt_id"
+        tests:
+          - not_null
+      - name: _dlt_id
+        description: "DLT record identifier"
+        tests:
+          - not_null
+
+  - name: stg_dokumentstatus_utskottsforslag
+    description: "Staging model for committee proposals (dokutskottsforslag). Links to parent via _dlt_root_id."
+    columns:
+      - name: _dlt_root_id
+        description: "Links to parent dokumentstatus._dlt_id"
+        tests:
+          - not_null
+      - name: _dlt_id
+        description: "DLT record identifier"
+        tests:
+          - not_null

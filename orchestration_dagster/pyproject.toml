@@ -1,0 +1,41 @@
+[project]
+name = "orchestration_dagster"
+requires-python = ">=3.10,<3.14"
+version = "0.1.0"
+dependencies = [
+    "dagster==1.12.2",
+    "dagster-webserver>=1.12.2",
+    "dagster-postgres>=0.28.2",
+    "dagster-dbt>=0.28.2",
+    "dagster-duckdb>=0.28.2",
+    # DBT dependencies needed for DbtProjectComponent to parse dbt projects
+    # (even though execution happens in Docker containers)
+    "dbt-core>=1.10.15",
+    "dbt-duckdb>=1.10.0",
+    # Docker SDK for local container execution
+    "docker>=6.0.0",
+    # boto3 for production ECS execution
+    "boto3>=1.28.0",
+    "dagster-docker>=0.28.2",
+]
+
+[dependency-groups]
+dev = [
+    "dagster-dg-cli",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+force-include = { "pyproject.toml" = "pyproject.toml" }
+
+[tool.dg]
+directory_type = "project"
+
+[tool.dg.project]
+root_module = "orchestration_dagster"
+registry_modules = [
+    "orchestration_dagster.components.*",
+]
