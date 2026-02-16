@@ -1,52 +1,47 @@
 import { useQuery } from "@tanstack/react-query";
-import type { PoliticianWithStats } from "@/types";
-import { getPoliticiansWithStats } from "@/mocks";
+
+const API_ENDPOINT = process.env.NEXT_PUBLIC_API_ENDPOINT;
+
+// API response types (matching backend)
+export interface PoliticianSummary {
+  id: string;
+  firstName: string;
+  lastName: string;
+  name: string;
+  party: string;
+  constituency: string;
+  status: string;
+  imageUrl: string | null;
+  stats: {
+    totalVotes: number;
+    totalSpeeches: number;
+    totalAuthored: number;
+  };
+}
 
 interface FetchPoliticiansOptions {
-  partyId?: string;
-  sortBy?: "name" | "rank" | "contradictions" | "trending";
+  search?: string;
+  party?: string;
   limit?: number;
 }
 
 async function fetchPoliticians(
-  options: FetchPoliticiansOptions = {}
-): Promise<PoliticianWithStats[]> {
-  // Simulate network delay
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  options: FetchPoliticiansOptions = {},
+): Promise<PoliticianSummary[]> {
+  const params = new URLSearchParams();
+  if (options.search) params.set("search", options.search);
+  if (options.party) params.set("party", options.party);
+  if (options.limit) params.set("limit", options.limit.toString());
 
-  let politicians = getPoliticiansWithStats();
+  const url = `${API_ENDPOINT}/politicians${params.toString() ? `?${params}` : ""}`;
+  const res = await fetch(url);
 
-  // Filter by party
-  if (options.partyId) {
-    politicians = politicians.filter((p) => p.party.id === options.partyId);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch politicians: ${res.status}`);
   }
 
-  // Sort
-  switch (options.sortBy) {
-    case "rank":
-      politicians.sort((a, b) => a.stats.consistencyRank - b.stats.consistencyRank);
-      break;
-    case "contradictions":
-      politicians.sort((a, b) => b.stats.contradictionCount - a.stats.contradictionCount);
-      break;
-    case "trending":
-      politicians.sort((a, b) => {
-        if (a.stats.isTrending && !b.stats.isTrending) return -1;
-        if (!a.stats.isTrending && b.stats.isTrending) return 1;
-        return b.stats.viewCount - a.stats.viewCount;
-      });
-      break;
-    case "name":
-    default:
-      politicians.sort((a, b) => a.lastName.localeCompare(b.lastName));
-  }
-
-  // Limit
-  if (options.limit) {
-    politicians = politicians.slice(0, options.limit);
-  }
-
-  return politicians;
+  const json = await res.json();
+  return json.data;
 }
 
 export function useFetchPoliticians(options: FetchPoliticiansOptions = {}) {

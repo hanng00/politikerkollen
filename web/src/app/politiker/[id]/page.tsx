@@ -1,96 +1,135 @@
 "use client";
 
-import { use, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import {
-  AlertTriangle,
-  Vote,
-  BarChart3,
-  ChevronDown,
-  ChevronLeft,
-  Bell,
-  BellOff,
-  Share2,
-  Flame,
-  Twitter,
-  Facebook,
-  Link2,
-} from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Calendar,
+  ChevronLeft,
+  FileText,
+  Loader2,
+  MapPin,
+  MessageSquare,
+  Vote,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { use } from "react";
 
 import { SiteHeader } from "@/components/layout";
+import { useFetchPolitician } from "@/hooks/useFetchPolitician";
 import {
-  useFetchPolitician,
-  useFetchContradictions,
-  useFetchVotes,
-  useFetchPromises,
-  useFetchPromiseStats,
-  useFetchPoliticians,
-} from "@/hooks";
-import {
-  PoliticianHero,
-  ContradictionCard,
-  ActivityCard,
-  TopicBreakdown,
-  PromiseTracker,
-  CompareSection,
-} from "@/components/politiker";
-import type { TopicStats } from "@/types";
+  useFetchPoliticianTimeline,
+  type TimelineItem,
+} from "@/hooks/useFetchPoliticianTimeline";
 
-// Generate topic stats from votes (simplified)
-function useTopicStats(politicianId: string): TopicStats[] {
-  const { data: votes } = useFetchVotes(politicianId);
-  const { data: contradictions } = useFetchContradictions(politicianId);
+// Party colors
+const partyColors: Record<string, string> = {
+  S: "bg-[#E8112d]",
+  M: "bg-[#52BDEC]",
+  SD: "bg-[#DDDD00] text-black",
+  C: "bg-[#009933]",
+  V: "bg-[#DA291C]",
+  KD: "bg-[#000077]",
+  L: "bg-[#006AB3]",
+  MP: "bg-[#83CF39] text-black",
+};
 
-  if (!votes) return [];
+function TimelineItemCard({ item }: { item: TimelineItem }) {
+  const date = new Date(item.date).toLocaleDateString("sv-SE");
 
-  const statsMap = new Map<string, { topic: TopicStats["topic"]; actionCount: number; consistent: number; total: number }>();
+  if (item.type === "vote") {
+    const voteColor =
+      item.voteValue === "Ja"
+        ? "text-green-600"
+        : item.voteValue === "Nej"
+          ? "text-red-600"
+          : "text-yellow-600";
 
-  for (const vote of votes) {
-    const existing = statsMap.get(vote.topic.id) ?? {
-      topic: vote.topic,
-      actionCount: 0,
-      consistent: 0,
-      total: 0,
-    };
-    existing.actionCount++;
-    existing.total++;
-    if (vote.followedParty) existing.consistent++;
-    statsMap.set(vote.topic.id, existing);
+    return (
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex items-start gap-3">
+            <Vote className="size-4 text-muted-foreground mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className={`font-medium ${voteColor}`}>
+                  {item.voteValue}
+                </span>
+                <span className="text-xs text-muted-foreground">{date}</span>
+              </div>
+              <p className="text-sm mt-1">
+                {item.title || item.betankandeTitel || "Votering"}
+              </p>
+              {item.subjectText && (
+                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                  {item.subjectText}
+                </p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
-  if (contradictions) {
-    for (const c of contradictions) {
-      const existing = statsMap.get(c.topic.id) ?? {
-        topic: c.topic,
-        actionCount: 0,
-        consistent: 0,
-        total: 0,
-      };
-      existing.total++;
-      statsMap.set(c.topic.id, existing);
-    }
+  if (item.type === "speech") {
+    return (
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex items-start gap-3">
+            <MessageSquare className="size-4 text-muted-foreground mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Anförande</span>
+                <span className="text-xs text-muted-foreground">{date}</span>
+                {item.activityType && (
+                  <Badge variant="outline" className="text-[10px]">
+                    {item.activityType}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm mt-1">
+                {item.title || "Anförande i kammaren"}
+              </p>
+              {item.speechText && (
+                <p className="text-xs text-muted-foreground mt-1 line-clamp-3">
+                  {item.speechText}
+                </p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
-  return Array.from(statsMap.values())
-    .map((s) => ({
-      topic: s.topic,
-      actionCount: s.actionCount,
-      consistencyScore: s.total > 0 ? Math.round((s.consistent / s.total) * 100) : 100,
-    }))
-    .sort((a, b) => b.actionCount - a.actionCount);
+  // authored
+  return (
+    <Card>
+      <CardContent className="pt-4">
+        <div className="flex items-start gap-3">
+          <FileText className="size-4 text-muted-foreground mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-medium">
+                {item.documentType || "Dokument"}
+              </span>
+              <span className="text-xs text-muted-foreground">{date}</span>
+              {item.authorRole && (
+                <Badge variant="outline" className="text-[10px]">
+                  {item.authorRole}
+                </Badge>
+              )}
+            </div>
+            <p className="text-sm mt-1">{item.title || "Dokument"}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function PoliticianPage({
@@ -100,24 +139,21 @@ export default function PoliticianPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [activeTab, setActiveTab] = useState("contradictions");
 
-  const { data: politician, isLoading: loadingPolitician } = useFetchPolitician(id);
-  const { data: contradictions, isLoading: loadingContradictions } = useFetchContradictions(id);
-  const { data: votes } = useFetchVotes(id, { limit: 5 });
-  const { data: promises } = useFetchPromises(id);
-  const { data: promiseStats } = useFetchPromiseStats(id);
-  const { data: similarPoliticians } = useFetchPoliticians({
-    partyId: politician?.party.id,
-    sortBy: "rank",
-    limit: 4,
-  });
+  const {
+    data: politician,
+    isLoading: loadingPolitician,
+    error,
+  } = useFetchPolitician(id);
+  const {
+    data: timelineData,
+    isLoading: loadingTimeline,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useFetchPoliticianTimeline(id, { limit: 20 });
 
-  const topicStats = useTopicStats(id);
-
-  // Filter out current politician from similar list
-  const filteredSimilar = similarPoliticians?.filter((p) => p.id !== id).slice(0, 3) ?? [];
+  const timeline = timelineData?.pages.flatMap((page) => page.data) ?? [];
 
   if (loadingPolitician) {
     return (
@@ -125,26 +161,28 @@ export default function PoliticianPage({
         <SiteHeader />
         <main className="page-container max-w-4xl py-6 space-y-4">
           <div className="flex items-center gap-3">
-            <Skeleton className="size-12 rounded-full" />
+            <Skeleton className="size-16 rounded-full" />
             <div className="space-y-2">
-              <Skeleton className="h-5 w-32" />
-              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-4 w-32" />
             </div>
           </div>
-          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-32 w-full" />
           <Skeleton className="h-64 w-full" />
         </main>
       </div>
     );
   }
 
-  if (!politician) {
+  if (error || !politician) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-lg font-semibold">Politiker hittades inte</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Kontrollera länken och försök igen
+            {error instanceof Error
+              ? error.message
+              : "Kontrollera länken och försök igen"}
           </p>
           <Button className="mt-4" onClick={() => router.push("/politiker")}>
             Till alla politiker
@@ -154,197 +192,129 @@ export default function PoliticianPage({
     );
   }
 
-  const featuredContradiction = contradictions?.[0];
+  const initials = `${politician.firstName[0]}${politician.lastName[0]}`;
+  const partyColor = partyColors[politician.party] ?? "bg-muted";
 
   return (
     <div className="min-h-screen min-w-0 overflow-x-clip bg-background">
       <SiteHeader />
 
       <main className="page-container max-w-4xl py-6">
-        {/* Page actions bar */}
-        <div className="flex items-center justify-between mb-6">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 -ml-2"
-            onClick={() => router.back()}
-          >
-            <ChevronLeft className="size-4 mr-1" />
-            Tillbaka
-          </Button>
-          <Button
-            variant={isFollowing ? "secondary" : "outline"}
-            size="sm"
-            className="h-8"
-            onClick={() => setIsFollowing(!isFollowing)}
-          >
-            {isFollowing ? (
-              <>
-                <BellOff className="size-4 mr-1.5" />
-                Följer
-              </>
-            ) : (
-              <>
-                <Bell className="size-4 mr-1.5" />
-                Bevaka
-              </>
-            )}
-          </Button>
-        </div>
+        {/* Back button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 -ml-2 mb-6"
+          onClick={() => router.back()}
+        >
+          <ChevronLeft className="size-4 mr-1" />
+          Tillbaka
+        </Button>
 
         {/* Hero Section */}
         <section className="mb-6">
-          <PoliticianHero politician={politician} />
+          <div className="flex items-start gap-4">
+            <Avatar className="size-16">
+              {politician.imageUrl && (
+                <AvatarImage src={politician.imageUrl} alt={politician.name} />
+              )}
+              <AvatarFallback className="text-lg">{initials}</AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold">{politician.name}</h1>
+                <Badge className={`${partyColor}`}>{politician.party}</Badge>
+              </div>
+              <p className="text-muted-foreground">{politician.status}</p>
+              <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <MapPin className="size-3" />
+                  {politician.constituency}
+                </span>
+                {politician.birthYear && (
+                  <span className="flex items-center gap-1">
+                    <Calendar className="size-3" />
+                    Född {politician.birthYear}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Stats Cards */}
+        <section className="grid grid-cols-3 gap-4 mb-6">
+          <Card>
+            <CardContent className="pt-4 text-center">
+              <Vote className="size-5 mx-auto text-muted-foreground mb-1" />
+              <p className="text-2xl font-bold">
+                {politician.stats.totalVotes.toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground">Röster</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 text-center">
+              <MessageSquare className="size-5 mx-auto text-muted-foreground mb-1" />
+              <p className="text-2xl font-bold">
+                {politician.stats.totalSpeeches.toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground">Anföranden</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 text-center">
+              <FileText className="size-5 mx-auto text-muted-foreground mb-1" />
+              <p className="text-2xl font-bold">
+                {politician.stats.totalAuthored.toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground">Dokument</p>
+            </CardContent>
+          </Card>
         </section>
 
         <Separator className="my-6" />
 
-        {/* Featured Contradiction */}
-        {featuredContradiction && (
-          <>
-            <section className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold flex items-center gap-2">
-                  <AlertTriangle className="size-4 text-destructive" />
-                  Senaste motsägelsen
-                </h2>
-                {featuredContradiction.isTrending && (
-                  <Badge variant="destructive" className="text-[9px]">
-                    <Flame className="size-2.5 mr-0.5" />
-                    Viral
-                  </Badge>
-                )}
-              </div>
-              <div className="max-w-2xl">
-                <ContradictionCard
-                  contradiction={featuredContradiction}
-                  politician={politician}
-                  featured
-                />
-              </div>
-            </section>
-            <Separator className="my-6" />
-          </>
-        )}
-
-        {/* Tabs */}
+        {/* Timeline */}
         <section>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="w-full">
-              <TabsTrigger value="contradictions" className="flex-1 text-xs">
-                <AlertTriangle className="size-3 mr-1" />
-                Motsägelser ({contradictions?.length ?? 0})
-              </TabsTrigger>
-              <TabsTrigger value="activity" className="flex-1 text-xs">
-                <Vote className="size-3 mr-1" />
-                Aktivitet
-              </TabsTrigger>
-              <TabsTrigger value="stats" className="flex-1 text-xs">
-                <BarChart3 className="size-3 mr-1" />
-                Statistik
-              </TabsTrigger>
-            </TabsList>
+          <h2 className="text-lg font-semibold mb-4">Aktivitet</h2>
 
-            <TabsContent value="contradictions" className="mt-4 space-y-3">
-              {loadingContradictions ? (
-                <>
-                  <Skeleton className="h-48 w-full" />
-                  <Skeleton className="h-48 w-full" />
-                </>
-              ) : (
-                <>
-                  {contradictions?.slice(1).map((c) => (
-                    <ContradictionCard
-                      key={c.id}
-                      contradiction={c}
-                      politician={politician}
-                    />
-                  ))}
-                  {contradictions && contradictions.length > 3 && (
-                    <Button variant="outline" className="w-full text-xs">
-                      Visa alla motsägelser
-                      <ChevronDown className="size-3 ml-1" />
-                    </Button>
+          {loadingTimeline ? (
+            <div className="space-y-3">
+              <Skeleton className="h-24" />
+              <Skeleton className="h-24" />
+              <Skeleton className="h-24" />
+            </div>
+          ) : timeline.length > 0 ? (
+            <div className="space-y-3">
+              {timeline.map((item) => (
+                <TimelineItemCard key={item.id} item={item} />
+              ))}
+
+              {hasNextPage && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                >
+                  {isFetchingNextPage ? (
+                    <>
+                      <Loader2 className="size-4 mr-2 animate-spin" />
+                      Laddar...
+                    </>
+                  ) : (
+                    "Visa mer"
                   )}
-                  {contradictions?.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-8">
-                      Inga motsägelser hittade
-                    </p>
-                  )}
-                </>
+                </Button>
               )}
-            </TabsContent>
-
-            <TabsContent value="activity" className="mt-4">
-              <div className="space-y-1">
-                {votes?.map((vote) => (
-                  <ActivityCard key={vote.id} type="vote" data={vote} />
-                ))}
-              </div>
-              <Button variant="outline" className="w-full text-xs mt-3">
-                Visa all aktivitet
-                <ChevronDown className="size-3 ml-1" />
-              </Button>
-            </TabsContent>
-
-            <TabsContent value="stats" className="mt-4 space-y-4">
-              {/* Topic breakdown */}
-              {topicStats.length > 0 && <TopicBreakdown topics={topicStats} />}
-
-              {/* Promise tracker */}
-              {promises && promiseStats && promises.length > 0 && (
-                <PromiseTracker promises={promises} stats={promiseStats} />
-              )}
-
-              {/* Compare section */}
-              {filteredSimilar.length > 0 && (
-                <CompareSection
-                  currentPolitician={politician}
-                  similarPoliticians={filteredSimilar}
-                  onSelectPolitician={(pid) => router.push(`/politiker/${pid}`)}
-                />
-              )}
-            </TabsContent>
-          </Tabs>
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-8">
+              Ingen aktivitet hittad
+            </p>
+          )}
         </section>
-
-        {/* Sticky bottom CTA */}
-        <div className="sticky bottom-0 p-4 bg-linear-to-t from-background via-background to-transparent">
-          <Card className="border-primary/20 bg-background">
-            <CardContent className="pt-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Hittat något intressant?</p>
-                  <p className="text-xs text-muted-foreground">
-                    Dela så fler ser vad politikerna gör
-                  </p>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-transparent bg-primary text-primary-foreground px-2 text-xs font-medium hover:bg-primary/80 [&_svg]:size-3"
-                  >
-                    <Share2 className="size-3" />
-                    Dela profil
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
-                      <Twitter className="size-4 mr-2" />
-                      Twitter
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Facebook className="size-4 mr-2" />
-                      Facebook
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Link2 className="size-4 mr-2" />
-                      Kopiera länk
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </main>
     </div>
   );

@@ -5,7 +5,7 @@ services:
       dockerfile: ingestion/Dockerfile
     image: spatial/ingestion:latest
     networks:
-      - spatial-network
+      - politikerkollen-network
 
   transformations_dbt:
     build:
@@ -13,9 +13,9 @@ services:
       dockerfile: transformations_dbt/Dockerfile
     image: spatial/transformations_dbt:latest
     networks:
-      - spatial-network
+      - politikerkollen-network
 
 networks:
-  spatial-network:
+  politikerkollen-network:
     driver: bridge
-    name: spatial-network
+    name: politikerkollen-network

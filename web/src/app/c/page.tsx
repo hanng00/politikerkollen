@@ -1,7 +1,7 @@
 "use client";
 
 import { AuthForm } from "@/components/auth/AuthForm";
-import { ChatHeader } from "@/components/chat/ChatHeader";
+import { ChatHeader, ChatHistoryTrigger } from "@/components/chat/ChatHeader";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ConversationsSidebar } from "@/components/chat/ConversationsSidebar";
 import { EmptyState } from "@/components/chat/EmptyState";
@@ -43,9 +43,10 @@ export default function ChatPage() {
       <ConversationsSidebar currentConversationId={null} />
       <SidebarInset>
         <div className="relative h-dvh overflow-hidden bg-background">
-          <div className="relative flex h-full flex-col px-4 sm:px-6 min-w-0 overflow-hidden">
+          <div className="relative flex h-full flex-col min-w-0 overflow-hidden">
             <ChatHeader />
-            <div className="max-w-2xl mx-auto flex flex-col h-full">
+            <ChatHistoryTrigger />
+            <div className="max-w-2xl w-full mx-auto flex flex-col h-full px-4 sm:px-6">
               <EmptyState onPromptClick={handleSubmit} />
               <ChatInput
                 onSubmit={handleSubmit}

@@ -1,7 +1,7 @@
 "use client";
 
 import { AuthForm } from "@/components/auth/AuthForm";
-import { ChatHeader } from "@/components/chat/ChatHeader";
+import { ChatHeader, ChatHistoryTrigger } from "@/components/chat/ChatHeader";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ConversationsSidebar } from "@/components/chat/ConversationsSidebar";
 import { EmptyState } from "@/components/chat/EmptyState";
@@ -114,26 +114,29 @@ export default function ConversationPage({ params }: PageProps) {
       <ConversationsSidebar currentConversationId={conversationId} />
       <SidebarInset>
         <div className="relative h-dvh overflow-hidden bg-background">
-          <div className="relative mx-auto flex h-full max-w-2xl flex-col px-4 sm:px-6 min-w-0 overflow-hidden">
+          <div className="relative flex h-full flex-col min-w-0 overflow-hidden">
             <ChatHeader />
+            <ChatHistoryTrigger />
 
-            {isLoadingMessages ? (
-              <div className="flex flex-1 items-center justify-center">
-                <div className="animate-pulse text-muted-foreground">
-                  Laddar...
+            <div className="mx-auto flex h-full w-full max-w-2xl flex-col px-4 sm:px-6 min-w-0 overflow-hidden">
+              {isLoadingMessages ? (
+                <div className="flex flex-1 items-center justify-center">
+                  <div className="animate-pulse text-muted-foreground">
+                    Laddar...
+                  </div>
                 </div>
-              </div>
-            ) : messages.length === 0 ? (
-              <EmptyState onPromptClick={(text) => sendMessage({ text })} />
-            ) : (
-              <MessageList messages={messages} isLoading={isLoading} />
-            )}
+              ) : messages.length === 0 ? (
+                <EmptyState onPromptClick={(text) => sendMessage({ text })} />
+              ) : (
+                <MessageList messages={messages} isLoading={isLoading} />
+              )}
 
-            <ChatInput
-              onSubmit={(text) => sendMessage({ text })}
-              status={status}
-              onStop={stop}
-            />
+              <ChatInput
+                onSubmit={(text) => sendMessage({ text })}
+                status={status}
+                onStop={stop}
+              />
+            </div>
           </div>
         </div>
       </SidebarInset>

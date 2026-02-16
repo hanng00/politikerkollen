@@ -40,11 +40,9 @@ This is a dbt project that transforms Swedish Parliament (Riksdagen) data into a
 
 ### Mart Layer (`mart_*`) - Business-Ready Views
 
-| Model                           | Purpose                               | Key Columns                                                                                                            |
-| ------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **`mart_betankande_traversal`** | Aggregated stats per committee report | `betankande_dok_id`, `antal_voteringar`, `antal_rostande`, `antal_motioner`, `antal_propositioner`, `antal_forfattare` |
-| **`mart_betankande_roster`**    | Detailed vote records per report      | `betankande_dok_id`, `votering_id`, `intressent_id`, `rost`, `parti`, `valkrets`                                       |
-| **`mart_betankande_kallor`**    | Source documents feeding into reports | `betankande_dok_id`, `kalla_dok_id`, `kalla_typ`, `forfattare_id`, `referens_typ`                                      |
+| Model                      | Purpose                             | Key Columns                                                                                                              |
+| -------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **`mart_person_timeline`** | All actions by a person, pre-joined | `intressent_id`, `action_type` (vote/speech/authored), `action_date`, `vote_value`, `subject_title`, `speech_text_clean` |
 
 ---
 
@@ -196,17 +194,24 @@ Key fields in `stg_anforande`:
 
 ## 6. Key Insights for Your Use Case
 
+### To Find All Actions by a Politician (Recommended):
+
+Use `mart_person_timeline` - one query gets everything:
+
+```sql
+SELECT *
+FROM mart_person_timeline
+WHERE intressent_id = 'X'
+ORDER BY action_date DESC
+```
+
+Returns votes, speeches, and authored documents with all context pre-joined.
+
 ### To Find What a Vote Was About:
 
 1. Start with `votering_id` in `stg_voteringlista`
 2. Join to `stg_dokumentstatus_utskottsforslag` on `votering_id` to get `rubrik`, `forslag`, `punkt`
 3. Join to `stg_dokumentstatus` via `_dlt_root_id` to get the parent betänkande
-
-### To Find All Actions by a Politician:
-
-1. Query `int_edge` where `from_id = 'person:{intressent_id}'`
-2. Edge types will show: `undertecknare`, `rostade`, `talade`, etc.
-3. `payload` contains vote choice for `rostade` edges
 
 ### To Trace a Motion's Journey:
 

@@ -24,11 +24,12 @@ edge_person_dok_status as (
 ),
 
 -- person → dok | roll (from dokumentlista JSON - who wrote)
+-- Uses unnest(from_json(...)) instead of cross join to avoid creating 50 rows per doc
 edge_person_dok_lista as (
     select
-        'person:' || json_extract_string(d.dokintressent__intressent::json, '$[' || idx || '].intressent_id') as from_id,
+        'person:' || json_extract_string(i.elem::varchar, '$.intressent_id') as from_id,
         'dok:' || d.dok_id as to_id,
-        coalesce(nullif(json_extract_string(d.dokintressent__intressent::json, '$[' || idx || '].roll'), ''), 'okand') as edge_typ,
+        coalesce(nullif(json_extract_string(i.elem::varchar, '$.roll'), ''), 'okand') as edge_typ,
         coalesce(
             try_cast(d.beslutsdag as date),
             try_cast(d.inlamnad as date),
@@ -38,12 +39,11 @@ edge_person_dok_lista as (
         ) as datum,
         'dokumentlista' as source,
         null as payload
-    from {{ ref('stg_dokumentlista') }} d
-    cross join (select unnest(range(0, 50)) as idx) t
+    from {{ ref('stg_dokumentlista') }} d,
+    lateral unnest(from_json(d.dokintressent__intressent::varchar, '["JSON"]')) as i(elem)
     where d.dokintressent__intressent is not null
       and json_type(d.dokintressent__intressent::json) = 'ARRAY'
-      and idx < json_array_length(d.dokintressent__intressent::json)
-      and json_extract_string(d.dokintressent__intressent::json, '$[' || idx || '].intressent_id') is not null
+      and json_extract_string(i.elem::varchar, '$.intressent_id') is not null
 ),
 
 -- person → event | talade (who spoke)

@@ -139,6 +139,46 @@ Resources:
       BuildMethod: esbuild
       BuildProperties: { Sourcemap: true }
 
+  # =============================================================================
+  # Politicians API (public, no auth) - Docker-based for native DuckDB support
+  # =============================================================================
+
+  PoliticiansApi:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      Timeout: 30
+      MemorySize: 1024 # DuckDB benefits from more memory
+      Events:
+        List:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /politicians
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        Get:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /politicians/{id}
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        Timeline:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /politicians/{id}/timeline
+            Method: GET
+            Auth:
+              Authorizer: NONE
+    Metadata:
+      DockerTag: politicians-api
+      DockerContext: .
+      Dockerfile: src/features/politicians/Dockerfile
+
 Outputs:
   CognitoUserPoolId: { Value: !Ref CognitoUserPool }
   CognitoUserPoolClientId: { Value: !Ref CognitoUserPoolClient }

@@ -1,20 +1,100 @@
 version: 2
 
 models:
-  - name: mart_betankande_traversal
+  - name: mart_person
     description: |
-      Aggregated view of betänkanden with voting and source document stats.
-      One row per betänkande. Shows: antal voteringar, antal röstande, 
-      antal källdokument (motioner, propositioner), antal författare.
+      One row per politician with aggregated stats from their timeline.
+      Designed for the /politicians API endpoint.
 
-  - name: mart_betankande_roster
-    description: |
-      Detailed vote records per betänkande.
-      One row per person per votering. Includes vote choice (Ja/Nej/Avstår),
-      party, valkrets.
+      Query patterns:
+        - List all: SELECT * FROM mart_person ORDER BY namn
+        - Search: SELECT * FROM mart_person WHERE jaro_winkler_similarity('query', namn) > 0.8
+        - By party: SELECT * FROM mart_person WHERE parti = 'S'
 
-  - name: mart_betankande_kallor
+    columns:
+      - name: intressent_id
+        description: "Riksdagen person identifier (primary key)"
+        tests:
+          - not_null
+          - unique
+
+      - name: namn
+        description: "Full name (tilltalsnamn + efternamn)"
+
+      - name: parti
+        description: "Political party abbreviation (S, M, SD, C, V, KD, L, MP)"
+
+      - name: valkrets
+        description: "Electoral constituency"
+
+      - name: status
+        description: "Current status (Tjänstgörande riksdagsledamot, etc.)"
+
+      - name: total_votes
+        description: "Total number of votes cast"
+
+      - name: total_speeches
+        description: "Total number of speeches given"
+
+      - name: total_authored
+        description: "Total number of documents authored/signed"
+
+  - name: mart_person_timeline
     description: |
-      Source documents (motioner, propositioner) that fed into each betänkande.
-      One row per source document per author. Shows referens_typ (behandlar, 
-      följdmotion, etc.), author details.
+      One row per action per person, pre-joined with all context needed for analysis.
+      Designed for contradiction detection: "What did person X say vs do?"
+
+      Action types:
+        - vote: Cast a vote (Ja/Nej/Avstår) on a betänkande punkt
+        - speech: Gave a speech in the chamber
+        - authored: Signed/authored a document (motion, skriftlig fråga, etc.)
+
+      Query pattern: 
+        SELECT * FROM mart_person_timeline 
+        WHERE intressent_id = 'X' 
+        ORDER BY action_date
+
+    columns:
+      - name: intressent_id
+        description: "Riksdagen person identifier"
+        tests:
+          - not_null
+
+      - name: namn
+        description: "Full name (tilltalsnamn + efternamn)"
+
+      - name: parti
+        description: "Political party abbreviation"
+
+      - name: action_type
+        description: "Type of action: vote, speech, authored"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["vote", "speech", "authored"]
+
+      - name: action_date
+        description: "Date of the action"
+        tests:
+          - not_null
+
+      - name: action_id
+        description: "Unique identifier for the action (votering_id, systemnyckel, or dok_id)"
+
+      - name: vote_value
+        description: "Vote choice: Ja, Nej, Avstår (only for action_type=vote)"
+
+      - name: subject_title
+        description: "Title/heading of what the action was about"
+
+      - name: subject_text
+        description: "Full text of the proposal being voted on (only for votes)"
+
+      - name: speech_text_clean
+        description: "Full speech text, HTML stripped (only for action_type=speech)"
+
+      - name: authored_dok_typ
+        description: "Document type: Motion, Skriftlig fråga, etc. (only for action_type=authored)"
+
+      - name: authored_roll
+        description: "Role: undertecknare, fragestallare, etc. (only for action_type=authored)"
