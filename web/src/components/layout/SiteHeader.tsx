@@ -14,6 +14,35 @@ const navItems = [
   { href: "/c", label: "Chat", secondary: true },
 ];
 
+export function LogoMark({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className={cn("size-5", className)}
+      aria-hidden="true"
+    >
+      {/* Two thin circles, slightly offset */}
+      <circle
+        cx="11"
+        cy="11"
+        r="8"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        fill="none"
+      />
+      <circle
+        cx="13"
+        cy="13"
+        r="8"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        fill="none"
+      />
+    </svg>
+  );
+}
+
 export function SiteHeader() {
   const pathname = usePathname();
 
@@ -23,8 +52,11 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
       <div className="page-container-wide flex h-14 min-w-0 items-center gap-2 sm:gap-4">
-        <Link href="/" className="font-semibold shrink-0 text-sm sm:text-base">
-          Politikerkollen
+        <Link href="/" className="flex items-center gap-1.5 shrink-0">
+          <LogoMark />
+          <span className="font-serif font-medium text-sm sm:text-base">
+            Politikerkollen
+          </span>
         </Link>
 
         <SearchBar className="hidden sm:block flex-1 min-w-0 max-w-sm" />

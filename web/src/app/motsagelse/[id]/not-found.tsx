@@ -1,3 +1,5 @@
+"use client";
+
 import { SiteHeader } from "@/components/layout";
 import { buttonVariants } from "@/components/ui/button";
 import { ArrowLeft, SearchX } from "lucide-react";
