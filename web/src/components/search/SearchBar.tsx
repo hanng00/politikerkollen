@@ -4,24 +4,24 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Search, User } from "lucide-react";
 import { Command, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
-import { useFetchPoliticians } from "@/hooks";
+import { useFetchPoliticians, useDebounce } from "@/hooks";
 import { cn } from "@/lib/utils";
 
 export function SearchBar({ className }: { className?: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebounce(query, 300);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { data: politicians } = useFetchPoliticians({});
+  // Use server-side fuzzy search when there's a query
+  const { data: politicians, isLoading } = useFetchPoliticians({
+    search: debouncedQuery || undefined,
+    limit: 6,
+  });
 
-  // Filter politicians by search query
-  const filtered = politicians?.filter((p) => {
-    if (!query) return false;
-    const fullName = `${p.firstName} ${p.lastName}`.toLowerCase();
-    const party = p.party.toLowerCase();
-    return fullName.includes(query.toLowerCase()) || party.includes(query.toLowerCase());
-  }).slice(0, 6);
+  // Only show results when we have a query
+  const filtered = debouncedQuery ? politicians : undefined;
 
   const handleSelect = useCallback((politicianId: string) => {
     setOpen(false);
@@ -40,7 +40,7 @@ export function SearchBar({ className }: { className?: string }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const showResults = open && query.length > 0;
+  const showResults = open && query.length > 0 && !isLoading;
 
   return (
     <div ref={containerRef} className={cn("relative w-full max-w-md", className)}>

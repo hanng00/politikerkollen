@@ -5,29 +5,49 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search } from "lucide-react";
-import { useState } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
+import { ArrowDownWideNarrow, Search } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import { SiteHeader } from "@/components/layout";
 import { PoliticianCardSimple } from "@/components/politiker";
-import { useFetchPoliticians } from "@/hooks";
+import { useFetchPoliticians, useDebounce, type PoliticianSummary } from "@/hooks";
 
 // Swedish party abbreviations
 const partyFilters = ["S", "M", "SD", "C", "V", "KD", "L", "MP"];
 
+type SortOption = "name" | "mostActive" | "mostVotes" | "mostSpeeches";
+type ActivityFilter = "all" | "active" | "veryActive";
+
+const activityFilterItems = [
+  { value: "all", label: "Alla aktivitetsnivåer" },
+  { value: "active", label: "Aktiva (100+)" },
+  { value: "veryActive", label: "Mycket aktiva (500+)" },
+];
+
+const sortItems = [
+  { value: "mostActive", label: "Mest aktiva" },
+  { value: "mostVotes", label: "Flest röster" },
+  { value: "mostSpeeches", label: "Flest anföranden" },
+  { value: "name", label: "Namn A-Ö" },
+];
+
+function getTotalActivity(p: PoliticianSummary) {
+  return p.stats.totalVotes + p.stats.totalSpeeches + p.stats.totalAuthored;
+}
+
 export default function PoliticiansPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [partyFilter, setPartyFilter] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>("mostActive");
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
 
-  // Debounce search - only search when user stops typing
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-
-  // Simple debounce effect
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-    // In production, use a proper debounce hook
-    setTimeout(() => setDebouncedSearch(value), 300);
-  };
+  const debouncedSearch = useDebounce(searchQuery, 300);
 
   const {
     data: politicians,
@@ -36,8 +56,39 @@ export default function PoliticiansPage() {
   } = useFetchPoliticians({
     search: debouncedSearch || undefined,
     party: partyFilter ?? undefined,
-    limit: 100,
+    limit: 500,
   });
+
+  // Client-side filtering and sorting
+  const filteredAndSorted = useMemo(() => {
+    if (!politicians) return [];
+
+    let result = [...politicians];
+
+    // Filter by activity level (using sensible thresholds)
+    if (activityFilter === "active") {
+      result = result.filter((p) => getTotalActivity(p) >= 100);
+    } else if (activityFilter === "veryActive") {
+      result = result.filter((p) => getTotalActivity(p) >= 500);
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case "mostActive":
+          return getTotalActivity(b) - getTotalActivity(a);
+        case "mostVotes":
+          return b.stats.totalVotes - a.stats.totalVotes;
+        case "mostSpeeches":
+          return b.stats.totalSpeeches - a.stats.totalSpeeches;
+        case "name":
+        default:
+          return a.name.localeCompare(b.name, "sv");
+      }
+    });
+
+    return result;
+  }, [politicians, sortBy, activityFilter]);
 
   return (
     <div className="min-h-screen min-w-0 overflow-x-clip">
@@ -53,39 +104,81 @@ export default function PoliticiansPage() {
         </header>
 
         {/* Search & Filters */}
-        <section className="space-y-4">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input
-                placeholder="Sök politiker..."
-                value={searchQuery}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+        <section className="space-y-3">
+          {/* Search bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Sök politiker..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
           </div>
 
-          <div className="filter-bar">
-            <Button
-              variant={partyFilter === null ? "secondary" : "ghost"}
-              size="sm"
-              className="shrink-0"
-              onClick={() => setPartyFilter(null)}
-            >
-              Alla
-            </Button>
-            {partyFilters.map((party) => (
+          {/* Filter bar - all filters in one row */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Party filter pills */}
+            <div className="flex items-center gap-1 flex-wrap">
               <Button
-                key={party}
-                variant={partyFilter === party ? "secondary" : "ghost"}
+                variant={partyFilter === null ? "secondary" : "ghost"}
                 size="sm"
-                className="shrink-0"
-                onClick={() => setPartyFilter(party)}
+                onClick={() => setPartyFilter(null)}
               >
-                {party}
+                Alla partier
               </Button>
-            ))}
+              {partyFilters.map((party) => (
+                <Button
+                  key={party}
+                  variant={partyFilter === party ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => setPartyFilter(party)}
+                >
+                  {party}
+                </Button>
+              ))}
+            </div>
+
+            <Separator orientation="vertical" className="h-6 hidden sm:block" />
+
+            {/* Activity filter dropdown */}
+            <Select
+              value={activityFilter}
+              onValueChange={(v) => setActivityFilter(v as ActivityFilter)}
+            >
+              <SelectTrigger className="w-auto min-w-[120px] h-8 text-sm">
+                <span className="flex-1 text-left">
+                  {activityFilterItems.find((i) => i.value === activityFilter)?.label}
+                </span>
+              </SelectTrigger>
+              <SelectContent>
+                {activityFilterItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Sort dropdown */}
+            <Select
+              value={sortBy}
+              onValueChange={(v) => setSortBy(v as SortOption)}
+            >
+              <SelectTrigger className="w-auto min-w-[140px] h-8 text-sm">
+                <ArrowDownWideNarrow className="size-3.5 mr-1 text-muted-foreground shrink-0" />
+                <span className="flex-1 text-left">
+                  {sortItems.find((i) => i.value === sortBy)?.label}
+                </span>
+              </SelectTrigger>
+              <SelectContent>
+                {sortItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </section>
 
@@ -104,12 +197,19 @@ export default function PoliticiansPage() {
                 {error instanceof Error ? error.message : "Okänt fel"}
               </p>
             </div>
-          ) : politicians?.length ? (
-            <div className="card-grid-3">
-              {politicians.map((p) => (
-                <PoliticianCardSimple key={p.id} politician={p} />
-              ))}
-            </div>
+          ) : filteredAndSorted.length ? (
+            <>
+              <p className="text-sm text-muted-foreground mb-4">
+                {filteredAndSorted.length === politicians?.length
+                  ? `${filteredAndSorted.length} politiker`
+                  : `${filteredAndSorted.length} av ${politicians?.length} politiker`}
+              </p>
+              <div className="card-grid-3">
+                {filteredAndSorted.map((p) => (
+                  <PoliticianCardSimple key={p.id} politician={p} />
+                ))}
+              </div>
+            </>
           ) : (
             <p className="text-center text-muted-foreground py-12">
               Inga politiker hittades

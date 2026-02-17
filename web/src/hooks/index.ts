@@ -1,4 +1,5 @@
 export * from "./useComments";
+export * from "./useDebounce";
 export * from "./useFetchContradictions";
 export * from "./useFetchMotions";
 export * from "./useFetchPolitician";

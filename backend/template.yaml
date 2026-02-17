@@ -5,7 +5,6 @@ Description: Politikerkollen backend
 Globals:
   Function:
     Timeout: 30
-    Runtime: nodejs22.x
     MemorySize: 512
     Environment:
       Variables:
@@ -70,6 +69,7 @@ Resources:
   GetConversations:
     Type: AWS::Serverless::Function
     Properties:
+      Runtime: nodejs22.x
       Handler: src/features/converse/GetConversations.handler
       Policies:
         - DynamoDBReadPolicy: { TableName: !Ref ConversationTable }
@@ -88,6 +88,7 @@ Resources:
   PostConversation:
     Type: AWS::Serverless::Function
     Properties:
+      Runtime: nodejs22.x
       Handler: src/features/converse/PostConversation.handler
       Policies:
         - DynamoDBCrudPolicy: { TableName: !Ref ConversationTable }
@@ -106,6 +107,7 @@ Resources:
   GetConversationMessages:
     Type: AWS::Serverless::Function
     Properties:
+      Runtime: nodejs22.x
       Handler: src/features/converse/GetConversationMessages.handler
       Policies:
         - DynamoDBReadPolicy: { TableName: !Ref ConversationTable }
@@ -124,6 +126,7 @@ Resources:
   PostConverse:
     Type: AWS::Serverless::Function
     Properties:
+      Runtime: nodejs22.x
       Handler: src/features/converse/PostConverse.handler
       Timeout: 900
       FunctionUrlConfig:
@@ -149,7 +152,17 @@ Resources:
       PackageType: Image
       Timeout: 30
       MemorySize: 1024 # DuckDB benefits from more memory
+      Architectures:
+        - arm64
       Events:
+        ListOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /politicians
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
         List:
           Type: Api
           Properties:
@@ -158,12 +171,28 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
+        GetOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /politicians/{id}
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
         Get:
           Type: Api
           Properties:
             RestApiId: !Ref Api
             Path: /politicians/{id}
             Method: GET
+            Auth:
+              Authorizer: NONE
+        TimelineOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /politicians/{id}/timeline
+            Method: OPTIONS
             Auth:
               Authorizer: NONE
         Timeline:

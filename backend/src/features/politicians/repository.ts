@@ -16,7 +16,7 @@ export interface ListPoliticiansOptions {
 export interface GetTimelineOptions {
   limit?: number;
   cursor?: string; // ISO date string for pagination
-  actionType?: 'vote' | 'speech' | 'authored';
+  actionTypes?: Array<'vote' | 'speech' | 'authored'>;
 }
 
 /**
@@ -24,6 +24,7 @@ export interface GetTimelineOptions {
  */
 export async function listPoliticians(options: ListPoliticiansOptions = {}): Promise<MartPerson[]> {
   const { search, party, limit = 50 } = options;
+  console.log('[listPoliticians] Called with options:', JSON.stringify(options));
 
   const conditions: string[] = [];
 
@@ -53,7 +54,9 @@ export async function listPoliticians(options: ListPoliticiansOptions = {}): Pro
     LIMIT ${limit}
   `;
 
+  console.log('[listPoliticians] Executing SQL:', sql.trim());
   const result = await query<MartPerson>(sql);
+  console.log('[listPoliticians] Result count:', result.data.length);
   return result.data;
 }
 
@@ -61,6 +64,7 @@ export async function listPoliticians(options: ListPoliticiansOptions = {}): Pro
  * Get a single politician by ID
  */
 export async function getPolitician(intressentId: string): Promise<MartPerson | null> {
+  console.log('[getPolitician] Called with intressentId:', intressentId);
   const sql = `
     SELECT *
     FROM ${SCHEMA}.mart_person
@@ -68,7 +72,9 @@ export async function getPolitician(intressentId: string): Promise<MartPerson | 
     LIMIT 1
   `;
 
+  console.log('[getPolitician] Executing SQL:', sql.trim());
   const result = await query<MartPerson>(sql);
+  console.log('[getPolitician] Result:', result.data[0] ? 'Found' : 'Not found');
   return result.data[0] ?? null;
 }
 
@@ -79,7 +85,8 @@ export async function getTimeline(
   intressentId: string,
   options: GetTimelineOptions = {},
 ): Promise<{ items: MartPersonTimeline[]; hasMore: boolean }> {
-  const { limit = 20, cursor, actionType } = options;
+  const { limit = 20, cursor, actionTypes } = options;
+  console.log('[getTimeline] Called with intressentId:', intressentId, 'options:', JSON.stringify(options));
 
   const conditions: string[] = [`intressent_id = '${escapeString(intressentId)}'`];
 
@@ -88,9 +95,10 @@ export async function getTimeline(
     conditions.push(`action_date < '${escapeString(cursor)}'`);
   }
 
-  // Filter by action type
-  if (actionType) {
-    conditions.push(`action_type = '${escapeString(actionType)}'`);
+  // Filter by action types (supports multiple)
+  if (actionTypes && actionTypes.length > 0) {
+    const typeList = actionTypes.map(t => `'${escapeString(t)}'`).join(', ');
+    conditions.push(`action_type IN (${typeList})`);
   }
 
   const whereClause = `WHERE ${conditions.join(' AND ')}`;
@@ -104,10 +112,12 @@ export async function getTimeline(
     LIMIT ${limit + 1}
   `;
 
+  console.log('[getTimeline] Executing SQL:', sql.trim());
   const result = await query<MartPersonTimeline>(sql);
 
   const hasMore = result.data.length > limit;
   const items = hasMore ? result.data.slice(0, limit) : result.data;
 
+  console.log('[getTimeline] Result count:', items.length, 'hasMore:', hasMore);
   return { items, hasMore };
 }

@@ -2,65 +2,29 @@
  * GET /politicians/{id}/timeline - Get a politician's action timeline
  */
 
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getTimeline } from './repository';
 import type { PaginatedResponse, TimelineItem } from './types';
 import { toTimelineItem } from './types';
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-  try {
-    const id = event.pathParameters?.id;
+export interface GetTimelineParams {
+  limit?: number;
+  cursor?: string;
+  actionTypes?: Array<'vote' | 'speech' | 'authored'>;
+}
 
-    if (!id) {
-      return {
-        statusCode: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({ error: 'Missing politician ID' }),
-      };
-    }
+export async function handleGetTimeline(
+  id: string,
+  params: GetTimelineParams,
+): Promise<PaginatedResponse<TimelineItem>> {
+  const { limit = 20, cursor, actionTypes } = params;
 
-    const params = event.queryStringParameters ?? {};
-    const limit = params.limit ? parseInt(params.limit, 10) : 20;
-    const cursor = params.cursor;
-    const actionType = params.type as 'vote' | 'speech' | 'authored' | undefined;
+  const { items, hasMore } = await getTimeline(id, { limit, cursor, actionTypes });
+  const timeline = items.map(toTimelineItem);
 
-    const { items, hasMore } = await getTimeline(id, { limit, cursor, actionType });
-    const timeline = items.map(toTimelineItem);
+  const nextCursor = hasMore && timeline.length > 0 ? timeline[timeline.length - 1].date : null;
 
-    // Next cursor is the date of the last item
-    const nextCursor = hasMore && timeline.length > 0 ? timeline[timeline.length - 1].date : null;
-
-    const response: PaginatedResponse<TimelineItem> = {
-      data: timeline,
-      pagination: {
-        hasMore,
-        nextCursor,
-      },
-    };
-
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify(response),
-    };
-  } catch (error) {
-    console.error('Error fetching timeline:', error);
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({
-        error: 'Failed to fetch timeline',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      }),
-    };
-  }
+  return {
+    data: timeline,
+    pagination: { hasMore, nextCursor },
+  };
 }

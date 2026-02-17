@@ -6,7 +6,12 @@ function Collapsible({ ...props }: CollapsiblePrimitive.Root.Props) {
   return <CollapsiblePrimitive.Root data-slot="collapsible" {...props} />
 }
 
-function CollapsibleTrigger({ ...props }: CollapsiblePrimitive.Trigger.Props) {
+function CollapsibleTrigger({
+  // Filter out asChild to prevent React DOM warning
+  // @ts-expect-error - asChild may be passed but is not a valid Base UI prop
+  asChild,
+  ...props
+}: CollapsiblePrimitive.Trigger.Props) {
   return (
     <CollapsiblePrimitive.Trigger data-slot="collapsible-trigger" {...props} />
   )

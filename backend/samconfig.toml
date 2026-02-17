@@ -4,6 +4,7 @@ version = 0.1
 
 [default.global.parameters]
 stack_name = "politikerkollen"
+region = "eu-north-1"
 
 [default.build.parameters]
 cached = true
@@ -16,6 +17,10 @@ lint = true
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
 resolve_s3 = true
+s3_prefix = "politikerkollen"
+region = "eu-north-1"
+profile = "enya-test"
+image_repositories = ["PoliticiansApi=030847345012.dkr.ecr.eu-north-1.amazonaws.com/politikerkollen28f9bc20/politiciansapief1617acrepo"]
 
 [default.package.parameters]
 resolve_s3 = true
