@@ -19,7 +19,7 @@ export function SearchBar({ className }: { className?: string }) {
   const filtered = politicians?.filter((p) => {
     if (!query) return false;
     const fullName = `${p.firstName} ${p.lastName}`.toLowerCase();
-    const party = p.party.name.toLowerCase();
+    const party = p.party.toLowerCase();
     return fullName.includes(query.toLowerCase()) || party.includes(query.toLowerCase());
   }).slice(0, 6);
 
@@ -75,7 +75,7 @@ export function SearchBar({ className }: { className?: string }) {
                       <User className="size-4 text-muted-foreground" />
                       <div className="flex flex-col">
                         <span className="font-medium">{p.firstName} {p.lastName}</span>
-                        <span className="text-muted-foreground">{p.party.shortName} · {p.constituency}</span>
+                        <span className="text-muted-foreground">{p.party} · {p.constituency}</span>
                       </div>
                     </CommandItem>
                   ))}
