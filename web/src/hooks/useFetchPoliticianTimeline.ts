@@ -8,6 +8,9 @@ export interface TimelineItem {
   type: "vote" | "speech" | "authored";
   date: string;
   title: string | null;
+  // Topic/committee info
+  committee?: string;
+  topic?: string;
   // Vote-specific
   voteValue?: string;
   votePunkt?: string;
@@ -17,6 +20,12 @@ export interface TimelineItem {
   // Speech-specific
   speechText?: string;
   activityType?: string;
+  speechNumber?: number;
+  isReply?: boolean;
+  speechSubTitle?: string;
+  protocolUrl?: string;
+  debateType?: string;
+  debateDocumentId?: string;
   // Authored-specific
   documentId?: string;
   documentType?: string;
@@ -28,6 +37,7 @@ export interface VoteGroup {
   type: "vote-group";
   betankandeId: string;
   betankandeTitel: string | null;
+  topic: string | null;
   date: string; // Date of first vote in group
   votes: TimelineItem[];
   summary: {
@@ -64,6 +74,7 @@ export function groupTimelineItems(items: TimelineItem[]): GroupedTimelineItem[]
           type: "vote-group",
           betankandeId: item.betankandeId,
           betankandeTitel: item.betankandeTitel ?? null,
+          topic: item.topic ?? null,
           date: item.date,
           votes: [item],
           summary: { ja: 0, nej: 0, avstar: 0, franvarande: 0 },

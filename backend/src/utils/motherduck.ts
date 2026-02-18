@@ -53,17 +53,5 @@ export async function query<T = Record<string, unknown>>(sql: string): Promise<Q
   };
 }
 
-/**
- * Escape a string for use in SQL (prevent SQL injection)
- */
-export function escapeString(value: string): string {
-  return value.replace(/'/g, "''");
-}
-
-/**
- * Build a fuzzy search condition using jaro_winkler_similarity
- */
-export function fuzzySearchCondition(column: string, searchTerm: string, threshold = 0.7): string {
-  const escaped = escapeString(searchTerm);
-  return `jaro_winkler_similarity('${escaped}', ${column}) > ${threshold}`;
-}
+// Re-export SQL utilities from sql-builder for backwards compatibility
+export { esc as escapeString } from './sql-builder';

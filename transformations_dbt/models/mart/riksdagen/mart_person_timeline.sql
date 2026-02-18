@@ -40,6 +40,11 @@ with votes as (
         null as speech_text,
         null as speech_text_clean,
         null as speech_activity_type,
+        null as speech_number,
+        null as speech_is_reply,
+        null as speech_sub_title,
+        null as speech_protocol_url,
+        null as speech_debate_type,
         
         -- No authored doc for votes
         null as authored_dok_id,
@@ -86,6 +91,13 @@ speeches as (
         a.anforandetext as speech_text,
         a.anforandetext_clean as speech_text_clean,
         a.kammaraktivitet as speech_activity_type,
+        
+        -- Speech context
+        a.anforande_nummer as speech_number,
+        a.replik as speech_is_reply,
+        a.underrubrik as speech_sub_title,
+        a.protokoll_url_www as speech_protocol_url,
+        coalesce(rel_dl.dokumentnamn, dl.dokumentnamn) as speech_debate_type,
         
         -- No authored doc for speeches
         null as authored_dok_id,
@@ -136,6 +148,11 @@ authored as (
         null as speech_text,
         null as speech_text_clean,
         null as speech_activity_type,
+        null as speech_number,
+        null as speech_is_reply,
+        null as speech_sub_title,
+        null as speech_protocol_url,
+        null as speech_debate_type,
         
         -- Authored document details
         ds.dokument__dok_id as authored_dok_id,
@@ -200,6 +217,11 @@ select
     a.speech_text,
     a.speech_text_clean,
     a.speech_activity_type,
+    a.speech_number,
+    a.speech_is_reply,
+    a.speech_sub_title,
+    a.speech_protocol_url,
+    a.speech_debate_type,
     
     -- Authored-specific (null for non-authored)
     a.authored_dok_id,

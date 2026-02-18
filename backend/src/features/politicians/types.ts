@@ -50,6 +50,11 @@ export interface MartPersonTimeline {
   speech_text: string | null;
   speech_text_clean: string | null;
   speech_activity_type: string | null;
+  speech_number: number | null;
+  speech_is_reply: string | null;
+  speech_sub_title: string | null;
+  speech_protocol_url: string | null;
+  speech_debate_type: string | null;
   authored_dok_id: string | null;
   authored_dok_titel: string | null;
   authored_dok_typ: string | null;
@@ -73,11 +78,48 @@ export interface PoliticianSummary {
   };
 }
 
+export interface VoteBreakdown {
+  ja: number;
+  nej: number;
+  avstar: number;
+  franvarande: number;
+}
+
+export interface PartyLoyalty {
+  totalVotes: number;
+  votesWithParty: number;
+  votesAgainstParty: number;
+  loyaltyPercentage: number;
+}
+
+export interface TopicActivity {
+  topic: string;
+  committee: string;
+  voteCount: number;
+  speechCount: number;
+  totalCount: number;
+}
+
+export interface RebelVote {
+  voteringId: string;
+  date: string;
+  personVote: string;
+  partyMajorityVote: string;
+  betankandeId: string | null;
+  betankandeTitel: string | null;
+  subjectTitle: string | null;
+  topic: string | null;
+}
+
 export interface PoliticianDetail extends PoliticianSummary {
   birthYear: number | null;
   gender: string | null;
   firstActionDate: string | null;
   lastActionDate: string | null;
+  voteBreakdown: VoteBreakdown;
+  partyLoyalty: PartyLoyalty;
+  topTopics: TopicActivity[];
+  rebelVotes: RebelVote[];
 }
 
 export interface TimelineItem {
@@ -85,6 +127,9 @@ export interface TimelineItem {
   type: 'vote' | 'speech' | 'authored';
   date: string;
   title: string | null;
+  // Topic/committee info
+  committee?: string;
+  topic?: string;
   // Vote-specific
   voteValue?: string;
   votePunkt?: string;
@@ -94,6 +139,12 @@ export interface TimelineItem {
   // Speech-specific
   speechText?: string;
   activityType?: string;
+  speechNumber?: number;
+  isReply?: boolean;
+  speechSubTitle?: string;
+  protocolUrl?: string;
+  debateType?: string;
+  debateDocumentId?: string;
   // Authored-specific
   documentId?: string;
   documentType?: string;
@@ -127,22 +178,58 @@ export function toSummary(row: MartPerson): PoliticianSummary {
   };
 }
 
-export function toDetail(row: MartPerson): PoliticianDetail {
+export function toDetail(row: MartPerson, voteBreakdown?: VoteBreakdown, partyLoyalty?: PartyLoyalty, topTopics?: TopicActivity[], rebelVotes?: RebelVote[]): PoliticianDetail {
   return {
     ...toSummary(row),
     birthYear: row.fodd_ar,
     gender: row.kon,
     firstActionDate: row.first_action_date,
     lastActionDate: row.last_action_date,
+    voteBreakdown: voteBreakdown ?? { ja: 0, nej: 0, avstar: 0, franvarande: 0 },
+    partyLoyalty: partyLoyalty ?? { totalVotes: 0, votesWithParty: 0, votesAgainstParty: 0, loyaltyPercentage: 0 },
+    topTopics: topTopics ?? [],
+    rebelVotes: rebelVotes ?? [],
   };
 }
 
+/**
+ * Map Swedish parliament committee codes to human-readable topic names
+ */
+const COMMITTEE_TO_TOPIC: Record<string, string> = {
+  AU: 'Arbetsmarknad',
+  CU: 'Civilrätt',
+  FiU: 'Finans',
+  FöU: 'Försvar',
+  JuU: 'Justitie',
+  KU: 'Konstitution',
+  KrU: 'Kultur',
+  MJU: 'Miljö & Jordbruk',
+  NU: 'Näringsliv',
+  SkU: 'Skatter',
+  SfU: 'Socialförsäkring',
+  SoU: 'Socialutskottet',
+  TU: 'Trafik',
+  UbU: 'Utbildning',
+  UU: 'Utrikes',
+  UFöU: 'Sammansatt utrikes/försvar',
+};
+
+function getTopicFromCommittee(committee: string | null): string | undefined {
+  if (!committee) return undefined;
+  return COMMITTEE_TO_TOPIC[committee] ?? committee;
+}
+
 export function toTimelineItem(row: MartPersonTimeline): TimelineItem {
+  const committee = row.betankande_organ ?? undefined;
+  const topic = getTopicFromCommittee(row.betankande_organ);
+  
   const base: TimelineItem = {
     id: row.action_id,
     type: row.action_type,
     date: row.action_date,
     title: row.subject_title,
+    committee,
+    topic,
   };
 
   if (row.action_type === 'vote') {
@@ -159,9 +246,15 @@ export function toTimelineItem(row: MartPersonTimeline): TimelineItem {
   if (row.action_type === 'speech') {
     return {
       ...base,
-      // Truncate speech text for list view
       speechText: row.speech_text_clean?.slice(0, 500) ?? undefined,
       activityType: row.speech_activity_type ?? undefined,
+      speechNumber: row.speech_number ?? undefined,
+      isReply: row.speech_is_reply === 'J',
+      speechSubTitle: row.speech_sub_title ?? undefined,
+      protocolUrl: row.speech_protocol_url ?? undefined,
+      debateType: row.speech_debate_type ?? undefined,
+      debateDocumentId: row.betankande_dok_id ?? undefined,
+      betankandeTitel: row.betankande_titel ?? undefined,
     };
   }
 

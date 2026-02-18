@@ -4,7 +4,7 @@
  */
 
 import { handleGetPolitician } from './GetPolitician';
-import { handleListPoliticians } from './GetPoliticians';
+import { handleListPoliticians, type SortOption } from './GetPoliticians';
 import { handleGetTimeline } from './GetPoliticianTimeline';
 
 const PORT = process.env.PORT || 8080;
@@ -23,6 +23,8 @@ function error(message: string, status: number) {
   return json({ error: message }, status);
 }
 
+const validSortOptions = ['name', 'mostActive', 'mostVotes', 'mostSpeeches'];
+
 const server = Bun.serve({
   port: PORT,
 
@@ -30,12 +32,21 @@ const server = Bun.serve({
     '/politicians': {
       GET: async (req) => {
         const url = new URL(req.url);
-        const politicians = await handleListPoliticians({
+        const sortByParam = url.searchParams.get('sortBy');
+        const sortBy = sortByParam && validSortOptions.includes(sortByParam) 
+          ? sortByParam as SortOption 
+          : 'mostActive';
+        
+        const result = await handleListPoliticians({
           search: url.searchParams.get('search') || undefined,
           party: url.searchParams.get('party') || undefined,
           limit: parseInt(url.searchParams.get('limit') || '50', 10),
+          offset: parseInt(url.searchParams.get('offset') || '0', 10),
+          sortBy,
+          fromDate: url.searchParams.get('fromDate') || undefined,
+          toDate: url.searchParams.get('toDate') || undefined,
         });
-        return json({ data: politicians });
+        return json(result);
       },
       OPTIONS: () => new Response(null, { status: 204, headers: corsHeaders }),
     },

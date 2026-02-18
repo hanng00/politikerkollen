@@ -31,21 +31,21 @@ export function PoliticianCardSimple({
 
   return (
     <Link href={`/politiker/${politician.id}`}>
-      <Card className="hover:ring-1 hover:ring-foreground/20 transition-all cursor-pointer group">
-        <CardContent className="pt-4">
-          <div className="flex items-start gap-3">
-            <Avatar className="size-10">
+      <Card className="h-full hover:ring-1 hover:ring-foreground/20 transition-all cursor-pointer group">
+        <CardContent className="pt-4 h-full">
+          <div className="flex items-start gap-3 h-full">
+            <Avatar className="size-10 shrink-0">
               {politician.imageUrl && (
                 <AvatarImage src={politician.imageUrl} alt={politician.name} />
               )}
               <AvatarFallback className="text-xs">{initials}</AvatarFallback>
             </Avatar>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 flex flex-col">
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-medium truncate">
                   {politician.name}
                 </h3>
-                <Badge className={`text-[10px] h-4 px-1 ${partyColor}`}>
+                <Badge className={`text-[10px] h-4 px-1 shrink-0 ${partyColor}`}>
                   {politician.party}
                 </Badge>
               </div>
@@ -53,7 +53,7 @@ export function PoliticianCardSimple({
                 {politician.constituency}
               </p>
 
-              <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-3 mt-auto pt-2 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Vote className="size-3" />
                   {politician.stats.totalVotes}

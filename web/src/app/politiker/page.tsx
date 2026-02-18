@@ -1,101 +1,125 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "@/components/ui/select";
-import { ArrowDownWideNarrow, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { SiteHeader } from "@/components/layout";
 import { PoliticianCardSimple } from "@/components/politiker";
-import { useFetchPoliticians, useDebounce, type PoliticianSummary } from "@/hooks";
-
-// Swedish party abbreviations
-const partyFilters = ["S", "M", "SD", "C", "V", "KD", "L", "MP"];
-
-type SortOption = "name" | "mostActive" | "mostVotes" | "mostSpeeches";
-type ActivityFilter = "all" | "active" | "veryActive";
-
-const activityFilterItems = [
-  { value: "all", label: "Alla aktivitetsnivåer" },
-  { value: "active", label: "Aktiva (100+)" },
-  { value: "veryActive", label: "Mycket aktiva (500+)" },
-];
-
-const sortItems = [
-  { value: "mostActive", label: "Mest aktiva" },
-  { value: "mostVotes", label: "Flest röster" },
-  { value: "mostSpeeches", label: "Flest anföranden" },
-  { value: "name", label: "Namn A-Ö" },
-];
+import {
+  SearchFilter,
+  PartyFilter,
+  PeriodFilter,
+  ActivityFilter,
+  SortFilter,
+  getDateRangeFromPeriod,
+  type ActivityFilterValue,
+} from "@/components/politiker/filters";
+import {
+  useDebounce,
+  useInfiniteFetchPoliticians,
+  type PoliticianSummary,
+  type SortOption,
+} from "@/hooks";
 
 function getTotalActivity(p: PoliticianSummary) {
-  return p.stats.totalVotes + p.stats.totalSpeeches + p.stats.totalAuthored;
+  return (
+    Number(p.stats.totalVotes) +
+    Number(p.stats.totalSpeeches) +
+    Number(p.stats.totalAuthored)
+  );
 }
 
 export default function PoliticiansPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [partyFilter, setPartyFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>("mostActive");
-  const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
+  const [activityFilter, setActivityFilter] = useState<ActivityFilterValue>("all");
+  const [periodFilter, setPeriodFilter] = useState("all");
+  const [customFromDate, setCustomFromDate] = useState("");
+  const [customToDate, setCustomToDate] = useState("");
+  const [useCustomDates, setUseCustomDates] = useState(false);
 
   const debouncedSearch = useDebounce(searchQuery, 300);
 
+  const dateRange = useMemo(
+    () =>
+      getDateRangeFromPeriod(
+        periodFilter,
+        customFromDate,
+        customToDate,
+        useCustomDates
+      ),
+    [periodFilter, customFromDate, customToDate, useCustomDates]
+  );
+
   const {
-    data: politicians,
+    data,
     isLoading,
     error,
-  } = useFetchPoliticians({
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteFetchPoliticians({
     search: debouncedSearch || undefined,
     party: partyFilter ?? undefined,
-    limit: 500,
+    sortBy,
+    limit: 30,
+    fromDate: dateRange.fromDate,
+    toDate: dateRange.toDate,
   });
 
-  // Client-side filtering and sorting
-  const filteredAndSorted = useMemo(() => {
-    if (!politicians) return [];
+  const politicians = useMemo(() => {
+    if (!data?.pages) return [];
+    return data.pages.flatMap((page) => page.data);
+  }, [data]);
 
-    let result = [...politicians];
+  const filtered = useMemo(() => {
+    if (!politicians.length) return [];
 
-    // Filter by activity level (using sensible thresholds)
+    let result = politicians;
+
     if (activityFilter === "active") {
       result = result.filter((p) => getTotalActivity(p) >= 100);
     } else if (activityFilter === "veryActive") {
       result = result.filter((p) => getTotalActivity(p) >= 500);
     }
 
-    // Sort
-    result.sort((a, b) => {
-      switch (sortBy) {
-        case "mostActive":
-          return getTotalActivity(b) - getTotalActivity(a);
-        case "mostVotes":
-          return b.stats.totalVotes - a.stats.totalVotes;
-        case "mostSpeeches":
-          return b.stats.totalSpeeches - a.stats.totalSpeeches;
-        case "name":
-        default:
-          return a.name.localeCompare(b.name, "sv");
+    return result;
+  }, [politicians, activityFilter]);
+
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  const handleObserver = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      const [entry] = entries;
+      if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
       }
+    },
+    [fetchNextPage, hasNextPage, isFetchingNextPage]
+  );
+
+  useEffect(() => {
+    const element = loadMoreRef.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(handleObserver, {
+      root: null,
+      rootMargin: "200px",
+      threshold: 0,
     });
 
-    return result;
-  }, [politicians, sortBy, activityFilter]);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [handleObserver]);
 
   return (
     <div className="min-h-screen min-w-0 overflow-x-clip">
       <SiteHeader />
 
       <main className="page-container py-8 space-y-8">
-        {/* Hero */}
         <header className="page-section text-center">
           <h1 className="page-title">Riksdagens ledamöter</h1>
           <p className="page-subtitle">
@@ -103,86 +127,31 @@ export default function PoliticiansPage() {
           </p>
         </header>
 
-        {/* Search & Filters */}
         <section className="space-y-3">
-          {/* Search bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <Input
-              placeholder="Sök politiker..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+          <SearchFilter value={searchQuery} onChange={setSearchQuery} />
 
-          {/* Filter bar - all filters in one row */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* Party filter pills */}
-            <div className="flex items-center gap-1 flex-wrap">
-              <Button
-                variant={partyFilter === null ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => setPartyFilter(null)}
-              >
-                Alla partier
-              </Button>
-              {partyFilters.map((party) => (
-                <Button
-                  key={party}
-                  variant={partyFilter === party ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setPartyFilter(party)}
-                >
-                  {party}
-                </Button>
-              ))}
-            </div>
+            <PartyFilter value={partyFilter} onChange={setPartyFilter} />
 
             <Separator orientation="vertical" className="h-6 hidden sm:block" />
 
-            {/* Activity filter dropdown */}
-            <Select
-              value={activityFilter}
-              onValueChange={(v) => setActivityFilter(v as ActivityFilter)}
-            >
-              <SelectTrigger className="w-auto min-w-[120px] h-8 text-sm">
-                <span className="flex-1 text-left">
-                  {activityFilterItems.find((i) => i.value === activityFilter)?.label}
-                </span>
-              </SelectTrigger>
-              <SelectContent>
-                {activityFilterItems.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <PeriodFilter
+              periodFilter={periodFilter}
+              onPeriodChange={setPeriodFilter}
+              customFromDate={customFromDate}
+              customToDate={customToDate}
+              onCustomFromDateChange={setCustomFromDate}
+              onCustomToDateChange={setCustomToDate}
+              useCustomDates={useCustomDates}
+              onUseCustomDatesChange={setUseCustomDates}
+            />
 
-            {/* Sort dropdown */}
-            <Select
-              value={sortBy}
-              onValueChange={(v) => setSortBy(v as SortOption)}
-            >
-              <SelectTrigger className="w-auto min-w-[140px] h-8 text-sm">
-                <ArrowDownWideNarrow className="size-3.5 mr-1 text-muted-foreground shrink-0" />
-                <span className="flex-1 text-left">
-                  {sortItems.find((i) => i.value === sortBy)?.label}
-                </span>
-              </SelectTrigger>
-              <SelectContent>
-                {sortItems.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ActivityFilter value={activityFilter} onChange={setActivityFilter} />
+
+            <SortFilter value={sortBy} onChange={setSortBy} />
           </div>
         </section>
 
-        {/* Politicians Grid */}
         <section>
           {isLoading ? (
             <div className="card-grid-3">
@@ -197,17 +166,26 @@ export default function PoliticiansPage() {
                 {error instanceof Error ? error.message : "Okänt fel"}
               </p>
             </div>
-          ) : filteredAndSorted.length ? (
+          ) : filtered.length ? (
             <>
               <p className="text-sm text-muted-foreground mb-4">
-                {filteredAndSorted.length === politicians?.length
-                  ? `${filteredAndSorted.length} politiker`
-                  : `${filteredAndSorted.length} av ${politicians?.length} politiker`}
+                {filtered.length === politicians.length
+                  ? `${filtered.length} politiker${hasNextPage ? "+" : ""}`
+                  : `${filtered.length} av ${politicians.length} politiker`}
               </p>
               <div className="card-grid-3">
-                {filteredAndSorted.map((p) => (
+                {filtered.map((p) => (
                   <PoliticianCardSimple key={p.id} politician={p} />
                 ))}
+              </div>
+
+              <div ref={loadMoreRef} className="py-8 flex justify-center">
+                {isFetchingNextPage && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" />
+                    <span className="text-sm">Laddar fler...</span>
+                  </div>
+                )}
               </div>
             </>
           ) : (
@@ -215,41 +193,6 @@ export default function PoliticiansPage() {
               Inga politiker hittades
             </p>
           )}
-        </section>
-
-        {/* Stats */}
-        <Separator />
-        <section className="card-grid-3">
-          <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-3xl font-bold">{politicians?.length ?? "—"}</p>
-              <p className="text-sm text-muted-foreground">Riksdagsledamöter</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-3xl font-bold">
-                {politicians
-                  ?.reduce((sum, p) => sum + p.stats.totalVotes, 0)
-                  .toLocaleString() ?? "—"}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Totalt antal röster
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-3xl font-bold">
-                {politicians
-                  ?.reduce((sum, p) => sum + p.stats.totalSpeeches, 0)
-                  .toLocaleString() ?? "—"}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Totalt antal anföranden
-              </p>
-            </CardContent>
-          </Card>
         </section>
       </main>
     </div>
