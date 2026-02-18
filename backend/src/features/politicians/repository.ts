@@ -132,13 +132,24 @@ async function listPoliticiansWithDateFilter(options: ListPoliticiansOptions): P
     'stats.last_action_date',
   ].join(',\n  ');
 
+  // Determine ORDER BY - search always uses person table alias 'p' for namn column
+  // Activity sorting uses 'stats' alias for aggregated columns
+  let orderByClause: string;
+  if (search?.trim()) {
+    // Search term present: sort by name similarity (always uses person table)
+    orderByClause = politicianOrderBy(sortBy, search, 'p');
+  } else {
+    // No search: use appropriate alias based on sort type
+    orderByClause = politicianOrderBy(sortBy, undefined, sortBy === 'name' ? 'p' : 'stats');
+  }
+
   const sql = buildQuery({
     ctes: [statsCTE],
     select: selectColumns,
     from: `${Tables.person} p`,
     joins: ['LEFT JOIN filtered_stats stats ON p.intressent_id = stats.intressent_id'],
     where: and(...personConditions),
-    orderBy: politicianOrderBy(sortBy, search, sortBy === 'name' ? 'p' : 'stats'),
+    orderBy: orderByClause,
     limit,
     offset,
   });

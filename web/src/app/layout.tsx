@@ -24,8 +24,26 @@ const sourceSerif = Source_Serif_4({
 });
 
 export const metadata: Metadata = {
-  title: "Politikerkollen",
-  description: "Politikerkollen",
+  title: {
+    default: "Politikerkollen",
+    template: "%s | Politikerkollen",
+  },
+  description:
+    "Följ riksdagens politiker. Se hur de röstar, vad de debatterar och vilka frågor de driver.",
+  openGraph: {
+    title: "Politikerkollen",
+    description:
+      "Följ riksdagens politiker. Se hur de röstar, vad de debatterar och vilka frågor de driver.",
+    type: "website",
+    siteName: "Politikerkollen",
+    locale: "sv_SE",
+  },
+  twitter: {
+    card: "summary",
+    title: "Politikerkollen",
+    description:
+      "Följ riksdagens politiker. Se hur de röstar, vad de debatterar och vilka frågor de driver.",
+  },
 };
 
 export default function RootLayout({

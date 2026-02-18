@@ -12,7 +12,8 @@ interface RebelVotesCardProps {
 }
 
 function getRiksdagenBetankandeUrl(betankandeId: string): string {
-  return `https://www.riksdagen.se/sv/dokument-och-lagar/dokument/betankande/${betankandeId}/`;
+  // Using underscore prefix without slug - Riksdagen redirects to the full URL with slug
+  return `https://www.riksdagen.se/sv/dokument-och-lagar/dokument/betankande/_${betankandeId.toLowerCase()}/`;
 }
 
 function getVoteColor(vote: string): string {
