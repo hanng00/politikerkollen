@@ -54,7 +54,7 @@ with votes as (
         
     from {{ ref('stg_voteringlista') }} v
     left join {{ ref('stg_dokumentstatus_utskottsforslag') }} utf 
-        on utf.votering_id = v.votering_id
+        on lower(utf.votering_id) = lower(v.votering_id)
     left join {{ ref('stg_dokumentlista') }} dl 
         on dl.dok_id = v.dok_id
     where v.intressent_id is not null
