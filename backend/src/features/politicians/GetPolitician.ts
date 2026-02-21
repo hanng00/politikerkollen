@@ -14,7 +14,7 @@ export async function handleGetPolitician(id: string): Promise<PoliticianDetail 
     getVoteBreakdown(id),
     getPartyLoyalty(id, row.parti),
     getTopTopics(id, 5),
-    getRebelVotes(id, row.parti, 5),
+    getRebelVotes(id, row.parti, 50),
   ]);
   
   return toDetail(row, voteBreakdown, partyLoyalty, topTopics, rebelVotes);
