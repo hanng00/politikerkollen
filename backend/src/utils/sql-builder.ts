@@ -26,6 +26,7 @@ export const PersonColumns = {
   total_votes: 'total_votes',
   total_speeches: 'total_speeches',
   total_authored: 'total_authored',
+  rebel_vote_count: 'rebel_vote_count',
   first_action_date: 'first_action_date',
   last_action_date: 'last_action_date',
 } as const;
@@ -280,6 +281,8 @@ export function politicianOrderBy(sortBy: string, searchTerm?: string, alias?: s
       return `COALESCE(${prefix}total_votes, 0) DESC`;
     case 'mostSpeeches':
       return `COALESCE(${prefix}total_speeches, 0) DESC`;
+    case 'mostRebel':
+      return `COALESCE(${prefix}rebel_vote_count, 0) DESC`;
     case 'name':
     default:
       return `${prefix}sorteringsnamn ASC`;

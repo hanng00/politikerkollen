@@ -3,6 +3,13 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 const API_ENDPOINT = process.env.NEXT_PUBLIC_API_ENDPOINT;
 
 // API response types (matching backend)
+export interface DocumentStakeholder {
+  intressentId: string;
+  name: string;
+  party: string | null;
+  role: "undertecknare" | "stalldtill" | "besvaradav" | "fragestallare";
+}
+
 export interface TimelineItem {
   id: string;
   type: "vote" | "speech" | "authored";
@@ -30,6 +37,7 @@ export interface TimelineItem {
   documentId?: string;
   documentType?: string;
   authorRole?: string;
+  stakeholders?: DocumentStakeholder[];
 }
 
 // Grouped timeline types for UI

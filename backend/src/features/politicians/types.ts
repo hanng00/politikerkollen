@@ -21,6 +21,7 @@ export interface MartPerson {
   total_votes: number;
   total_speeches: number;
   total_authored: number;
+  rebel_vote_count: number;
   first_action_date: string | null;
   last_action_date: string | null;
 }
@@ -59,6 +60,7 @@ export interface MartPersonTimeline {
   authored_dok_titel: string | null;
   authored_dok_typ: string | null;
   authored_roll: string | null;
+  authored_stakeholders: string | null; // JSON array
 }
 
 // API response types
@@ -75,6 +77,7 @@ export interface PoliticianSummary {
     totalVotes: number;
     totalSpeeches: number;
     totalAuthored: number;
+    rebelVoteCount: number;
   };
 }
 
@@ -122,6 +125,13 @@ export interface PoliticianDetail extends PoliticianSummary {
   rebelVotes: RebelVote[];
 }
 
+export interface DocumentStakeholder {
+  intressentId: string;
+  name: string;
+  party: string | null;
+  role: 'undertecknare' | 'stalldtill' | 'besvaradav' | 'fragestallare';
+}
+
 export interface TimelineItem {
   id: string;
   type: 'vote' | 'speech' | 'authored';
@@ -149,6 +159,7 @@ export interface TimelineItem {
   documentId?: string;
   documentType?: string;
   authorRole?: string;
+  stakeholders?: DocumentStakeholder[];
 }
 
 export interface PaginatedResponse<T> {
@@ -174,6 +185,7 @@ export function toSummary(row: MartPerson): PoliticianSummary {
       totalVotes: row.total_votes,
       totalSpeeches: row.total_speeches,
       totalAuthored: row.total_authored,
+      rebelVoteCount: row.rebel_vote_count,
     },
   };
 }
@@ -264,5 +276,27 @@ export function toTimelineItem(row: MartPersonTimeline): TimelineItem {
     documentId: row.authored_dok_id ?? undefined,
     documentType: row.authored_dok_typ ?? undefined,
     authorRole: row.authored_roll ?? undefined,
+    stakeholders: parseStakeholders(row.authored_stakeholders),
   };
+}
+
+function parseStakeholders(json: string | null): DocumentStakeholder[] | undefined {
+  if (!json) return undefined;
+  try {
+    const raw = JSON.parse(json) as Array<{
+      intressent_id: string;
+      namn: string;
+      parti: string | null;
+      roll: string;
+      ordning: string;
+    }>;
+    return raw.map((s) => ({
+      intressentId: s.intressent_id,
+      name: s.namn,
+      party: s.parti,
+      role: s.roll as DocumentStakeholder['role'],
+    }));
+  } catch {
+    return undefined;
+  }
 }

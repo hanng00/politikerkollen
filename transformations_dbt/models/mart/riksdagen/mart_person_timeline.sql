@@ -50,7 +50,8 @@ with votes as (
         null as authored_dok_id,
         null as authored_dok_titel,
         null as authored_dok_typ,
-        null as authored_roll
+        null as authored_roll,
+        null as authored_stakeholders
         
     from {{ ref('stg_voteringlista') }} v
     left join {{ ref('stg_dokumentstatus_utskottsforslag') }} utf 
@@ -103,7 +104,8 @@ speeches as (
         null as authored_dok_id,
         null as authored_dok_titel,
         null as authored_dok_typ,
-        null as authored_roll
+        null as authored_roll,
+        null as authored_stakeholders
         
     from {{ ref('stg_anforande') }} a
     left join {{ ref('stg_dokumentlista') }} dl 
@@ -116,6 +118,22 @@ speeches as (
 -- =============================================================================
 -- AUTHORED: Person signed/authored a document
 -- =============================================================================
+-- Pre-aggregate all stakeholders per document for context
+doc_stakeholders as (
+    select
+        _dlt_root_id,
+        to_json(list({
+            'intressent_id': intressent_id,
+            'namn': namn,
+            'parti': partibet,
+            'roll': roll,
+            'ordning': ordning
+        } order by ordning)) as stakeholders
+    from {{ ref('stg_dokumentstatus_intressent') }}
+    where intressent_id is not null
+    group by _dlt_root_id
+),
+
 authored as (
     select
         di.intressent_id,
@@ -158,11 +176,14 @@ authored as (
         ds.dokument__dok_id as authored_dok_id,
         ds.dokument__titel as authored_dok_titel,
         ds.dokument__dokumentnamn as authored_dok_typ,
-        di.roll as authored_roll
+        di.roll as authored_roll,
+        dsh.stakeholders as authored_stakeholders
         
     from {{ ref('stg_dokumentstatus_intressent') }} di
     inner join {{ ref('stg_dokumentstatus') }} ds 
         on ds._dlt_id = di._dlt_root_id
+    left join doc_stakeholders dsh
+        on dsh._dlt_root_id = di._dlt_root_id
     where di.intressent_id is not null
       and ds.dokument__dok_id is not null
 ),
@@ -227,7 +248,8 @@ select
     a.authored_dok_id,
     a.authored_dok_titel,
     a.authored_dok_typ,
-    a.authored_roll
+    a.authored_roll,
+    a.authored_stakeholders
 
 from all_actions a
 inner join {{ ref('stg_personlista') }} p 

@@ -16,6 +16,7 @@ export interface PoliticianSummary {
     totalVotes: number;
     totalSpeeches: number;
     totalAuthored: number;
+    rebelVoteCount: number;
   };
 }
 
@@ -25,7 +26,7 @@ interface PaginatedResponse {
   hasMore: boolean;
 }
 
-export type SortOption = "name" | "mostActive" | "mostVotes" | "mostSpeeches";
+export type SortOption = "name" | "mostActive" | "mostVotes" | "mostSpeeches" | "mostRebel";
 
 export interface FetchPoliticiansOptions {
   search?: string;

@@ -35,10 +35,12 @@ import {
   groupTimelineItems,
   useFetchPoliticianTimeline,
   type ActivityType,
+  type DocumentStakeholder,
   type GroupedTimelineItem,
   type TimelineItem,
   type VoteGroup,
 } from "@/hooks/useFetchPoliticianTimeline";
+import Link from "next/link";
 
 // Party colors
 const partyColors: Record<string, string> = {
@@ -207,8 +209,8 @@ function VoteGroupCard({ group }: { group: VoteGroup }) {
         </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="mx-4 mb-4 pl-5 border-l border-border py-2">
-            {group.votes.map((vote) => (
-              <div key={vote.id} className="py-2 flex items-start gap-3">
+            {group.votes.map((vote, idx) => (
+              <div key={`${vote.id}-${idx}`} className="py-2 flex items-start gap-3">
                 <span
                   className={`text-xs font-medium w-12 shrink-0 ${
                     vote.voteValue === "Ja"
@@ -373,8 +375,146 @@ function SpeechCard({ item }: { item: TimelineItem }) {
   );
 }
 
+const ROLE_LABELS: Record<DocumentStakeholder["role"], string> = {
+  undertecknare: "Frågeställare",
+  fragestallare: "Frågeställare",
+  stalldtill: "Ställd till",
+  besvaradav: "Besvarad av",
+};
+
+function StakeholderLink({ stakeholder }: { stakeholder: DocumentStakeholder }) {
+  return (
+    <Link
+      href={`/politiker/${stakeholder.intressentId}`}
+      className="inline-flex items-center gap-1 text-sm hover:underline"
+    >
+      <span className="font-medium">{stakeholder.name}</span>
+      {stakeholder.party && (
+        <span className="text-muted-foreground">({stakeholder.party})</span>
+      )}
+    </Link>
+  );
+}
+
+function WrittenQuestionCard({ item }: { item: TimelineItem }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const date = new Date(item.date).toLocaleDateString("sv-SE");
+  const hasStakeholders = item.stakeholders && item.stakeholders.length > 0;
+
+  const questioner = item.stakeholders?.find(
+    (s) => s.role === "undertecknare" || s.role === "fragestallare"
+  );
+  const addressedTo = item.stakeholders?.find((s) => s.role === "stalldtill");
+  const answeredBy = item.stakeholders?.find((s) => s.role === "besvaradav");
+
+  if (!hasStakeholders) {
+    return (
+      <TimelineCard
+        indicator="document"
+        label={item.documentType?.toUpperCase() || "SKRIFTLIG FRÅGA"}
+        date={date}
+        meta={item.authorRole}
+        title={item.title || "Skriftlig fråga"}
+        actions={
+          item.documentId ? (
+            <a
+              href={`https://www.riksdagen.se/sv/dokument-och-lagar/dokument/_${item.documentId}/`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <ExternalLink className="size-3" />
+            </a>
+          ) : undefined
+        }
+      />
+    );
+  }
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Card>
+        <CardContent className="py-4 px-4">
+          <div className="flex items-start gap-3">
+            <div className="size-2 rounded-full bg-emerald-500 mt-2 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1 flex-wrap">
+                <span>{item.documentType?.toUpperCase() || "SKRIFTLIG FRÅGA"}</span>
+                <span>—</span>
+                <span>{date}</span>
+              </div>
+              <CollapsibleTrigger asChild>
+                <div className="text-left w-full group cursor-pointer">
+                  <div className="flex items-start gap-2">
+                    <p className="font-medium group-hover:text-primary transition-colors">
+                      {item.title || "Skriftlig fråga"}
+                    </p>
+                    <ChevronDown
+                      className={`size-4 shrink-0 text-muted-foreground transition-transform mt-0.5 ${
+                        isOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </div>
+                </div>
+              </CollapsibleTrigger>
+            </div>
+            {item.documentId && (
+              <a
+                href={`https://www.riksdagen.se/sv/dokument-och-lagar/dokument/_${item.documentId}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-foreground shrink-0"
+              >
+                <ExternalLink className="size-3" />
+              </a>
+            )}
+          </div>
+
+          <CollapsibleContent>
+            <div className="mt-4 ml-5 space-y-3 border-l-2 border-muted pl-4">
+              {questioner && (
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                    {ROLE_LABELS[questioner.role]}
+                  </span>
+                  <StakeholderLink stakeholder={questioner} />
+                </div>
+              )}
+              {addressedTo && (
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                    {ROLE_LABELS.stalldtill}
+                  </span>
+                  <StakeholderLink stakeholder={addressedTo} />
+                </div>
+              )}
+              {answeredBy && answeredBy.intressentId !== addressedTo?.intressentId && (
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                    {ROLE_LABELS.besvaradav}
+                  </span>
+                  <StakeholderLink stakeholder={answeredBy} />
+                </div>
+              )}
+            </div>
+          </CollapsibleContent>
+        </CardContent>
+      </Card>
+    </Collapsible>
+  );
+}
+
 function AuthoredCard({ item }: { item: TimelineItem }) {
   const date = new Date(item.date).toLocaleDateString("sv-SE");
+
+  // Use WrittenQuestionCard for skriftlig fråga documents
+  const isWrittenQuestion =
+    item.documentType?.toLowerCase().includes("skriftlig fråga") ||
+    item.documentType?.toLowerCase() === "fr";
+
+  if (isWrittenQuestion) {
+    return <WrittenQuestionCard item={item} />;
+  }
 
   return (
     <TimelineCard
@@ -667,7 +807,7 @@ export default function PoliticianPageClient({ id }: { id: string }) {
                       key={
                         item.type === "vote-group"
                           ? `group-${item.betankandeId}-${item.date}-${index}`
-                          : item.id
+                          : `${item.type}-${item.id}-${index}`
                       }
                       item={item}
                     />

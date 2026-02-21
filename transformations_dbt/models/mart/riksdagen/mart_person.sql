@@ -37,6 +37,49 @@ timeline_stats as (
         max(action_date) as last_action_date
     from {{ ref('mart_person_timeline') }}
     group by intressent_id
+),
+
+-- Calculate party majority vote per votering_id and party
+party_votes as (
+    select
+        action_id as votering_id,
+        parti,
+        vote_value,
+        count(*) as vote_count
+    from {{ ref('mart_person_timeline') }}
+    where action_type = 'vote'
+      and vote_value in ('Ja', 'Nej', 'Avstår')
+    group by action_id, parti, vote_value
+),
+
+party_majority as (
+    select votering_id, parti, vote_value as majority_vote
+    from (
+        select 
+            votering_id, 
+            parti, 
+            vote_value,
+            row_number() over (
+                partition by votering_id, parti 
+                order by vote_count desc
+            ) as rn
+        from party_votes
+    )
+    where rn = 1
+),
+
+-- Count rebel votes per person (votes against party majority)
+rebel_stats as (
+    select
+        t.intressent_id,
+        count(*) filter (where t.vote_value != pm.majority_vote) as rebel_vote_count
+    from {{ ref('mart_person_timeline') }} t
+    inner join party_majority pm 
+        on pm.votering_id = t.action_id 
+        and pm.parti = t.parti
+    where t.action_type = 'vote'
+      and t.vote_value in ('Ja', 'Nej', 'Avstår')
+    group by t.intressent_id
 )
 
 select
@@ -59,8 +102,10 @@ select
     coalesce(s.total_votes, 0) as total_votes,
     coalesce(s.total_speeches, 0) as total_speeches,
     coalesce(s.total_authored, 0) as total_authored,
+    coalesce(r.rebel_vote_count, 0) as rebel_vote_count,
     s.first_action_date,
     s.last_action_date
 
 from persons p
 left join timeline_stats s on s.intressent_id = p.intressent_id
+left join rebel_stats r on r.intressent_id = p.intressent_id

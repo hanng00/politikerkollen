@@ -6,7 +6,7 @@ import { listPoliticians } from './repository';
 import type { PoliticianSummary } from './types';
 import { toSummary } from './types';
 
-export type SortOption = 'name' | 'mostActive' | 'mostVotes' | 'mostSpeeches';
+export type SortOption = 'name' | 'mostActive' | 'mostVotes' | 'mostSpeeches' | 'mostRebel';
 
 export interface ListPoliticiansParams {
   search?: string;

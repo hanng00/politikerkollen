@@ -13,6 +13,7 @@ const SORT_ITEMS = [
   { value: "mostActive", label: "Mest aktiva" },
   { value: "mostVotes", label: "Flest röster" },
   { value: "mostSpeeches", label: "Flest anföranden" },
+  { value: "mostRebel", label: "Flest avvikelser" },
   { value: "name", label: "Namn A-Ö" },
 ] as const;
 

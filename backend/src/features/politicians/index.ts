@@ -23,7 +23,7 @@ function error(message: string, status: number) {
   return json({ error: message }, status);
 }
 
-const validSortOptions = ['name', 'mostActive', 'mostVotes', 'mostSpeeches'];
+const validSortOptions = ['name', 'mostActive', 'mostVotes', 'mostSpeeches', 'mostRebel'];
 
 const server = Bun.serve({
   port: PORT,

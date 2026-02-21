@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import type { PoliticianSummary } from "@/hooks/useFetchPoliticians";
-import { ChevronRight, FileText, MessageSquare, Vote } from "lucide-react";
+import { AlertTriangle, ChevronRight, FileText, MessageSquare, Vote } from "lucide-react";
 import Link from "next/link";
 
 // Party colors for badge styling
@@ -66,6 +66,12 @@ export function PoliticianCardSimple({
                   <FileText className="size-3" />
                   {politician.stats.totalAuthored}
                 </span>
+                {politician.stats.rebelVoteCount > 0 && (
+                  <span className="flex items-center gap-1 text-amber-600 dark:text-amber-500">
+                    <AlertTriangle className="size-3" />
+                    {politician.stats.rebelVoteCount}
+                  </span>
+                )}
               </div>
             </div>
             <ChevronRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />

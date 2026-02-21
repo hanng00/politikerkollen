@@ -98,3 +98,9 @@ models:
 
       - name: authored_roll
         description: "Role: undertecknare, fragestallare, etc. (only for action_type=authored)"
+
+      - name: authored_stakeholders
+        description: |
+          JSON array of all stakeholders for this document (only for action_type=authored).
+          Structure: [{ intressent_id, namn, parti, roll, ordning }, ...]
+          Roles: undertecknare (author), stalldtill (addressed to), besvaradav (answered by), fragestallare (questioner)

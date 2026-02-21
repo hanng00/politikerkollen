@@ -13,6 +13,7 @@ import {
   politicianOrderBy,
   cte,
   and,
+  or,
   eq,
   gte,
   lte,
@@ -32,7 +33,7 @@ export interface ListPoliticiansOptions {
   party?: string;
   limit?: number;
   offset?: number;
-  sortBy?: 'name' | 'mostActive' | 'mostVotes' | 'mostSpeeches';
+  sortBy?: 'name' | 'mostActive' | 'mostVotes' | 'mostSpeeches' | 'mostRebel';
   fromDate?: string;
   toDate?: string;
 }
@@ -110,6 +111,7 @@ async function listPoliticiansWithDateFilter(options: ListPoliticiansOptions): P
   const statsCTE = buildTimelineStatsCTE('filtered_stats', timelineConditions);
 
   // Build select columns - explicitly list to control output
+  // Note: rebel_vote_count uses all-time value from mart_person (not date-filtered)
   const selectColumns = [
     'p.intressent_id',
     'p.tilltalsnamn',
@@ -128,19 +130,22 @@ async function listPoliticiansWithDateFilter(options: ListPoliticiansOptions): P
     'COALESCE(stats.total_votes, 0) as total_votes',
     'COALESCE(stats.total_speeches, 0) as total_speeches',
     'COALESCE(stats.total_authored, 0) as total_authored',
+    'COALESCE(p.rebel_vote_count, 0) as rebel_vote_count',
     'stats.first_action_date',
     'stats.last_action_date',
   ].join(',\n  ');
 
   // Determine ORDER BY - search always uses person table alias 'p' for namn column
   // Activity sorting uses 'stats' alias for aggregated columns
+  // Rebel sorting uses 'p' alias since rebel_vote_count is pre-computed in mart_person
   let orderByClause: string;
   if (search?.trim()) {
     // Search term present: sort by name similarity (always uses person table)
     orderByClause = politicianOrderBy(sortBy, search, 'p');
   } else {
     // No search: use appropriate alias based on sort type
-    orderByClause = politicianOrderBy(sortBy, undefined, sortBy === 'name' ? 'p' : 'stats');
+    const usePersonTable = sortBy === 'name' || sortBy === 'mostRebel';
+    orderByClause = politicianOrderBy(sortBy, undefined, usePersonTable ? 'p' : 'stats');
   }
 
   const sql = buildQuery({
@@ -465,6 +470,7 @@ WHERE (votering_id, vote_count) IN (
 
 /**
  * Get timeline for a politician with cursor-based pagination
+ * Cursor format: date_actionId (compound to handle multiple items on same date)
  */
 export async function getTimeline(
   intressentId: string,
@@ -475,9 +481,28 @@ export async function getTimeline(
 
   const conditions: Condition[] = [eq(TimelineColumns.intressent_id, intressentId)];
 
-  // Cursor-based pagination (action_date)
+  // Cursor-based pagination using compound cursor (date_actionId)
   if (cursor) {
-    conditions.push(lt(TimelineColumns.action_date, cursor));
+    const underscoreIndex = cursor.indexOf('_');
+    if (underscoreIndex > 0) {
+      const cursorDate = cursor.substring(0, underscoreIndex);
+      const cursorActionId = cursor.substring(underscoreIndex + 1);
+      // Get items that are either:
+      // 1. On an earlier date, OR
+      // 2. On the same date but with a "smaller" action_id (for consistent ordering)
+      conditions.push(
+        or(
+          lt(TimelineColumns.action_date, cursorDate),
+          and(
+            eq(TimelineColumns.action_date, cursorDate),
+            lt(TimelineColumns.action_id, cursorActionId),
+          ),
+        ),
+      );
+    } else {
+      // Fallback for old cursor format (just date)
+      conditions.push(lt(TimelineColumns.action_date, cursor));
+    }
   }
 
   // Filter by action types (supports multiple)
@@ -486,11 +511,12 @@ export async function getTimeline(
   }
 
   // Fetch one extra to check if there are more
+  // Order by date DESC, then action_id DESC for consistent pagination
   const sql = buildQuery({
     select: '*',
     from: Tables.timeline,
     where: and(...conditions),
-    orderBy: `${TimelineColumns.action_date} DESC`,
+    orderBy: `${TimelineColumns.action_date} DESC, ${TimelineColumns.action_id} DESC`,
     limit: limit + 1,
   });
 

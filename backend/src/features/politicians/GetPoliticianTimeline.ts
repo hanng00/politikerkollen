@@ -21,7 +21,9 @@ export async function handleGetTimeline(
   const { items, hasMore } = await getTimeline(id, { limit, cursor, actionTypes });
   const timeline = items.map(toTimelineItem);
 
-  const nextCursor = hasMore && timeline.length > 0 ? timeline[timeline.length - 1].date : null;
+  // Compound cursor: date_actionId to handle multiple items on same date
+  const lastItem = timeline[timeline.length - 1];
+  const nextCursor = hasMore && lastItem ? `${lastItem.date}_${lastItem.id}` : null;
 
   return {
     data: timeline,

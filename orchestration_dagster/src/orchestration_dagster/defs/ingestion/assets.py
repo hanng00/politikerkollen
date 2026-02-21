@@ -82,7 +82,8 @@ def _build_ingestion_command(
 @dg.asset(
     key=AssetKey(["raw_riksdagen", "anforandelista"]),
     group_name=GROUP_NAME,
-    description="Ingest anforandelista (speeches) data from Riksdagen API",
+    partitions_def=month_partition,
+    description="Ingest anforandelista (speeches) data from Riksdagen API. Monthly partitions for efficient batching.",
 )
 def anforandelista(
     context: AssetExecutionContext,
