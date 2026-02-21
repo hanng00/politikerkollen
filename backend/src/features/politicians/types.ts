@@ -270,14 +270,28 @@ export function toTimelineItem(row: MartPersonTimeline): TimelineItem {
     };
   }
 
-  // authored
+  // authored — use the document's own title, fall back to subject_title from base
   return {
     ...base,
+    title: row.authored_dok_titel ?? row.subject_title,
     documentId: row.authored_dok_id ?? undefined,
     documentType: row.authored_dok_typ ?? undefined,
-    authorRole: row.authored_roll ?? undefined,
+    authorRole: formatAuthorRole(row.authored_roll),
     stakeholders: parseStakeholders(row.authored_stakeholders),
   };
+}
+
+const AUTHOR_ROLE_LABELS: Record<string, string> = {
+  undertecknare: 'Undertecknare',
+  stalldtill: 'Ställd till',
+  besvaradav: 'Besvarad av',
+  fragestallare: 'Frågeställare',
+  huvudman: 'Huvudman',
+};
+
+export function formatAuthorRole(role: string | null | undefined): string | undefined {
+  if (!role) return undefined;
+  return AUTHOR_ROLE_LABELS[role.toLowerCase()] ?? role;
 }
 
 function parseStakeholders(json: string | null): DocumentStakeholder[] | undefined {
@@ -290,7 +304,17 @@ function parseStakeholders(json: string | null): DocumentStakeholder[] | undefin
       roll: string;
       ordning: string;
     }>;
-    return raw.map((s) => ({
+
+    // Deduplicate by intressent_id + roll — the mart JOIN can produce duplicate rows
+    const seen = new Set<string>();
+    const unique = raw.filter((s) => {
+      const key = `${s.intressent_id}:${s.roll}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    return unique.map((s) => ({
       intressentId: s.intressent_id,
       name: s.namn,
       party: s.parti,

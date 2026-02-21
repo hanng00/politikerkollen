@@ -375,9 +375,57 @@ function SpeechCard({ item }: { item: TimelineItem }) {
   );
 }
 
-const ROLE_LABELS: Record<DocumentStakeholder["role"], string> = {
+// Handles both short Riksdag codes ("mot") and full names ("Motion") from the DB
+const DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  mot: "Motion",
+  motion: "Motion",
+  ip: "Interpellation",
+  interpellation: "Interpellation",
+  fr: "Skriftlig fråga",
+  "skriftlig fråga": "Skriftlig fråga",
+  bet: "Betänkande",
+  "betänkande": "Betänkande",
+  prop: "Proposition",
+  proposition: "Proposition",
+  skr: "Skrivelse",
+  skrivelse: "Skrivelse",
+  fpm: "Faktapromemoria",
+  faktapromemoria: "Faktapromemoria",
+  prot: "Protokoll",
+  protokoll: "Protokoll",
+  rskr: "Riksdagsskrivelse",
+  riksdagsskrivelse: "Riksdagsskrivelse",
+  yttr: "Yttrande",
+  yttrande: "Yttrande",
+  sou: "SOU",
+  ds: "Ds",
+};
+
+function getDocumentTypeLabel(type?: string | null): string {
+  if (!type) return "Dokument";
+  return DOCUMENT_TYPE_LABELS[type.toLowerCase()] ?? type;
+}
+
+function isDocType(
+  type: string | undefined | null,
+  ...codes: string[]
+): boolean {
+  if (!type) return false;
+  const lower = type.toLowerCase();
+  return codes.some((c) => lower === c);
+}
+
+// Role labels vary by document type context
+const QUESTION_ROLE_LABELS: Record<DocumentStakeholder["role"], string> = {
   undertecknare: "Frågeställare",
   fragestallare: "Frågeställare",
+  stalldtill: "Ställd till",
+  besvaradav: "Besvarad av",
+};
+
+const INTERPELLATION_ROLE_LABELS: Record<DocumentStakeholder["role"], string> = {
+  undertecknare: "Interpellant",
+  fragestallare: "Interpellant",
   stalldtill: "Ställd till",
   besvaradav: "Besvarad av",
 };
@@ -396,37 +444,45 @@ function StakeholderLink({ stakeholder }: { stakeholder: DocumentStakeholder }) 
   );
 }
 
-function WrittenQuestionCard({ item }: { item: TimelineItem }) {
+function WrittenQuestionCard({
+  item,
+  roleLabels = QUESTION_ROLE_LABELS,
+}: {
+  item: TimelineItem;
+  roleLabels?: Record<DocumentStakeholder["role"], string>;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const date = new Date(item.date).toLocaleDateString("sv-SE");
   const hasStakeholders = item.stakeholders && item.stakeholders.length > 0;
+  const typeLabel = getDocumentTypeLabel(item.documentType);
+  const fallbackTitle = typeLabel;
 
   const questioner = item.stakeholders?.find(
-    (s) => s.role === "undertecknare" || s.role === "fragestallare"
+    (s) => s.role === "undertecknare" || s.role === "fragestallare",
   );
   const addressedTo = item.stakeholders?.find((s) => s.role === "stalldtill");
   const answeredBy = item.stakeholders?.find((s) => s.role === "besvaradav");
+
+  const externalLink = item.documentId ? (
+    <a
+      href={`https://www.riksdagen.se/sv/dokument-och-lagar/dokument/_${item.documentId}/`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-muted-foreground hover:text-foreground shrink-0"
+    >
+      <ExternalLink className="size-3" />
+    </a>
+  ) : null;
 
   if (!hasStakeholders) {
     return (
       <TimelineCard
         indicator="document"
-        label={item.documentType?.toUpperCase() || "SKRIFTLIG FRÅGA"}
+        label={typeLabel.toUpperCase()}
         date={date}
         meta={item.authorRole}
-        title={item.title || "Skriftlig fråga"}
-        actions={
-          item.documentId ? (
-            <a
-              href={`https://www.riksdagen.se/sv/dokument-och-lagar/dokument/_${item.documentId}/`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <ExternalLink className="size-3" />
-            </a>
-          ) : undefined
-        }
+        title={item.title || fallbackTitle}
+        actions={externalLink ?? undefined}
       />
     );
   }
@@ -439,7 +495,7 @@ function WrittenQuestionCard({ item }: { item: TimelineItem }) {
             <div className="size-2 rounded-full bg-emerald-500 mt-2 shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1 flex-wrap">
-                <span>{item.documentType?.toUpperCase() || "SKRIFTLIG FRÅGA"}</span>
+                <span>{typeLabel.toUpperCase()}</span>
                 <span>—</span>
                 <span>{date}</span>
               </div>
@@ -447,7 +503,7 @@ function WrittenQuestionCard({ item }: { item: TimelineItem }) {
                 <div className="text-left w-full group cursor-pointer">
                   <div className="flex items-start gap-2">
                     <p className="font-medium group-hover:text-primary transition-colors">
-                      {item.title || "Skriftlig fråga"}
+                      {item.title || fallbackTitle}
                     </p>
                     <ChevronDown
                       className={`size-4 shrink-0 text-muted-foreground transition-transform mt-0.5 ${
@@ -458,16 +514,7 @@ function WrittenQuestionCard({ item }: { item: TimelineItem }) {
                 </div>
               </CollapsibleTrigger>
             </div>
-            {item.documentId && (
-              <a
-                href={`https://www.riksdagen.se/sv/dokument-och-lagar/dokument/_${item.documentId}/`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-muted-foreground hover:text-foreground shrink-0"
-              >
-                <ExternalLink className="size-3" />
-              </a>
-            )}
+            {externalLink}
           </div>
 
           <CollapsibleContent>
@@ -475,7 +522,7 @@ function WrittenQuestionCard({ item }: { item: TimelineItem }) {
               {questioner && (
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                    {ROLE_LABELS[questioner.role]}
+                    {roleLabels[questioner.role]}
                   </span>
                   <StakeholderLink stakeholder={questioner} />
                 </div>
@@ -483,19 +530,102 @@ function WrittenQuestionCard({ item }: { item: TimelineItem }) {
               {addressedTo && (
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                    {ROLE_LABELS.stalldtill}
+                    {roleLabels.stalldtill}
                   </span>
                   <StakeholderLink stakeholder={addressedTo} />
                 </div>
               )}
-              {answeredBy && answeredBy.intressentId !== addressedTo?.intressentId && (
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                    {ROLE_LABELS.besvaradav}
-                  </span>
-                  <StakeholderLink stakeholder={answeredBy} />
+              {answeredBy &&
+                answeredBy.intressentId !== addressedTo?.intressentId && (
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                      {roleLabels.besvaradav}
+                    </span>
+                    <StakeholderLink stakeholder={answeredBy} />
+                  </div>
+                )}
+            </div>
+          </CollapsibleContent>
+        </CardContent>
+      </Card>
+    </Collapsible>
+  );
+}
+
+function MotionCard({ item }: { item: TimelineItem }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const date = new Date(item.date).toLocaleDateString("sv-SE");
+  const cosignatories = item.stakeholders?.filter(
+    (s) => s.role === "undertecknare",
+  );
+  const hasCoSignatories = cosignatories && cosignatories.length > 0;
+
+  const externalLink = item.documentId ? (
+    <a
+      href={`https://www.riksdagen.se/sv/dokument-och-lagar/dokument/_${item.documentId}/`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-muted-foreground hover:text-foreground shrink-0"
+    >
+      <ExternalLink className="size-3" />
+    </a>
+  ) : null;
+
+  if (!hasCoSignatories) {
+    return (
+      <TimelineCard
+        indicator="document"
+        label="MOTION"
+        date={date}
+        meta={item.authorRole}
+        title={item.title || "Motion"}
+        actions={externalLink ?? undefined}
+      />
+    );
+  }
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Card>
+        <CardContent className="py-4 px-4">
+          <div className="flex items-start gap-3">
+            <div className="size-2 rounded-full bg-emerald-500 mt-2 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1 flex-wrap">
+                <span>MOTION</span>
+                <span>—</span>
+                <span>{date}</span>
+                <span className="text-muted-foreground/50">·</span>
+                <span>{cosignatories.length} undertecknare</span>
+              </div>
+              <CollapsibleTrigger asChild>
+                <div className="text-left w-full group cursor-pointer">
+                  <div className="flex items-start gap-2">
+                    <p className="font-medium group-hover:text-primary transition-colors">
+                      {item.title || "Motion"}
+                    </p>
+                    <ChevronDown
+                      className={`size-4 shrink-0 text-muted-foreground transition-transform mt-0.5 ${
+                        isOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </div>
                 </div>
-              )}
+              </CollapsibleTrigger>
+            </div>
+            {externalLink}
+          </div>
+
+          <CollapsibleContent>
+            <div className="mt-4 ml-5 border-l-2 border-muted pl-4">
+              <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                Undertecknare
+              </span>
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                {cosignatories.map((s) => (
+                  <StakeholderLink key={s.intressentId} stakeholder={s} />
+                ))}
+              </div>
             </div>
           </CollapsibleContent>
         </CardContent>
@@ -507,22 +637,29 @@ function WrittenQuestionCard({ item }: { item: TimelineItem }) {
 function AuthoredCard({ item }: { item: TimelineItem }) {
   const date = new Date(item.date).toLocaleDateString("sv-SE");
 
-  // Use WrittenQuestionCard for skriftlig fråga documents
-  const isWrittenQuestion =
-    item.documentType?.toLowerCase().includes("skriftlig fråga") ||
-    item.documentType?.toLowerCase() === "fr";
-
-  if (isWrittenQuestion) {
-    return <WrittenQuestionCard item={item} />;
+  if (isDocType(item.documentType, "fr", "skriftlig fråga")) {
+    return <WrittenQuestionCard item={item} roleLabels={QUESTION_ROLE_LABELS} />;
   }
+
+  if (isDocType(item.documentType, "ip", "interpellation")) {
+    return (
+      <WrittenQuestionCard item={item} roleLabels={INTERPELLATION_ROLE_LABELS} />
+    );
+  }
+
+  if (isDocType(item.documentType, "mot", "motion")) {
+    return <MotionCard item={item} />;
+  }
+
+  const typeLabel = getDocumentTypeLabel(item.documentType);
 
   return (
     <TimelineCard
       indicator="document"
-      label={item.documentType?.toUpperCase() || "DOKUMENT"}
+      label={typeLabel.toUpperCase()}
       date={date}
       meta={item.authorRole}
-      title={item.title || "Dokument"}
+      title={item.title || typeLabel}
       actions={
         item.documentId ? (
           <a

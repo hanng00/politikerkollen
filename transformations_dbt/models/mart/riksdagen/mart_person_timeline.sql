@@ -119,6 +119,7 @@ speeches as (
 -- AUTHORED: Person signed/authored a document
 -- =============================================================================
 -- Pre-aggregate all stakeholders per document for context
+-- stg_dokumentstatus_intressent is already deduplicated at the staging layer
 doc_stakeholders as (
     select
         _dlt_root_id,
