@@ -37,6 +37,7 @@ import {
   type ActivityType,
   type DocumentStakeholder,
   type GroupedTimelineItem,
+  type MotionImpactScore,
   type TimelineItem,
   type VoteGroup,
 } from "@/hooks/useFetchPoliticianTimeline";
@@ -552,6 +553,99 @@ function WrittenQuestionCard({
   );
 }
 
+function ImpactScorePill({ score, isProvisional }: { score: number; isProvisional: boolean }) {
+  const pct = Math.round(score * 100);
+  const color =
+    pct >= 60 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
+    : pct >= 35 ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
+    : "bg-muted text-muted-foreground";
+  return (
+    <span className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${color}`}>
+      {pct}
+      <span className="font-normal opacity-70">/ 100</span>
+      {isProvisional && <span className="opacity-50 ml-0.5">~</span>}
+    </span>
+  );
+}
+
+function ImpactScoreBreakdown({ impact }: { impact: MotionImpactScore }) {
+  const COMMITTEE_TO_TOPIC: Record<string, string> = {
+    AU: "Arbetsmarknad", CU: "Civilrätt", FiU: "Finans", FöU: "Försvar",
+    JuU: "Justitie", KU: "Konstitution", KrU: "Kultur", MJU: "Miljö & Jordbruk",
+    NU: "Näringsliv", SkU: "Skatter", SfU: "Socialförsäkring", SoU: "Socialutskottet",
+    TU: "Trafik", UbU: "Utbildning", UU: "Utrikes",
+  };
+
+  const rows: { label: string; detail: string; score: number | null }[] = [
+    {
+      label: "Utfall",
+      detail: impact.breakdown.outcome.label === "bifall"
+        ? "Bifallen"
+        : impact.breakdown.outcome.label === "avslag"
+        ? "Avslagen"
+        : "Ej behandlad",
+      score: impact.breakdown.outcome.score,
+    },
+    {
+      label: "Omröstning",
+      detail: impact.breakdown.voteMargin.ja != null && impact.breakdown.voteMargin.nej != null
+        ? `${impact.breakdown.voteMargin.ja} Ja · ${impact.breakdown.voteMargin.nej} Nej`
+        : "Acklamation",
+      score: impact.breakdown.voteMargin.score,
+    },
+    {
+      label: "Partibredd",
+      detail: `${impact.breakdown.crossParty.parties} av 8 partier`,
+      score: impact.breakdown.crossParty.score,
+    },
+    {
+      label: "Undertecknare",
+      detail: `${impact.breakdown.signatories.count} st`,
+      score: impact.breakdown.signatories.score,
+    },
+    {
+      label: "Utskott",
+      detail: impact.organ
+        ? (COMMITTEE_TO_TOPIC[impact.organ] ?? impact.organ)
+        : "Okänt",
+      score: impact.breakdown.topic.score,
+    },
+  ];
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xs text-muted-foreground uppercase tracking-wide">
+          Impactpoäng
+        </span>
+        <ImpactScorePill score={impact.score} isProvisional={impact.isProvisional} />
+        {impact.isProvisional && (
+          <span className="text-[10px] text-muted-foreground">preliminär</span>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground w-24 shrink-0">{row.label}</span>
+            <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-emerald-500/60"
+                style={{ width: `${Math.round((row.score ?? 0) * 100)}%` }}
+              />
+            </div>
+            <span className="text-[10px] tabular-nums text-muted-foreground w-4 text-right">
+              {Math.round((row.score ?? 0) * 100)}
+            </span>
+            <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
+              {row.detail}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function MotionCard({ item }: { item: TimelineItem }) {
   const [isOpen, setIsOpen] = useState(false);
   const date = new Date(item.date).toLocaleDateString("sv-SE");
@@ -559,6 +653,8 @@ function MotionCard({ item }: { item: TimelineItem }) {
     (s) => s.role === "undertecknare",
   );
   const hasCoSignatories = cosignatories && cosignatories.length > 0;
+  const hasImpact = !!item.impactScore;
+  const isExpandable = hasCoSignatories || hasImpact;
 
   const externalLink = item.documentId ? (
     <a
@@ -571,7 +667,7 @@ function MotionCard({ item }: { item: TimelineItem }) {
     </a>
   ) : null;
 
-  if (!hasCoSignatories) {
+  if (!isExpandable) {
     return (
       <TimelineCard
         indicator="document"
@@ -595,8 +691,21 @@ function MotionCard({ item }: { item: TimelineItem }) {
                 <span>MOTION</span>
                 <span>—</span>
                 <span>{date}</span>
-                <span className="text-muted-foreground/50">·</span>
-                <span>{cosignatories.length} undertecknare</span>
+                {hasCoSignatories && (
+                  <>
+                    <span className="text-muted-foreground/50">·</span>
+                    <span>{cosignatories!.length} undertecknare</span>
+                  </>
+                )}
+                {item.impactScore && (
+                  <>
+                    <span className="text-muted-foreground/50">·</span>
+                    <ImpactScorePill
+                      score={item.impactScore.score}
+                      isProvisional={item.impactScore.isProvisional}
+                    />
+                  </>
+                )}
               </div>
               <CollapsibleTrigger asChild>
                 <div className="text-left w-full group cursor-pointer">
@@ -617,15 +726,22 @@ function MotionCard({ item }: { item: TimelineItem }) {
           </div>
 
           <CollapsibleContent>
-            <div className="mt-4 ml-5 border-l-2 border-muted pl-4">
-              <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                Undertecknare
-              </span>
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                {cosignatories.map((s) => (
-                  <StakeholderLink key={s.intressentId} stakeholder={s} />
-                ))}
-              </div>
+            <div className="mt-4 ml-5 space-y-4 border-l-2 border-muted pl-4">
+              {hasCoSignatories && (
+                <div>
+                  <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                    Undertecknare
+                  </span>
+                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                    {cosignatories!.map((s) => (
+                      <StakeholderLink key={s.intressentId} stakeholder={s} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {item.impactScore && (
+                <ImpactScoreBreakdown impact={item.impactScore} />
+              )}
             </div>
           </CollapsibleContent>
         </CardContent>

@@ -10,6 +10,19 @@ export interface DocumentStakeholder {
   role: "undertecknare" | "stalldtill" | "besvaradav" | "fragestallare";
 }
 
+export interface MotionImpactScore {
+  score: number;
+  isProvisional: boolean;
+  organ: string | null;
+  breakdown: {
+    outcome:     { score: number | null; label: string | null; weight: number };
+    voteMargin:  { score: number | null; ja: number | null; nej: number | null; weight: number };
+    crossParty:  { score: number; parties: number; weight: number };
+    signatories: { score: number; count: number; weight: number };
+    topic:       { score: number; organ: string | null; weight: number };
+  };
+}
+
 export interface TimelineItem {
   id: string;
   type: "vote" | "speech" | "authored";
@@ -38,6 +51,8 @@ export interface TimelineItem {
   documentType?: string;
   authorRole?: string;
   stakeholders?: DocumentStakeholder[];
+  // Impact score — only present for authored motioner with resolved outcomes
+  impactScore?: MotionImpactScore;
 }
 
 // Grouped timeline types for UI

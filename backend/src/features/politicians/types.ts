@@ -132,6 +132,40 @@ export interface DocumentStakeholder {
   role: 'undertecknare' | 'stalldtill' | 'besvaradav' | 'fragestallare';
 }
 
+// Database row type from mart_motion_impact_score
+export interface MartMotionImpactScore {
+  mot_dok_id: string;
+  impact_score: number;
+  is_provisional: boolean;
+  outcome_score: number | null;
+  outcome_label: string | null;
+  vote_margin_score: number | null;
+  cross_party_score: number;
+  signatory_score: number;
+  topic_score: number;
+  ja_count: number | null;
+  nej_count: number | null;
+  abstain_count: number | null;
+  signatory_count: number;
+  distinct_parties: number;
+  organ: string | null;
+  score_breakdown: string; // JSON
+}
+
+// API response type for impact score (camelCase, parsed)
+export interface MotionImpactScore {
+  score: number;
+  isProvisional: boolean;
+  organ: string | null;
+  breakdown: {
+    outcome:     { score: number | null; label: string | null; weight: number };
+    voteMargin:  { score: number | null; ja: number | null; nej: number | null; weight: number };
+    crossParty:  { score: number; parties: number; weight: number };
+    signatories: { score: number; count: number; weight: number };
+    topic:       { score: number; organ: string | null; weight: number };
+  };
+}
+
 export interface TimelineItem {
   id: string;
   type: 'vote' | 'speech' | 'authored';
@@ -160,6 +194,8 @@ export interface TimelineItem {
   documentType?: string;
   authorRole?: string;
   stakeholders?: DocumentStakeholder[];
+  // Impact score (only for authored motioner with resolved outcomes)
+  impactScore?: MotionImpactScore;
 }
 
 export interface PaginatedResponse<T> {
@@ -292,6 +328,49 @@ const AUTHOR_ROLE_LABELS: Record<string, string> = {
 export function formatAuthorRole(role: string | null | undefined): string | undefined {
   if (!role) return undefined;
   return AUTHOR_ROLE_LABELS[role.toLowerCase()] ?? role;
+}
+
+export function toMotionImpactScore(row: MartMotionImpactScore): MotionImpactScore {
+  let parsed: Record<string, { score: number | null; weight: number; label?: string | null; ja?: number | null; nej?: number | null; parties?: number; count?: number; organ?: string | null }> = {};
+  try {
+    parsed = JSON.parse(row.score_breakdown);
+  } catch {
+    // fall through — breakdown fields populated from raw columns below
+  }
+
+  return {
+    score: row.impact_score,
+    isProvisional: row.is_provisional,
+    organ: row.organ,
+    breakdown: {
+      outcome: {
+        score:  row.outcome_score,
+        label:  row.outcome_label,
+        weight: parsed.outcome?.weight ?? 0.35,
+      },
+      voteMargin: {
+        score:  row.vote_margin_score,
+        ja:     row.ja_count,
+        nej:    row.nej_count,
+        weight: parsed.vote_margin?.weight ?? 0.20,
+      },
+      crossParty: {
+        score:   row.cross_party_score,
+        parties: row.distinct_parties,
+        weight:  parsed.cross_party?.weight ?? 0.20,
+      },
+      signatories: {
+        score:  row.signatory_score,
+        count:  row.signatory_count,
+        weight: parsed.signatories?.weight ?? 0.15,
+      },
+      topic: {
+        score:  row.topic_score,
+        organ:  row.organ,
+        weight: parsed.topic?.weight ?? 0.10,
+      },
+    },
+  };
 }
 
 function parseStakeholders(json: string | null): DocumentStakeholder[] | undefined {

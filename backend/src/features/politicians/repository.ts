@@ -8,6 +8,7 @@ import {
   Tables,
   PersonColumns,
   TimelineColumns,
+  MotionImpactColumns,
   buildQuery,
   buildTimelineStatsCTE,
   politicianOrderBy,
@@ -26,7 +27,7 @@ import {
   quote,
   type Condition,
 } from '../../utils/sql-builder';
-import type { MartPerson, MartPersonTimeline, VoteBreakdown } from './types';
+import type { MartMotionImpactScore, MartPerson, MartPersonTimeline, VoteBreakdown } from './types';
 
 export interface ListPoliticiansOptions {
   search?: string;
@@ -528,4 +529,44 @@ export async function getTimeline(
 
   console.log('[getTimeline] Result count:', items.length, 'hasMore:', hasMore);
   return { items, hasMore };
+}
+
+/**
+ * Batch-fetch impact scores for a list of motion dok_ids.
+ * Returns a map of dok_id → MartMotionImpactScore for O(1) lookup.
+ */
+export async function getMotionImpactScores(
+  dokIds: string[],
+): Promise<Map<string, MartMotionImpactScore>> {
+  if (dokIds.length === 0) return new Map();
+
+  console.log('[getMotionImpactScores] Fetching scores for', dokIds.length, 'motioner');
+
+  const sql = buildQuery({
+    select: `
+      ${MotionImpactColumns.mot_dok_id},
+      ${MotionImpactColumns.impact_score},
+      ${MotionImpactColumns.is_provisional},
+      ${MotionImpactColumns.outcome_score},
+      ${MotionImpactColumns.outcome_label},
+      ${MotionImpactColumns.vote_margin_score},
+      ${MotionImpactColumns.cross_party_score},
+      ${MotionImpactColumns.signatory_score},
+      ${MotionImpactColumns.topic_score},
+      ${MotionImpactColumns.ja_count},
+      ${MotionImpactColumns.nej_count},
+      ${MotionImpactColumns.abstain_count},
+      ${MotionImpactColumns.signatory_count},
+      ${MotionImpactColumns.distinct_parties},
+      ${MotionImpactColumns.organ},
+      ${MotionImpactColumns.score_breakdown}
+    `.trim(),
+    from: Tables.motionImpact,
+    where: inList(MotionImpactColumns.mot_dok_id, dokIds),
+  });
+
+  console.log('[getMotionImpactScores] Executing SQL:', sql);
+  const result = await query<MartMotionImpactScore>(sql);
+
+  return new Map(result.data.map((row) => [row.mot_dok_id, row]));
 }

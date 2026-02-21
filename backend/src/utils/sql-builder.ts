@@ -68,8 +68,29 @@ export const TimelineColumns = {
   authored_roll: 'authored_roll',
 } as const;
 
+/** mart_motion_impact_score table columns */
+export const MotionImpactColumns = {
+  mot_dok_id:          'mot_dok_id',
+  impact_score:        'impact_score',
+  is_provisional:      'is_provisional',
+  outcome_score:       'outcome_score',
+  outcome_label:       'outcome_label',
+  vote_margin_score:   'vote_margin_score',
+  cross_party_score:   'cross_party_score',
+  signatory_score:     'signatory_score',
+  topic_score:         'topic_score',
+  ja_count:            'ja_count',
+  nej_count:           'nej_count',
+  abstain_count:       'abstain_count',
+  signatory_count:     'signatory_count',
+  distinct_parties:    'distinct_parties',
+  organ:               'organ',
+  score_breakdown:     'score_breakdown',
+} as const;
+
 export type PersonColumn = keyof typeof PersonColumns;
 export type TimelineColumn = keyof typeof TimelineColumns;
+export type MotionImpactColumn = keyof typeof MotionImpactColumns;
 
 // =============================================================================
 // Schema & Table References
@@ -78,8 +99,9 @@ export type TimelineColumn = keyof typeof TimelineColumns;
 export const SCHEMA = 'main_mart';
 
 export const Tables = {
-  person: `${SCHEMA}.mart_person`,
-  timeline: `${SCHEMA}.mart_person_timeline`,
+  person:        `${SCHEMA}.mart_person`,
+  timeline:      `${SCHEMA}.mart_person_timeline`,
+  motionImpact:  `${SCHEMA}.mart_motion_impact_score`,
 } as const;
 
 // =============================================================================

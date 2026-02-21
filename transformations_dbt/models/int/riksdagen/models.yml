@@ -36,6 +36,64 @@ models:
       - name: votering_id
         description: "Domain ID from Riksdagen"
 
+  - name: int_motion_outcome
+    description: |
+      One row per motion that has been treated in a betänkande.
+      Resolves mot → bet → utskottsforslag via dlt join keys and forslag text match.
+      Provides outcome_score (O) and votering_id for downstream margin calculation.
+    columns:
+      - name: mot_dok_id
+        description: "Motion document ID (primary key)"
+        tests:
+          - not_null
+          - unique
+      - name: outcome_score
+        description: "O component: bifall=1.0, avslag/acklamation=0.3"
+      - name: outcome_label
+        description: "Human-readable: bifall | avslag | unknown"
+      - name: organ
+        description: "Committee organ from parent betänkande (e.g. FiU, KU, CU)"
+      - name: votering_id
+        description: "Roll-call vote ID; null when beslutstyp=acklamation"
+      - name: bet_dok_id
+        description: "Parent betänkande dok_id"
+
+  - name: int_motion_vote_margin
+    description: |
+      One row per votering_id with aggregated Ja/Nej counts and the M (margin) component.
+      M = 1 − |Ja − Nej| / (Ja + Nej). Joins to int_motion_outcome on votering_id.
+    columns:
+      - name: votering_id
+        description: "Roll-call vote ID (primary key, lowercased)"
+        tests:
+          - not_null
+          - unique
+      - name: vote_margin_score
+        description: "M component: 1.0 = 50/50 split, 0.0 = unanimous"
+      - name: ja_count
+        description: "Total Ja votes"
+      - name: nej_count
+        description: "Total Nej votes"
+
+  - name: int_motion_signatories
+    description: |
+      One row per motion with signatory counts and derived N + C components.
+      Source: stg_dokumentstatus_intressent where parent is a motion.
+    columns:
+      - name: mot_dok_id
+        description: "Motion document ID (primary key)"
+        tests:
+          - not_null
+          - unique
+      - name: signatory_score
+        description: "N component: min(signatory_count / 50, 1.0)"
+      - name: cross_party_score
+        description: "C component: distinct signatory parties / 8"
+      - name: signatory_count
+        description: "Total co-signers (undertecknare + huvudman)"
+      - name: distinct_parties
+        description: "Number of distinct parties among signatories"
+
   - name: int_edge
     description: |
       Graph edges: union of all relation types.

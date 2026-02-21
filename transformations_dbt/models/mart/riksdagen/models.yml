@@ -104,3 +104,62 @@ models:
           JSON array of all stakeholders for this document (only for action_type=authored).
           Structure: [{ intressent_id, namn, parti, roll, ordning }, ...]
           Roles: undertecknare (author), stalldtill (addressed to), besvaradav (answered by), fragestallare (questioner)
+
+  - name: mart_motion_impact_score
+    description: |
+      One row per motion with a composite impact score S ∈ [0, 1] and all sub-components.
+
+      S = 0.35·O + 0.20·M + 0.20·C + 0.15·N + 0.10·T
+
+      Components:
+        O  outcome_score      bifall=1.0, avslag/acklamation=0.3
+        M  vote_margin_score  1 − |Ja−Nej|/(Ja+Nej), null for acklamation
+        C  cross_party_score  distinct signatory parties / 8
+        N  signatory_score    min(signatories / 50, 1.0)
+        T  topic_score        static weight by utskott (organ)
+
+      Motioner without a betänkande outcome are included with is_provisional=true;
+      their score is computed from C and N only (engagement signals).
+
+      score_breakdown (JSON) contains all components with scores, labels, and weights
+      for direct consumption by the frontend breakdown UI.
+
+    columns:
+      - name: mot_dok_id
+        description: "Motion document ID (primary key)"
+        tests:
+          - not_null
+          - unique
+
+      - name: impact_score
+        description: "Composite score S ∈ [0, 1], rounded to 4 decimal places"
+
+      - name: is_provisional
+        description: "True when no betänkande outcome exists yet"
+
+      - name: outcome_score
+        description: "O component: bifall=1.0, avslag/acklamation=0.3, null=unresolved"
+
+      - name: outcome_label
+        description: "bifall | avslag | unknown"
+
+      - name: vote_margin_score
+        description: "M component: 1.0=contested, 0.0=unanimous, null=acklamation"
+
+      - name: cross_party_score
+        description: "C component: distinct signatory parties / 8"
+
+      - name: signatory_score
+        description: "N component: min(signatories / 50, 1.0)"
+
+      - name: topic_score
+        description: "T component: static weight by organ (FiU=1.0 … unknown=0.3)"
+
+      - name: organ
+        description: "Riksdag committee that handled the motion (from parent betänkande)"
+
+      - name: score_breakdown
+        description: |
+          JSON object with all five components for UI rendering.
+          Structure: { outcome, vote_margin, cross_party, signatories, topic }
+          Each: { score, weight, ...detail fields }
