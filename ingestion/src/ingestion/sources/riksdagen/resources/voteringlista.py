@@ -21,6 +21,16 @@ logger = logging.getLogger(__name__)
 DEFAULT_PAGE_SIZE = 10000
 BASE_URL = "https://data.riksdagen.se/voteringlista/"
 
+TIMESTAMP_FIELDS = ["systemdatum"]
+
+
+def _clean_record(record: dict) -> dict:
+    """Convert empty strings to None for timestamp fields to avoid DuckDB conversion errors."""
+    for field in TIMESTAMP_FIELDS:
+        if field in record and record[field] == "":
+            record[field] = None
+    return record
+
 
 def _filter_sessions_by_date(
     sessions: list[str], start_date: str | None, end_date: str | None
@@ -59,7 +69,7 @@ def _make_fetch_fn(params: dict) -> Callable[[], list[dict]]:
             if isinstance(records, dict):
                 records = [records]
 
-            return records
+            return [_clean_record(r) for r in records]
 
         except Exception as e:
             logger.warning(
@@ -84,8 +94,7 @@ def create_source(
 
     @dlt.resource(
         name="voteringlista",
-        write_disposition="merge",
-        primary_key=["votering_id", "intressent_id"],
+        write_disposition="append",  # Append-only raw layer; dedup in stg_voteringlista
         max_table_nesting=1,
         parallelized=True,
     )

@@ -31,14 +31,14 @@ def get_container_executor() -> ContainerExecutor:
         if os.environ.get("INGESTION_TASK_DEFINITION"):
             task_definitions["ingestion"] = os.environ["INGESTION_TASK_DEFINITION"]
             # Also map the full image name used in assets.py
-            task_definitions["spatial/ingestion:latest"] = os.environ[
+            task_definitions["politikerkollen/ingestion:latest"] = os.environ[
                 "INGESTION_TASK_DEFINITION"
             ]
 
         if os.environ.get("DBT_TASK_DEFINITION"):
             task_definitions["dbt"] = os.environ["DBT_TASK_DEFINITION"]
             task_definitions["transformations_dbt"] = os.environ["DBT_TASK_DEFINITION"]
-            task_definitions["spatial/transformations_dbt:latest"] = os.environ[
+            task_definitions["politikerkollen/transformations_dbt:latest"] = os.environ[
                 "DBT_TASK_DEFINITION"
             ]
 

@@ -1,5 +1,5 @@
 -- Staging model for dokumentstatus__dokbilaga__bilaga (document attachments)
--- Source abstraction layer - 1:1 passthrough from raw
+-- Source abstraction layer with deduplication
 -- _dlt_root_id links to parent dokumentstatus._dlt_id
 
 select
@@ -15,3 +15,7 @@ select
     _dlt_list_idx,
     _dlt_id
 from {{ source('raw_riksdagen', 'dokumentstatus__dokbilaga__bilaga') }}
+qualify row_number() over (
+    partition by _dlt_root_id, dok_id, filnamn
+    order by _dlt_id
+) = 1

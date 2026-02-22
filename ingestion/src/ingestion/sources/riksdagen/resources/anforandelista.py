@@ -43,8 +43,7 @@ def get_resource(start_date: str | None = None, end_date: str | None = None) -> 
             "processing_steps": [
                 {"filter": _make_date_range_filter(start_date, end_date)},
             ],
-            "write_disposition": "merge",
-            "primary_key": ["systemnyckel"],
+            "write_disposition": "append",  # Append-only raw layer; dedup in stg_anforandelista
             "max_table_nesting": 1,
         }
 

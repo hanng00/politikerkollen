@@ -1,5 +1,5 @@
 -- Staging model for dokumentstatus__dokutskottsforslag__utskottsforslag (committee proposals)
--- Source abstraction layer - 1:1 passthrough from raw
+-- Source abstraction layer with deduplication
 -- _dlt_root_id links to parent dokumentstatus._dlt_id
 
 select
@@ -27,3 +27,7 @@ select
     votering_sammanfattning_html__br,
     votering_sammanfattning_html__b
 from {{ source('raw_riksdagen', 'dokumentstatus__dokutskottsforslag__utskottsforslag') }}
+qualify row_number() over (
+    partition by _dlt_root_id, punkt
+    order by _dlt_id
+) = 1

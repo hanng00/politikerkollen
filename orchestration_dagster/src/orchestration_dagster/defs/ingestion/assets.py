@@ -95,7 +95,7 @@ def anforandelista(
 
     result = container_executor.execute(
         context=context,
-        image="spatial/ingestion:latest",
+        image="politikerkollen/ingestion:latest",
         command=command,
         env_vars=env_vars,
         name=f"ingest_anforandelista_{_get_partition_suffix(context)}",
@@ -139,7 +139,7 @@ def anforande(
 
     result = container_executor.execute(
         context=context,
-        image="spatial/ingestion:latest",
+        image="politikerkollen/ingestion:latest",
         command=command,
         env_vars=env_vars,
         name=f"ingest_anforande_{_get_partition_suffix(context)}",
@@ -178,7 +178,7 @@ def dokumentlista(
     
     result = container_executor.execute(
         context=context,
-        image="spatial/ingestion:latest",
+        image="politikerkollen/ingestion:latest",
         command=command,
         env_vars=env_vars,
         name=f"ingest_dokumentlista_{_get_partition_suffix(context)}",
@@ -216,7 +216,7 @@ def personlista(
     
     result = container_executor.execute(
         context=context,
-        image="spatial/ingestion:latest",
+        image="politikerkollen/ingestion:latest",
         command=command,
         env_vars=env_vars,
         name="ingest_personlista",
@@ -255,7 +255,7 @@ def voteringlista(
     
     result = container_executor.execute(
         context=context,
-        image="spatial/ingestion:latest",
+        image="politikerkollen/ingestion:latest",
         command=command,
         env_vars=env_vars,
         name=f"ingest_voteringlista_{_get_partition_suffix(context)}",
@@ -298,7 +298,7 @@ def dokumentstatus(
     
     result = container_executor.execute(
         context=context,
-        image="spatial/ingestion:latest",
+        image="politikerkollen/ingestion:latest",
         command=command,
         env_vars=env_vars,
         name=f"ingest_dokumentstatus_{_get_partition_suffix(context)}",

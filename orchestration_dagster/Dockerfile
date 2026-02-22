@@ -45,6 +45,7 @@ RUN apt-get update && \
 
 # Copy the built app from builder
 COPY --from=builder --chown=root:root /app /app
+COPY --from=builder --chown=root:root /transformations_dbt /transformations_dbt
 
 # Use Docker/production config
 RUN mv /app/dagster.docker.yaml /app/dagster.yaml

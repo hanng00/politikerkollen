@@ -98,8 +98,7 @@ def get_child_resource() -> dict:
             ],
         },
         "include_from_parent": ["dok_id", "anforande_nummer", "systemnyckel"],
-        "write_disposition": "merge",
-        "primary_key": ["dok_id", "anforande_nummer"],
+        "write_disposition": "append",  # Append-only raw layer; dedup in stg_anforande
         "max_table_nesting": 2,
     }
 

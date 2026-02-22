@@ -111,9 +111,8 @@ def get_child_resource() -> dict:
         },
         # Include id from parent to ensure we have the key in output
         "include_from_parent": ["id"],
-        # Merge on dok_id so re-runs update existing records
-        "write_disposition": "merge",
-        "primary_key": ["dokument__dok_id"],
+        # Append-only raw layer; dedup in stg_dokumentstatus
+        "write_disposition": "append",
         # Flatten nested structures to reasonable depth
         "max_table_nesting": 2,
     }

@@ -49,9 +49,8 @@ def get_resource(start_date: str | None = None, end_date: str | None = None) -> 
             },
                 "data_selector": "dokumentlista.dokument",
             },
-            # Merge on document id so partitioned backfills accumulate instead of overwrite
-            "write_disposition": "merge",
-            "primary_key": ["id"],
+            # Append-only raw layer; dedup in stg_dokumentlista
+            "write_disposition": "append",
             "max_table_nesting": 1,
         }
 
@@ -74,9 +73,8 @@ def get_resource(start_date: str | None = None, end_date: str | None = None) -> 
                 "initial_value": INITIAL_INCREMENTAL_VALUE,
             },
         },
-        # Merge on document id to deduplicate re-runs
-        "write_disposition": "merge",
-        "primary_key": ["id"],
+        # Append-only raw layer; dedup in stg_dokumentlista
+        "write_disposition": "append",
         "max_table_nesting": 1,
     }
 
