@@ -8,7 +8,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems = [
-  { href: "/", label: "Motsägelser", exact: true },
   { href: "/politiker", label: "Politiker" },
   { href: "/manifesto", label: "Manifest", icon: FileText, secondary: true },
   { href: "/c", label: "Chat", secondary: true },
@@ -63,7 +62,7 @@ export function SiteHeader() {
 
         <nav className="flex min-w-0 shrink-0 items-center gap-0.5 sm:gap-1 ml-auto">
           {navItems.map((item) => {
-            const active = isActive(item.href, item.exact);
+            const active = isActive(item.href);
             const Icon = item.icon;
 
             if (item.secondary) {
@@ -104,7 +103,8 @@ export function SiteHeader() {
             );
           })}
 
-          {/* Voter Guide */}
+          {/* Voter Guide - Coming Soon */}
+          {/* 
           <Link href="/val" className="ml-1 sm:ml-2 shrink-0">
             <Button
               size="sm"
@@ -114,6 +114,7 @@ export function SiteHeader() {
               <span className="sm:hidden">Val</span>
             </Button>
           </Link>
+          */}
         </nav>
       </div>
     </header>

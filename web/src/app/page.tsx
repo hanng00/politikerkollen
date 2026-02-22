@@ -1,158 +1,75 @@
 "use client";
 
-import { useState } from "react";
-import { AlertTriangle, ArrowUpDown, Clock, Eye, Flame } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ArrowRight } from "lucide-react";
+import { motion } from "motion/react";
+import { useRouter } from "next/navigation";
 
 import { SiteHeader } from "@/components/layout";
-import { ContradictionCard } from "@/components/politiker";
-import { useFetchAllContradictions, useFetchTopics } from "@/hooks";
-import { getPoliticianById } from "@/mocks";
-
-type SortOption = "trending" | "recent" | "views";
-
-const sortOptions = [
-  { value: "trending", label: "Trending", icon: Flame },
-  { value: "recent", label: "Senaste", icon: Clock },
-  { value: "views", label: "Mest visade", icon: Eye },
-] as const;
+import { SearchBar } from "@/components/search";
+import { Button } from "@/components/ui/button";
+import { fadeIn, fadeInUp, staggerContainer } from "@/lib/animations";
 
 export default function HomePage() {
-  const [sortBy, setSortBy] = useState<SortOption>("trending");
-  const [topicFilter, setTopicFilter] = useState<string | null>(null);
-
-  const { data: contradictions, isLoading } = useFetchAllContradictions({
-    topicId: topicFilter ?? undefined,
-    sortBy,
-  });
-  const { data: topics } = useFetchTopics();
-
-  const featuredContradiction = contradictions?.find((c) => c.isTrending);
-  const otherContradictions = contradictions?.filter(
-    (c) => c !== featuredContradiction,
-  );
-  const currentSort = sortOptions.find((s) => s.value === sortBy)!;
+  const router = useRouter();
 
   return (
-    <div className="min-h-screen min-w-0 overflow-x-clip">
+    <div className="min-h-screen min-w-0 overflow-x-clip flex flex-col">
       <SiteHeader />
 
-      <main className="page-container py-6 space-y-6">
-        {/* Featured */}
-        {featuredContradiction && !isLoading && (
-          <>
-            <section>
-              <h2 className="flex items-center gap-2 text-sm font-semibold mb-4">
-                <Flame className="size-4 text-warning" />
-                Trending just nu
-              </h2>
-              <div className="max-w-2xl">
-                {(() => {
-                  const pol = getPoliticianById(
-                    featuredContradiction.politicianId,
-                  );
-                  return pol ? (
-                    <ContradictionCard
-                      contradiction={featuredContradiction}
-                      politician={pol}
-                      featured
-                    />
-                  ) : null;
-                })()}
-              </div>
-            </section>
-            <Separator />
-          </>
-        )}
+      <main className="flex-1 flex flex-col">
+        {/* Hero */}
+        <section className="flex-1 flex items-center justify-center px-4 py-16 relative">
+          <div className="absolute inset-0 pattern-grid-subtle" />
+          <motion.div 
+            className="page-container-narrow text-center space-y-6 relative z-10"
+            variants={staggerContainer}
+            initial="hidden"
+            animate="visible"
+          >
+            <motion.div className="space-y-4" variants={fadeIn}>
+              <h1>Vad gör dina politiker?</h1>
+              <p className="page-subtitle">
+                Demokratin lider av strukturell informationsasymmetri.
+                <br />
+                <span className="text-foreground">
+                  Nu är varje handling spårbar.
+                </span>
+              </p>
+            </motion.div>
 
-        {/* Filters */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-sm font-semibold">
-              <AlertTriangle className="size-4 text-destructive" />
-              Alla motsägelser
-            </h2>
-            <DropdownMenu>
-              <DropdownMenuTrigger className="inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-medium hover:bg-muted">
-                <ArrowUpDown className="size-3" />
-                {currentSort.label}
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {sortOptions.map((opt) => (
-                  <DropdownMenuItem
-                    key={opt.value}
-                    onClick={() => setSortBy(opt.value)}
-                  >
-                    <opt.icon className="size-4 mr-2" />
-                    {opt.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+            {/* Search */}
+            <motion.div variants={fadeInUp}>
+              <SearchBar size="lg" className="mx-auto" />
+            </motion.div>
 
-          <div className="filter-bar">
-            <Button
-              variant={topicFilter === null ? "secondary" : "ghost"}
-              size="sm"
-              className="shrink-0"
-              onClick={() => setTopicFilter(null)}
-            >
-              Alla
-            </Button>
-            {topics?.map((topic) => (
-              <Button
-                key={topic.id}
-                variant={topicFilter === topic.id ? "secondary" : "ghost"}
-                size="sm"
-                className="shrink-0"
-                onClick={() => setTopicFilter(topic.id)}
-              >
-                {topic.name}
+            {/* CTA */}
+            <motion.div variants={fadeInUp}>
+              <Button variant="outline" onClick={() => router.push("/politiker")}>
+                Utforska alla ledamöter
+                <ArrowRight className="size-4 ml-2" />
               </Button>
-            ))}
-          </div>
-        </section>
-
-        {/* Feed */}
-        <section>
-          {isLoading ? (
-            <div className="card-grid-2">
-              {[1, 2, 3, 4].map((i) => (
-                <Skeleton key={i} className="h-56" />
-              ))}
-            </div>
-          ) : otherContradictions?.length ? (
-            <div className="card-grid-2">
-              {otherContradictions.map((c) => {
-                const pol = getPoliticianById(c.politicianId);
-                return pol ? (
-                  <ContradictionCard
-                    key={c.id}
-                    contradiction={c}
-                    politician={pol}
-                  />
-                ) : null;
-              })}
-            </div>
-          ) : (
-            <p className="text-center text-muted-foreground py-12">
-              Inga motsägelser hittades
-            </p>
-          )}
+            </motion.div>
+          </motion.div>
         </section>
 
         {/* Footer */}
-        <footer className="text-center text-sm text-muted-foreground py-8 border-t">
-          Ett verktyg för demokratiskt ansvarsutkrävande.
+        <footer className="border-t py-6">
+          <div className="page-container text-center text-muted-foreground">
+            <p className="text-sm">
+              Ett verktyg för demokratiskt ansvarsutkrävande.
+            </p>
+            <p className="text-sm mt-1">
+              Data från{" "}
+              <a
+                href="https://data.riksdagen.se"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-foreground"
+              >
+                Riksdagens öppna data
+              </a>
+            </p>
+          </div>
         </footer>
       </main>
     </div>

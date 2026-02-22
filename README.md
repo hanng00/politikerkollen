@@ -6,19 +6,21 @@
 - AWS CLI configured with credentials
 - Docker
 - Node.js (for CDK)
+- [Session Manager plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html)
 
 ### Deploy Infrastructure
 ```bash
 cd infra
 npm install
-npx cdk deploy
+npx cdk deploy -c environment=dev --profile enya-test
 ```
 
 ### Set MotherDuck Token
 ```bash
 aws secretsmanager put-secret-value \
-  --secret-id politikerkollen/prod/motherduck-token \
-  --secret-string '{"token":"YOUR_MOTHERDUCK_TOKEN"}'
+  --secret-id politikerkollen/dev/motherduck-token \
+  --secret-string '{"token":"YOUR_MOTHERDUCK_TOKEN"}' \
+  --profile enya-test
 ```
 
 ### Build & Push Images
@@ -26,10 +28,15 @@ aws secretsmanager put-secret-value \
 ./scripts/deploy-images.sh
 ```
 
-### Restart Dagster on EC2
+### Access Dagster UI
+Dagster is not publicly exposed. Access via SSM tunnel:
 ```bash
-aws ssm start-session --target <INSTANCE_ID>
-sudo systemctl restart dagster
+./scripts/dagster-tunnel.sh
 ```
+Then open http://localhost:3000
 
-Access Dagster at `http://<EC2_PUBLIC_IP>:3000`
+### Tear Down
+```bash
+cd infra
+npx cdk destroy -c environment=dev --profile enya-test
+```

@@ -1,0 +1,33 @@
+# Politikerkollen
+
+Democratic infrastructure for accountability and transparency in Swedish politics. Indexes political promises against actual actions (votes, speeches, documents) from Riksdagen.
+
+## Brand Voice
+
+When writing user-facing copy, UI text, or marketing concepts, always consult `docs/brand-voice.md`.
+
+## Tech Stack
+
+- **web/**: Next.js 16, React 19, TypeScript, Tailwind CSS 4, shadcn/ui, Vercel AI SDK
+- **backend/**: Bun, TypeScript, DuckDB, AWS Lambda
+- **ingestion/**: Python, dlt (data load tool), MotherDuck
+- **orchestration_dagster/**: Dagster, Docker, ECS
+- **transformations_dbt/**: dbt-core, dbt-duckdb
+- **infra/**: AWS CDK, EC2, Cognito, DynamoDB
+
+## Code Conventions
+
+- Co-locate related code (components, hooks, tests in same folder)
+- Strict TypeScript – interfaces, generics, type guards
+- Swedish for user-facing text, English for code and comments
+- Prefer editing existing files over creating new ones
+
+## Design Principles
+
+**Strict adherence to the design system is required.**
+
+- Use only shadcn/ui components – do not create custom components when a shadcn equivalent exists
+- Use only the established color tokens (CSS variables) – no custom Tailwind colors like `bg-blue-500`
+- Follow the existing typography scale – no arbitrary font sizes or weights
+- Check `web/src/app/globals.css` and `web/src/components/ui/` for established patterns
+- Any proposed changes to the design system (new colors, typography, components) require human approval before implementation

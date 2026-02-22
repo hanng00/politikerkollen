@@ -29,11 +29,12 @@ export const metadata: Metadata = {
     template: "%s | Politikerkollen",
   },
   description:
-    "Följ riksdagens politiker. Se hur de röstar, vad de debatterar och vilka frågor de driver.",
+    "Röstningar, anföranden och dokument från riksdagen. Strukturerat och sökbart.",
+  keywords: ["riksdagen", "politiker", "röstningar", "anföranden", "motioner", "Sverige"],
   openGraph: {
     title: "Politikerkollen",
     description:
-      "Följ riksdagens politiker. Se hur de röstar, vad de debatterar och vilka frågor de driver.",
+      "Röstningar, anföranden och dokument från riksdagen. Strukturerat och sökbart.",
     type: "website",
     siteName: "Politikerkollen",
     locale: "sv_SE",
@@ -42,7 +43,11 @@ export const metadata: Metadata = {
     card: "summary",
     title: "Politikerkollen",
     description:
-      "Följ riksdagens politiker. Se hur de röstar, vad de debatterar och vilka frågor de driver.",
+      "Röstningar, anföranden och dokument från riksdagen. Strukturerat och sökbart.",
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 
@@ -52,7 +57,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn(inter.variable, sourceSerif.variable)}>
+    <html lang="sv" className={cn(inter.variable, sourceSerif.variable)}>
       <body
         className={cn(
           geistSans.variable,

@@ -1,8 +1,10 @@
 """
 Custom paginators for Riksdagen API resources.
 
-The Riksdagen API lacks proper pagination (max 20K results per request).
-These paginators partition requests by available filters (rm, valkrets) to fetch all data.
+The Riksdagen API has a hard cap of 10,000 results per request with no pagination support.
+These paginators partition requests by available filters to fetch all data.
+
+See docs/ingestion/riksdagen-api.md for API constraints and workarounds.
 """
 
 from typing import Any, Dict, Optional
@@ -80,6 +82,14 @@ ALL_VALKRETSAR = [
     "Västra Götalands läns östra",
     "Örebro län",
     "Östergötlands län",
+]
+
+# Political parties - includes historical codes (lowercase pre-2010) and current (uppercase)
+# API is case-insensitive for filtering but returns data in original case
+ALL_PARTIES = [
+    "S", "M", "SD", "C", "V", "KD", "L", "MP",  # Current parties
+    "fp",  # Folkpartiet (now L), used in data before ~2015
+    "-",   # Independent/no party affiliation
 ]
 
 
@@ -169,11 +179,17 @@ class RiksmotePaginator(BasePaginator):
 
 
 class VoteringlistaIncrementalPaginator(BasePaginator):
-    """Paginate latest riksmöte across all valkrets (for incremental loads)."""
+    """
+    3D paginator for incremental voteringlista loads: riksmöte × valkrets × parti.
+    
+    Only fetches the latest riksmöte (determined from end_date or current session).
+    Required because large valkrets (Stockholm, Göteborg) exceed 10k even with 2D.
+    """
 
     def __init__(self, start_date: str | None = None, end_date: str | None = None):
         self.current_riksmote = self._determine_riksmote(end_date)
         self.current_valkrets_index = 0
+        self.current_parti_index = 0
         self._has_next_page = True
 
     def _determine_riksmote(self, end_date: str | None) -> str:
@@ -186,21 +202,27 @@ class VoteringlistaIncrementalPaginator(BasePaginator):
         return {
             "rm": self.current_riksmote,
             "valkrets": ALL_VALKRETSAR[self.current_valkrets_index],
+            "parti": ALL_PARTIES[self.current_parti_index],
         }
 
-    def update_state(self, response: Any, data: Any = None) -> None:
-        self.current_valkrets_index += 1
+    def _advance(self) -> None:
+        """Advance to next parti, then valkrets."""
+        self.current_parti_index += 1
+        if self.current_parti_index >= len(ALL_PARTIES):
+            self.current_parti_index = 0
+            self.current_valkrets_index += 1
         self._has_next_page = self.current_valkrets_index < len(ALL_VALKRETSAR)
 
+    def update_state(self, response: Any, data: Any = None) -> None:
+        self._advance()
+
     def get_next_request_params(self) -> Optional[Dict[str, Any]]:
-        if not self._has_next_page or self.current_valkrets_index >= len(
-            ALL_VALKRETSAR
-        ):
+        if not self._has_next_page:
             return None
         return self._build_params()
 
     def get_initial_request_params(self) -> Dict[str, Any]:
-        if self.current_valkrets_index < len(ALL_VALKRETSAR):
+        if self._has_next_page:
             return self._build_params()
         return {}
 
@@ -231,13 +253,21 @@ class VoteringlistaIncrementalPaginator(BasePaginator):
         return self._has_next_page
 
     def reset(self) -> None:
-        self.current_riksmote = "2024/25"
         self.current_valkrets_index = 0
+        self.current_parti_index = 0
         self._has_next_page = True
 
 
 class VoteringlistaPaginator(BasePaginator):
-    """Paginate through all riksmöte × valkrets combinations (2D grid)."""
+    """
+    3D paginator for full voteringlista backfill: riksmöte × valkrets × parti.
+    
+    Required because the API has a hard 10k cap and large valkrets (Stockholm, Göteborg)
+    have ~20k votes per riksmöte. Adding parti as 3rd dimension keeps each request under 10k.
+    
+    Iteration order: parti (inner) → valkrets → riksmöte (outer)
+    Total requests per riksmöte: 29 valkrets × 10 parties = 290
+    """
 
     def __init__(self, start_date: str | None = None, end_date: str | None = None):
         self.riksmote_sessions = _filter_sessions_by_year(
@@ -245,32 +275,37 @@ class VoteringlistaPaginator(BasePaginator):
         )
         self.current_riksmote_index = 0
         self.current_valkrets_index = 0
-        self._has_next_page = True
+        self.current_parti_index = 0
+        self._has_next_page = len(self.riksmote_sessions) > 0
 
     def _build_params(self) -> Dict[str, Any]:
         return {
             "rm": self.riksmote_sessions[self.current_riksmote_index],
             "valkrets": ALL_VALKRETSAR[self.current_valkrets_index],
+            "parti": ALL_PARTIES[self.current_parti_index],
         }
 
-    def update_state(self, response: Any, data: Any = None) -> None:
-        self.current_valkrets_index += 1
-        if self.current_valkrets_index >= len(ALL_VALKRETSAR):
-            self.current_valkrets_index = 0
-            self.current_riksmote_index += 1
+    def _advance(self) -> None:
+        """Advance to next parti, then valkrets, then riksmöte."""
+        self.current_parti_index += 1
+        if self.current_parti_index >= len(ALL_PARTIES):
+            self.current_parti_index = 0
+            self.current_valkrets_index += 1
+            if self.current_valkrets_index >= len(ALL_VALKRETSAR):
+                self.current_valkrets_index = 0
+                self.current_riksmote_index += 1
         self._has_next_page = self.current_riksmote_index < len(self.riksmote_sessions)
 
+    def update_state(self, response: Any, data: Any = None) -> None:
+        self._advance()
+
     def get_next_request_params(self) -> Optional[Dict[str, Any]]:
-        if not self._has_next_page or self.current_riksmote_index >= len(
-            self.riksmote_sessions
-        ):
+        if not self._has_next_page:
             return None
         return self._build_params()
 
     def get_initial_request_params(self) -> Dict[str, Any]:
-        if self.current_riksmote_index < len(
-            self.riksmote_sessions
-        ) and self.current_valkrets_index < len(ALL_VALKRETSAR):
+        if self._has_next_page:
             return self._build_params()
         return {}
 
@@ -303,7 +338,8 @@ class VoteringlistaPaginator(BasePaginator):
     def reset(self) -> None:
         self.current_riksmote_index = 0
         self.current_valkrets_index = 0
-        self._has_next_page = True
+        self.current_parti_index = 0
+        self._has_next_page = len(self.riksmote_sessions) > 0
 
 
 class AnforandelistaPaginator(BasePaginator):

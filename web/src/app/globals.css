@@ -271,6 +271,14 @@
       linear-gradient(var(--gradient-accent-1) 1px, transparent 1px),
       linear-gradient(90deg, var(--gradient-accent-1) 1px, transparent 1px);
     background-size: 40px 40px;
+    opacity: 0.5;
+  }
+  .pattern-grid-subtle {
+    background-image:
+      linear-gradient(var(--gradient-accent-1) 1px, transparent 1px),
+      linear-gradient(90deg, var(--gradient-accent-1) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.6;
   }
   .pattern-dots {
     background-image: radial-gradient(

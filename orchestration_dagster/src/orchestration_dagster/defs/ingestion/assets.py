@@ -8,15 +8,15 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 
 import dagster as dg
-from dagster import AssetExecutionContext, AssetKey, DailyPartitionsDefinition, MonthlyPartitionsDefinition
+from dagster import AssetExecutionContext, AssetKey, MonthlyPartitionsDefinition
 
 from orchestration_dagster.lib.container_executor import ContainerExecutor
 from orchestration_dagster.lib.secrets_resource import SecretsResource
 
 GROUP_NAME = "raw_riksdagen"
-date_partition = DailyPartitionsDefinition(start_date="1990-01-01")
-# Monthly partitions for resources that fetch full text per record (more efficient batching)
-month_partition = MonthlyPartitionsDefinition(start_date="1990-01-01")
+# Monthly partitions for efficient batching (1 container per month vs 30+ with daily)
+# end_offset=1 includes the current incomplete month so we can ingest recent data
+month_partition = MonthlyPartitionsDefinition(start_date="1990-01-01", end_offset=1)
 
 
 def _get_partition_suffix(context: AssetExecutionContext) -> str:
@@ -165,8 +165,8 @@ def anforande(
 @dg.asset(
     key=AssetKey(["raw_riksdagen", "dokumentlista"]),
     group_name=GROUP_NAME,
-    partitions_def=date_partition,
-    description="Ingest dokumentlista (documents) data from Riksdagen API",
+    partitions_def=month_partition,
+    description="Ingest dokumentlista (documents) data from Riksdagen API. Monthly partitions for efficient batching.",
 )
 def dokumentlista(
     context: AssetExecutionContext,
@@ -242,8 +242,8 @@ def personlista(
 @dg.asset(
     key=AssetKey(["raw_riksdagen", "voteringlista"]),
     group_name=GROUP_NAME,
-    partitions_def=date_partition,
-    description="Ingest voteringlista (voting records) data from Riksdagen API",
+    partitions_def=month_partition,
+    description="Ingest voteringlista (voting records) data from Riksdagen API. Monthly partitions for efficient batching.",
 )
 def voteringlista(
     context: AssetExecutionContext,
@@ -281,8 +281,8 @@ def voteringlista(
 @dg.asset(
     key=AssetKey(["raw_riksdagen", "dokumentstatus"]),
     group_name=GROUP_NAME,
-    partitions_def=date_partition,
-    description="Ingest dokumentstatus (detailed document history) data from Riksdagen API",
+    partitions_def=month_partition,
+    description="Ingest dokumentstatus (detailed document history) data from Riksdagen API. Monthly partitions for efficient batching.",
 )
 def dokumentstatus(
     context: AssetExecutionContext,

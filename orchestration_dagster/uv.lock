@@ -421,6 +421,21 @@ wheels = [
 ]
 
 [[package]]
+name = "dagster-aws"
+version = "0.28.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "boto3" },
+    { name = "dagster" },
+    { name = "packaging" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f1/e3/7afb999f67c347d2f179dac92dfa307bf90f1ea8c8156024d27b3044f0b6/dagster_aws-0.28.2.tar.gz", hash = "sha256:20013e370830fe4b250dbc9808bbc60972fe03e0470e4f0731208fcc0b6fd702", size = 127844 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/62/89/dc31b7306d864b924199b9709d559e19d25473cf93467ee135f2a5a8f088/dagster_aws-0.28.2-py3-none-any.whl", hash = "sha256:9d36fefcb369d720f782dc06976ec79eface62b5527d5d70fbc8c4410b5bbb3c", size = 158126 },
+]
+
+[[package]]
 name = "dagster-cloud-cli"
 version = "1.12.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1536,6 +1551,7 @@ source = { editable = "." }
 dependencies = [
     { name = "boto3" },
     { name = "dagster" },
+    { name = "dagster-aws" },
     { name = "dagster-dbt" },
     { name = "dagster-docker" },
     { name = "dagster-duckdb" },
@@ -1555,6 +1571,7 @@ dev = [
 requires-dist = [
     { name = "boto3", specifier = ">=1.28.0" },
     { name = "dagster", specifier = "==1.12.2" },
+    { name = "dagster-aws", specifier = ">=0.28.2" },
     { name = "dagster-dbt", specifier = ">=0.28.2" },
     { name = "dagster-docker", specifier = ">=0.28.2" },
     { name = "dagster-duckdb", specifier = ">=0.28.2" },

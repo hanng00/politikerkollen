@@ -1,15 +1,17 @@
 import { SiteHeader } from "@/components/layout";
-import { ContradictionDetail } from "./ContradictionDetail";
 import { contradictions } from "@/mocks/contradictions";
 import { getPoliticianById } from "@/mocks/politicians";
-import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { ContradictionDetail } from "./ContradictionDetail";
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { id } = await params;
   const contradiction = contradictions.find((c) => c.id === id);
   const politician = contradiction
@@ -60,7 +62,7 @@ export default async function MotsagelsePage({ params }: PageProps) {
       (c) =>
         c.id !== id &&
         (c.topic.id === contradiction.topic.id ||
-          c.politicianId === contradiction.politicianId)
+          c.politicianId === contradiction.politicianId),
     )
     .slice(0, 3);
 

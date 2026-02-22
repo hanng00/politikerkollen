@@ -39,14 +39,14 @@ def get_resource(start_date: str | None = None, end_date: str | None = None) -> 
             "name": "dokumentlista",
             "endpoint": {
                 "path": "dokumentlista/",
-                "params": {
-                    "utformat": "json",
-                    "from": start_date,
-                    "tom": end_date,
-                    "sort": "datum",
-                    "sortorder": "asc",
-                    "antal": 1000,
-                },
+            "params": {
+                "utformat": "json",
+                "from": start_date,
+                "tom": end_date,
+                "sort": "datum",
+                "sortorder": "asc",
+                "antal": 10000,
+            },
                 "data_selector": "dokumentlista.dokument",
             },
             # Merge on document id so partitioned backfills accumulate instead of overwrite
@@ -65,7 +65,7 @@ def get_resource(start_date: str | None = None, end_date: str | None = None) -> 
                 "tom": DEFAULT_END_DATE,
                 "sort": "datum",
                 "sortorder": "asc",
-                "antal": 1000,
+                "antal": 10000,
                 "from": "{incremental.start_value}",
             },
             "data_selector": "dokumentlista.dokument",

@@ -25,6 +25,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Copy orchestration_dagster directory to /app
 COPY orchestration_dagster/ /app/
 
+# Copy transformations_dbt for manifest (needed by DbtProjectComponent)
+COPY transformations_dbt/ /transformations_dbt/
+
 # Install project with dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
@@ -43,11 +46,15 @@ RUN apt-get update && \
 # Copy the built app from builder
 COPY --from=builder --chown=root:root /app /app
 
+# Use Docker/production config
+RUN mv /app/dagster.docker.yaml /app/dagster.yaml
+
 # Ensure the virtual environment is used by default
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Set Dagster home directory
 ENV DAGSTER_HOME=/app
+ENV DBT_PROJECT_DIR=/transformations_dbt
 
 # Expose webserver port
 EXPOSE 3000

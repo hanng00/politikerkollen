@@ -212,7 +212,10 @@ function VoteGroupCard({ group }: { group: VoteGroup }) {
         <CollapsibleContent>
           <div className="mx-4 mb-4 pl-5 border-l border-border py-2">
             {group.votes.map((vote, idx) => (
-              <div key={`${vote.id}-${idx}`} className="py-2 flex items-start gap-3">
+              <div
+                key={`${vote.id}-${idx}`}
+                className="py-2 flex items-start gap-3"
+              >
                 <span
                   className={`text-xs font-medium w-12 shrink-0 ${
                     vote.voteValue === "Ja"
@@ -386,7 +389,7 @@ const DOCUMENT_TYPE_LABELS: Record<string, string> = {
   fr: "Skriftlig fråga",
   "skriftlig fråga": "Skriftlig fråga",
   bet: "Betänkande",
-  "betänkande": "Betänkande",
+  betänkande: "Betänkande",
   prop: "Proposition",
   proposition: "Proposition",
   skr: "Skrivelse",
@@ -425,14 +428,19 @@ const QUESTION_ROLE_LABELS: Record<DocumentStakeholder["role"], string> = {
   besvaradav: "Besvarad av",
 };
 
-const INTERPELLATION_ROLE_LABELS: Record<DocumentStakeholder["role"], string> = {
-  undertecknare: "Interpellant",
-  fragestallare: "Interpellant",
-  stalldtill: "Ställd till",
-  besvaradav: "Besvarad av",
-};
+const INTERPELLATION_ROLE_LABELS: Record<DocumentStakeholder["role"], string> =
+  {
+    undertecknare: "Interpellant",
+    fragestallare: "Interpellant",
+    stalldtill: "Ställd till",
+    besvaradav: "Besvarad av",
+  };
 
-function StakeholderLink({ stakeholder }: { stakeholder: DocumentStakeholder }) {
+function StakeholderLink({
+  stakeholder,
+}: {
+  stakeholder: DocumentStakeholder;
+}) {
   return (
     <Link
       href={`/politiker/${stakeholder.intressentId}`}
@@ -554,14 +562,24 @@ function WrittenQuestionCard({
   );
 }
 
-function ImpactScorePill({ score, isProvisional }: { score: number; isProvisional: boolean }) {
+function ImpactScorePill({
+  score,
+  isProvisional,
+}: {
+  score: number;
+  isProvisional: boolean;
+}) {
   const pct = Math.round(score * 100);
   const color =
-    pct >= 60 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
-    : pct >= 35 ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
-    : "bg-muted text-muted-foreground";
+    pct >= 60
+      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
+      : pct >= 35
+        ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
+        : "bg-muted text-muted-foreground";
   return (
-    <span className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${color}`}>
+    <span
+      className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${color}`}
+    >
       {pct}
       <span className="font-normal opacity-70">/ 100</span>
       {isProvisional && <span className="opacity-50 ml-0.5">~</span>}
@@ -571,28 +589,47 @@ function ImpactScorePill({ score, isProvisional }: { score: number; isProvisiona
 
 function ImpactScoreBreakdown({ impact }: { impact: MotionImpactScore }) {
   const COMMITTEE_TO_TOPIC: Record<string, string> = {
-    AU: "Arbetsmarknad", CU: "Civilrätt", FiU: "Finans", FöU: "Försvar",
-    JuU: "Justitie", KU: "Konstitution", KrU: "Kultur", MJU: "Miljö & Jordbruk",
-    NU: "Näringsliv", SkU: "Skatter", SfU: "Socialförsäkring", SoU: "Socialutskottet",
-    TU: "Trafik", UbU: "Utbildning", UU: "Utrikes",
+    AU: "Arbetsmarknad",
+    CU: "Civilrätt",
+    FiU: "Finans",
+    FöU: "Försvar",
+    JuU: "Justitie",
+    KU: "Konstitution",
+    KrU: "Kultur",
+    MJU: "Miljö & Jordbruk",
+    NU: "Näringsliv",
+    SkU: "Skatter",
+    SfU: "Socialförsäkring",
+    SoU: "Socialutskottet",
+    TU: "Trafik",
+    UbU: "Utbildning",
+    UU: "Utrikes",
   };
 
-  const rows: { label: string; detail: string; score: number | null; weight: number }[] = [
+  const rows: {
+    label: string;
+    detail: string;
+    score: number | null;
+    weight: number;
+  }[] = [
     {
       label: "Utfall",
-      detail: impact.breakdown.outcome.label === "bifall"
-        ? "Bifallen"
-        : impact.breakdown.outcome.label === "avslag"
-        ? "Avslagen"
-        : "Ej behandlad",
+      detail:
+        impact.breakdown.outcome.label === "bifall"
+          ? "Bifallen"
+          : impact.breakdown.outcome.label === "avslag"
+            ? "Avslagen"
+            : "Ej behandlad",
       score: impact.breakdown.outcome.score,
       weight: impact.breakdown.outcome.weight,
     },
     {
       label: "Omröstning",
-      detail: impact.breakdown.voteMargin.ja != null && impact.breakdown.voteMargin.nej != null
-        ? `${impact.breakdown.voteMargin.ja} Ja · ${impact.breakdown.voteMargin.nej} Nej`
-        : "Acklamation",
+      detail:
+        impact.breakdown.voteMargin.ja != null &&
+        impact.breakdown.voteMargin.nej != null
+          ? `${impact.breakdown.voteMargin.ja} Ja · ${impact.breakdown.voteMargin.nej} Nej`
+          : "Acklamation",
       score: impact.breakdown.voteMargin.score,
       weight: impact.breakdown.voteMargin.weight,
     },
@@ -624,7 +661,10 @@ function ImpactScoreBreakdown({ impact }: { impact: MotionImpactScore }) {
         <span className="text-xs text-muted-foreground uppercase tracking-wide">
           Impactpoäng
         </span>
-        <ImpactScorePill score={impact.score} isProvisional={impact.isProvisional} />
+        <ImpactScorePill
+          score={impact.score}
+          isProvisional={impact.isProvisional}
+        />
         {impact.isProvisional && (
           <span className="text-[10px] text-muted-foreground">preliminär</span>
         )}
@@ -636,7 +676,9 @@ function ImpactScoreBreakdown({ impact }: { impact: MotionImpactScore }) {
       <div className="space-y-1.5">
         {rows.map((row) => (
           <div key={row.label} className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground w-24 shrink-0">{row.label}</span>
+            <span className="text-xs text-muted-foreground w-24 shrink-0">
+              {row.label}
+            </span>
             <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
               <div
                 className="h-full rounded-full bg-emerald-500/60"
@@ -767,12 +809,17 @@ function AuthoredCard({ item }: { item: TimelineItem }) {
   const date = new Date(item.date).toLocaleDateString("sv-SE");
 
   if (isDocType(item.documentType, "fr", "skriftlig fråga")) {
-    return <WrittenQuestionCard item={item} roleLabels={QUESTION_ROLE_LABELS} />;
+    return (
+      <WrittenQuestionCard item={item} roleLabels={QUESTION_ROLE_LABELS} />
+    );
   }
 
   if (isDocType(item.documentType, "ip", "interpellation")) {
     return (
-      <WrittenQuestionCard item={item} roleLabels={INTERPELLATION_ROLE_LABELS} />
+      <WrittenQuestionCard
+        item={item}
+        roleLabels={INTERPELLATION_ROLE_LABELS}
+      />
     );
   }
 
@@ -1084,7 +1131,9 @@ export default function PoliticianPageClient({ id }: { id: string }) {
                     {isFetchingNextPage && (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Loader2 className="size-4 animate-spin" />
-                        <span className="text-sm">Laddar fler aktiviteter...</span>
+                        <span className="text-sm">
+                          Laddar fler aktiviteter...
+                        </span>
                       </div>
                     )}
                   </div>
