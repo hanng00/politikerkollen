@@ -1,17 +1,28 @@
 services:
+  # Dagster orchestration image
+  dagster:
+    build:
+      context: .
+      dockerfile: orchestration_dagster/Dockerfile
+    image: politikerkollen/dagster:latest
+    networks:
+      - politikerkollen-network
+
+  # Ingestion (dlt) image
   ingestion:
     build:
       context: .
       dockerfile: ingestion/Dockerfile
-    image: spatial/ingestion:latest
+    image: politikerkollen/ingestion:latest
     networks:
       - politikerkollen-network
 
+  # Transformations (dbt) image
   transformations_dbt:
     build:
       context: .
       dockerfile: transformations_dbt/Dockerfile
-    image: spatial/transformations_dbt:latest
+    image: politikerkollen/transformations_dbt:latest
     networks:
       - politikerkollen-network
 

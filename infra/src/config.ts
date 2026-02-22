@@ -2,26 +2,15 @@
  * Shared configuration for Politikerkollen infrastructure.
  */
 
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+
 export type Environment = 'dev' | 'prod';
 
 export interface StackConfig {
   environment: Environment;
   
-  // Dagster services (long-running)
-  dagsterWebserver: {
-    cpu: number;
-    memoryMiB: number;
-  };
-  dagsterDaemon: {
-    cpu: number;
-    memoryMiB: number;
-  };
-  
-  // Task containers (on-demand)
-  taskContainers: {
-    cpu: number;
-    memoryMiB: number;
-  };
+  // EC2 instance size
+  ec2InstanceSize: ec2.InstanceSize;
   
   // Log retention
   logRetentionDays: number;
@@ -30,16 +19,12 @@ export interface StackConfig {
 export const configs: Record<Environment, StackConfig> = {
   dev: {
     environment: 'dev',
-    dagsterWebserver: { cpu: 256, memoryMiB: 512 },
-    dagsterDaemon: { cpu: 256, memoryMiB: 512 },
-    taskContainers: { cpu: 256, memoryMiB: 512 },
+    ec2InstanceSize: ec2.InstanceSize.MICRO, // t4g.micro - free tier eligible
     logRetentionDays: 3,
   },
   prod: {
     environment: 'prod',
-    dagsterWebserver: { cpu: 256, memoryMiB: 512 },
-    dagsterDaemon: { cpu: 256, memoryMiB: 512 },
-    taskContainers: { cpu: 512, memoryMiB: 1024 },
+    ec2InstanceSize: ec2.InstanceSize.SMALL, // t4g.small - 2 vCPU, 2GB RAM
     logRetentionDays: 7,
   },
 };

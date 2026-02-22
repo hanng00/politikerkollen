@@ -1,15 +1,21 @@
 -- Int: Motion Outcome
--- One row per motion that has been treated (behandlad) in a betänkande.
+-- One row per (motion, betänkande) pair.
+-- A motion can be treated in multiple betänkanden when it spans multiple policy areas.
 -- Resolves the mot → bet → utskottsforslag chain using dlt join keys.
 --
+-- Join strategy:
+--   1. Motion links to betänkande via stg_dokumentstatus_referens (referenstyp='behandlar')
+--   2. Betänkande links to utskottsforslag via _dlt_root_id
+--   Note: We do NOT filter on forslag text - it uses rm:beteckning format (e.g. "2024/25:3322")
+--   which differs from dok_id (e.g. "HC023322"), and doesn't reliably list all related motions.
+--
 -- A motion is considered:
---   - approved (bifall)  when vinnare = 'motförslaget' on the utskottsforslag punkt
---     that references the motion's dok_id in its forslag text
+--   - approved (bifall)  when vinnare = 'motförslaget'
 --   - rejected (avslag)  when vinnare = 'utskottet'
 --   - acklamation        when beslutstyp = 'acklamation' (no roll-call vote)
 --
--- One motion may appear in multiple utskottsforslag punkter (partial bifall).
--- We keep the best outcome: bifall > acklamation > avslag.
+-- One motion may appear in multiple utskottsforslag punkter within a betänkande.
+-- We keep the best outcome per betänkande: bifall > acklamation > avslag.
 
 with motioner as (
     select
@@ -61,7 +67,9 @@ utskottsforslag as (
 ),
 
 -- Join chain: mot → referens → bet → utskottsforslag
--- The forslag text always contains the motion dok_id (confirmed via API inspection)
+-- The referens table links motion to betänkande via _dlt_root_id.
+-- We do NOT filter on forslag text since it uses a different ID format (rm:beteckning)
+-- and doesn't reliably contain the specific motion's reference.
 motion_to_punkt as (
     select
         m.mot_dok_id,
@@ -90,27 +98,28 @@ motion_to_punkt as (
     inner join bet_referens   br on br.ref_dok_id  = m.mot_dok_id
     inner join betanden        b  on b.bet_dlt_id   = br.bet_dlt_id
     inner join utskottsforslag u  on u.bet_dlt_id   = br.bet_dlt_id
-                                  and u.forslag like '%' || m.mot_dok_id || '%'
 ),
 
--- When one motion touches multiple punkter, keep best outcome
+-- When one motion is linked to a betänkande, we get ALL punkter in that betänkande.
+-- We keep only the best outcome per (mot_dok_id, bet_dok_id) pair.
 motion_best_outcome as (
     select
         mot_dok_id,
-        mot_titel,
-        rm,
-        organ,
+        -- Use any_value for non-aggregated columns (they're the same per motion)
+        any_value(mot_titel)                                       as mot_titel,
+        any_value(rm)                                              as rm,
+        any_value(organ)                                           as organ,
         bet_dok_id,
         -- Best outcome wins (bifall=1.0 > acklamation/avslag=0.3)
-        max(outcome_score)                                     as outcome_score,
+        max(outcome_score)                                         as outcome_score,
         -- votering_id for the highest-stakes punkt (prefer voted over acklamation)
-        arg_max(votering_id, outcome_score)                    as votering_id,
-        arg_max(punkt, outcome_score)                          as punkt,
-        arg_max(punkt_rubrik, outcome_score)                   as punkt_rubrik,
-        arg_max(motforslag_partier, outcome_score)             as motforslag_partier,
-        count(*)                                               as punkt_count
+        arg_max(votering_id, coalesce(outcome_score, 0))           as votering_id,
+        arg_max(punkt, coalesce(outcome_score, 0))                 as punkt,
+        arg_max(punkt_rubrik, coalesce(outcome_score, 0))          as punkt_rubrik,
+        arg_max(motforslag_partier, coalesce(outcome_score, 0))    as motforslag_partier,
+        count(*)                                                   as punkt_count
     from motion_to_punkt
-    group by mot_dok_id, mot_titel, rm, organ, bet_dok_id
+    group by mot_dok_id, bet_dok_id
 )
 
 select

@@ -38,15 +38,19 @@ models:
 
   - name: int_motion_outcome
     description: |
-      One row per motion that has been treated in a betänkande.
-      Resolves mot → bet → utskottsforslag via dlt join keys and forslag text match.
+      One row per (motion, betänkande) pair.
+      A motion can be treated in multiple betänkanden when it spans multiple policy areas.
+      Resolves mot → bet → utskottsforslag via dlt join keys.
       Provides outcome_score (O) and votering_id for downstream margin calculation.
     columns:
       - name: mot_dok_id
-        description: "Motion document ID (primary key)"
+        description: "Motion document ID"
         tests:
           - not_null
-          - unique
+      - name: bet_dok_id
+        description: "Parent betänkande dok_id"
+        tests:
+          - not_null
       - name: outcome_score
         description: "O component: bifall=1.0, avslag/acklamation=0.3"
       - name: outcome_label
@@ -55,8 +59,9 @@ models:
         description: "Committee organ from parent betänkande (e.g. FiU, KU, CU)"
       - name: votering_id
         description: "Roll-call vote ID; null when beslutstyp=acklamation"
-      - name: bet_dok_id
-        description: "Parent betänkande dok_id"
+    tests:
+      - unique:
+          column_name: "mot_dok_id || '|' || bet_dok_id"
 
   - name: int_motion_vote_margin
     description: |

@@ -1,7 +1,18 @@
 -- Staging model for dokumentstatus (detailed document status)
--- Source abstraction layer - 1:1 passthrough from raw
+-- Source abstraction layer with deduplication by dok_id
 -- Contains flattened document metadata, activities, proposals, references
 -- Subtable entities (aktivitet, bilaga, forslag, intressent, motforslag, referens) are in separate stg models
+--
+-- Deduplication: When the same dok_id appears multiple times (e.g. from incremental loads),
+-- we keep the row with the latest _dlt_load_id to get the most recent version.
+
+with ranked as (
+    select
+        *,
+        row_number() over (partition by dokument__dok_id order by _dlt_load_id desc) as _rn
+    from {{ source('raw_riksdagen', 'dokumentstatus') }}
+    where dokument__dok_id is not null
+)
 
 select
     dokument__hangar_id,
@@ -100,5 +111,5 @@ select
     dokintressent__intressent__partibet,
     dokintressent__intressent__ordning,
     dokintressent__intressent__roll
-from {{ source('raw_riksdagen', 'dokumentstatus') }}
-where dokument__dok_id is not null
+from ranked
+where _rn = 1

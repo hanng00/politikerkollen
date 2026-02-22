@@ -5,8 +5,13 @@
 -- Each intressent row has a roll (undertecknare = co-signer, huvudman = lead author).
 -- Both roles count as signatories for N; partibet gives party for C.
 --
--- N = min(signatory_count / 50, 1.0)
--- C = distinct_signatory_parties / 8.0   (8 parties in riksdagen)
+-- Transforms (diminishing returns):
+--   N = ln(1 + signatory_count) / ln(51)   — log scale, capped at 50 signatories
+--   C = sqrt(distinct_parties / 8.0)       — sqrt scale for cross-party support
+--
+-- Rationale: The difference between 5 and 15 signatories is more meaningful than
+-- between 35 and 45. Similarly, going from 1 to 3 parties is more significant
+-- than going from 6 to 8 parties.
 
 with motioner as (
     select
@@ -48,10 +53,12 @@ select
     distinct_parties,
     signatory_parties,
 
-    -- N component: signatory breadth, capped at 50
-    least(signatory_count / 50.0, 1.0) as signatory_score,
+    -- N component: signatory breadth with log transform (diminishing returns)
+    -- ln(1 + count) / ln(51) gives 0 at 0 signatories, 1.0 at 50 signatories
+    least(ln(1.0 + signatory_count) / ln(51.0), 1.0) as signatory_score,
 
-    -- C component: cross-party support (8 parties in riksdagen)
-    least(distinct_parties / 8.0, 1.0) as cross_party_score
+    -- C component: cross-party support with sqrt transform (diminishing returns)
+    -- sqrt(parties/8) gives 0.35 at 1 party, 0.71 at 4 parties, 1.0 at 8 parties
+    sqrt(least(distinct_parties / 8.0, 1.0)) as cross_party_score
 
 from motion_signatories

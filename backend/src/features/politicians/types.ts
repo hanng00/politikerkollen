@@ -346,23 +346,23 @@ export function toMotionImpactScore(row: MartMotionImpactScore): MotionImpactSco
       outcome: {
         score:  row.outcome_score,
         label:  row.outcome_label,
-        weight: parsed.outcome?.weight ?? 0.35,
+        weight: parsed.outcome?.weight ?? 0.40,
       },
       voteMargin: {
         score:  row.vote_margin_score,
         ja:     row.ja_count,
         nej:    row.nej_count,
-        weight: parsed.vote_margin?.weight ?? 0.20,
+        weight: parsed.vote_margin?.weight ?? 0.25,
       },
       crossParty: {
         score:   row.cross_party_score,
         parties: row.distinct_parties,
-        weight:  parsed.cross_party?.weight ?? 0.20,
+        weight:  parsed.cross_party?.weight ?? 0.15,
       },
       signatories: {
         score:  row.signatory_score,
         count:  row.signatory_count,
-        weight: parsed.signatories?.weight ?? 0.15,
+        weight: parsed.signatories?.weight ?? 0.10,
       },
       topic: {
         score:  row.topic_score,

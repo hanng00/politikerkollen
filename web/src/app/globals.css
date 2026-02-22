@@ -166,9 +166,11 @@
   }
   html {
     overflow-x: clip;
+    height: 100%;
   }
   body {
     min-width: 0;
+    height: 100%;
     @apply bg-background text-foreground font-sans;
     font-size: var(--text-body);
     line-height: var(--text-body-line-height);

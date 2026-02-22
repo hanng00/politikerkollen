@@ -9,6 +9,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { InfoButton } from "@/components/ui/info-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
@@ -576,7 +577,7 @@ function ImpactScoreBreakdown({ impact }: { impact: MotionImpactScore }) {
     TU: "Trafik", UbU: "Utbildning", UU: "Utrikes",
   };
 
-  const rows: { label: string; detail: string; score: number | null }[] = [
+  const rows: { label: string; detail: string; score: number | null; weight: number }[] = [
     {
       label: "Utfall",
       detail: impact.breakdown.outcome.label === "bifall"
@@ -585,6 +586,7 @@ function ImpactScoreBreakdown({ impact }: { impact: MotionImpactScore }) {
         ? "Avslagen"
         : "Ej behandlad",
       score: impact.breakdown.outcome.score,
+      weight: impact.breakdown.outcome.weight,
     },
     {
       label: "Omröstning",
@@ -592,16 +594,19 @@ function ImpactScoreBreakdown({ impact }: { impact: MotionImpactScore }) {
         ? `${impact.breakdown.voteMargin.ja} Ja · ${impact.breakdown.voteMargin.nej} Nej`
         : "Acklamation",
       score: impact.breakdown.voteMargin.score,
+      weight: impact.breakdown.voteMargin.weight,
     },
     {
       label: "Partibredd",
       detail: `${impact.breakdown.crossParty.parties} av 8 partier`,
       score: impact.breakdown.crossParty.score,
+      weight: impact.breakdown.crossParty.weight,
     },
     {
       label: "Undertecknare",
       detail: `${impact.breakdown.signatories.count} st`,
       score: impact.breakdown.signatories.score,
+      weight: impact.breakdown.signatories.weight,
     },
     {
       label: "Utskott",
@@ -609,6 +614,7 @@ function ImpactScoreBreakdown({ impact }: { impact: MotionImpactScore }) {
         ? (COMMITTEE_TO_TOPIC[impact.organ] ?? impact.organ)
         : "Okänt",
       score: impact.breakdown.topic.score,
+      weight: impact.breakdown.topic.weight,
     },
   ];
 
@@ -622,6 +628,10 @@ function ImpactScoreBreakdown({ impact }: { impact: MotionImpactScore }) {
         {impact.isProvisional && (
           <span className="text-[10px] text-muted-foreground">preliminär</span>
         )}
+        <InfoButton
+          title="Impactpoäng"
+          description="Mäter hur betydelsefull en motion är baserat på: utfall i riksdagen (40%), hur jämn omröstningen var (25%), stöd från flera partier (15%), antal undertecknare (10%) och utskottets vikt (10%). Preliminära poäng visas för motioner som ännu inte behandlats."
+        />
       </div>
       <div className="space-y-1.5">
         {rows.map((row) => (
@@ -636,7 +646,10 @@ function ImpactScoreBreakdown({ impact }: { impact: MotionImpactScore }) {
             <span className="text-[10px] tabular-nums text-muted-foreground w-4 text-right">
               {Math.round((row.score ?? 0) * 100)}
             </span>
-            <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
+            <span className="text-[10px] text-muted-foreground/60 w-6 text-right">
+              {Math.round(row.weight * 100)}%
+            </span>
+            <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">
               {row.detail}
             </span>
           </div>

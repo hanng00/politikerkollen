@@ -1,18 +1,24 @@
 -- Mart: Motion Impact Score
 -- One row per motion with a composite impact score S ∈ [0, 1] and all sub-components.
 --
--- S = 0.35·O + 0.20·M + 0.20·C + 0.15·N + 0.10·T
+-- Formula (v2):
+--   S = 0.40·O + 0.25·M + 0.15·C + 0.10·N + 0.10·T
 --
 -- Components:
---   O  outcome_score      — bifall=1.0, avslag/acklamation=0.3, unresolved=null
+--   O  outcome_score      — bifall=1.0, avslag=0.3 (boosted by M if close vote)
 --   M  vote_margin_score  — 1 − |Ja−Nej|/(Ja+Nej), null when no roll-call vote
---   C  cross_party_score  — distinct signatory parties / 8
---   N  signatory_score    — min(signatories / 50, 1.0)
+--   C  cross_party_score  — sqrt(distinct_parties / 8) — diminishing returns
+--   N  signatory_score    — ln(1 + signatories) / ln(51) — diminishing returns
 --   T  topic_score        — static weight by utskott (organ)
 --
--- Motioner without a betänkande outcome (newly filed, withdrawn) are included
--- with only the N and C components scored; O, M, T remain null.
--- Their provisional score uses only the available components, re-weighted.
+-- Design principles:
+--   1. Outcome + vote margin (65% combined) dominate when available — actual
+--      parliamentary treatment is the strongest signal of impact.
+--   2. Signatories and cross-party use log/sqrt transforms for diminishing
+--      marginal returns (5→15 signatories matters more than 35→45).
+--   3. Provisional motions (no outcome yet) are scored only on engagement
+--      signals (C, N, T) with re-weighted formula. These scores are NOT
+--      comparable to resolved motions and are flagged with is_provisional=true.
 --
 -- The display_breakdown JSON column enables the UI to render per-component tooltips.
 
@@ -39,21 +45,37 @@ with topic_weights as (
     ) t(organ, topic_score)
 ),
 
--- Base: all motioner, with outcome data where available
+-- Base: all motioner (unique by dok_id from stg_dokumentstatus)
 motioner as (
     select
-        ds.dokument__dok_id  as mot_dok_id,
-        ds.dokument__titel   as mot_titel,
-        ds.dokument__rm      as rm,
-        ds.dokument__datum   as mot_datum,
-        ds.dokument__subtyp  as mot_subtyp
-    from {{ ref('stg_dokumentstatus') }} ds
-    where ds.dokument__typ = 'mot'
-      and ds.dokument__dok_id is not null
+        dokument__dok_id  as mot_dok_id,
+        dokument__titel   as mot_titel,
+        dokument__rm      as rm,
+        dokument__datum   as mot_datum,
+        dokument__subtyp  as mot_subtyp
+    from {{ ref('stg_dokumentstatus') }}
+    where dokument__typ = 'mot'
+      and dokument__dok_id is not null
 ),
 
 outcomes as (
     select * from {{ ref('int_motion_outcome') }}
+),
+
+-- Aggregate outcomes: a motion can be treated in multiple betänkanden
+-- Keep the best outcome (bifall > avslag) with its associated metadata
+outcomes_best as (
+    select
+        mot_dok_id,
+        max(outcome_score)                           as outcome_score,
+        arg_max(outcome_label, outcome_score)        as outcome_label,
+        arg_max(organ, outcome_score)                as organ,
+        arg_max(bet_dok_id, outcome_score)           as bet_dok_id,
+        arg_max(votering_id, outcome_score)          as votering_id,
+        arg_max(punkt_rubrik, outcome_score)         as punkt_rubrik,
+        count(*)                                     as bet_count
+    from outcomes
+    group by mot_dok_id
 ),
 
 vote_margins as (
@@ -98,7 +120,7 @@ assembled as (
         coalesce(tw.topic_score, 0.3) as topic_score
 
     from motioner m
-    left join outcomes       o   on o.mot_dok_id   = m.mot_dok_id
+    left join outcomes_best  o   on o.mot_dok_id   = m.mot_dok_id
     left join vote_margins   vm  on lower(vm.votering_id) = lower(o.votering_id)
     left join signatories    s   on s.mot_dok_id   = m.mot_dok_id
     left join topic_weights  tw  on tw.organ        = o.organ
@@ -114,23 +136,26 @@ scored as (
         case
             when outcome_score is not null and vote_margin_score is not null
                 -- All components available: full formula
-                then 0.35 * outcome_score
-                   + 0.20 * vote_margin_score
-                   + 0.20 * cross_party_score
-                   + 0.15 * signatory_score
+                -- S = 0.40·O + 0.25·M + 0.15·C + 0.10·N + 0.10·T
+                then 0.40 * outcome_score
+                   + 0.25 * vote_margin_score
+                   + 0.15 * cross_party_score
+                   + 0.10 * signatory_score
                    + 0.10 * topic_score
             when outcome_score is not null and vote_margin_score is null
-                -- Acklamation vote: no margin data, redistribute M weight to O
-                then 0.55 * outcome_score
-                   + 0.20 * cross_party_score
-                   + 0.15 * signatory_score
+                -- Acklamation vote: no margin data
+                -- Redistribute M weight to O (0.40 + 0.25 = 0.65)
+                then 0.65 * outcome_score
+                   + 0.15 * cross_party_score
+                   + 0.10 * signatory_score
                    + 0.10 * topic_score
             else
                 -- No outcome yet (newly filed / pending)
-                -- Score only on engagement signals
-                0.55 * cross_party_score
-                + 0.30 * signatory_score
-                + 0.15 * topic_score
+                -- Score only on engagement signals, re-weighted to sum to 1.0
+                -- C: 0.15 → 0.43, N: 0.10 → 0.29, T: 0.10 → 0.29
+                0.43 * cross_party_score
+                + 0.29 * signatory_score
+                + 0.28 * topic_score
         end as impact_score,
 
         -- Flag so consumers know if score is provisional
@@ -175,10 +200,10 @@ select
 
     -- Machine-readable breakdown for UI rendering
     to_json({
-        'outcome':      {'score': outcome_score,       'label': outcome_label,    'weight': 0.35},
-        'vote_margin':  {'score': vote_margin_score,   'ja': ja_count, 'nej': nej_count, 'weight': 0.20},
-        'cross_party':  {'score': cross_party_score,   'parties': distinct_parties, 'weight': 0.20},
-        'signatories':  {'score': signatory_score,     'count': signatory_count,  'weight': 0.15},
+        'outcome':      {'score': outcome_score,       'label': outcome_label,    'weight': 0.40},
+        'vote_margin':  {'score': vote_margin_score,   'ja': ja_count, 'nej': nej_count, 'weight': 0.25},
+        'cross_party':  {'score': cross_party_score,   'parties': distinct_parties, 'weight': 0.15},
+        'signatories':  {'score': signatory_score,     'count': signatory_count,  'weight': 0.10},
         'topic':        {'score': topic_score,         'organ': organ,            'weight': 0.10}
     }) as score_breakdown
 
