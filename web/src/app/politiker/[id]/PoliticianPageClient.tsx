@@ -1,6 +1,5 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,13 +12,11 @@ import { InfoButton } from "@/components/ui/info-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
-  Calendar,
   ChevronDown,
   ChevronLeft,
   ExternalLink,
   FileText,
   Loader2,
-  MapPin,
   MessageSquare,
   Vote,
 } from "lucide-react";
@@ -27,10 +24,12 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { SiteHeader } from "@/components/layout";
+import { HighlightsCard } from "@/components/politiker/HighlightsCard";
+import { KeyVotesCard } from "@/components/politiker/KeyVotesCard";
+import { MotionEffectivenessCard } from "@/components/politiker/MotionEffectivenessCard";
 import { PartyLoyaltyCard } from "@/components/politiker/PartyLoyaltyCard";
-import { RebelVotesCard } from "@/components/politiker/RebelVotesCard";
-import { TopTopicsCard } from "@/components/politiker/TopTopicsCard";
-import { VoteBreakdownChart } from "@/components/politiker/VoteBreakdownChart";
+import { PoliticianProfileCard } from "@/components/politiker/PoliticianProfileCard";
+import { RebelVotesByTopicCard } from "@/components/politiker/RebelVotesByTopicCard";
 import { useFetchPolitician } from "@/hooks/useFetchPolitician";
 import {
   groupTimelineItems,
@@ -43,18 +42,6 @@ import {
   type VoteGroup,
 } from "@/hooks/useFetchPoliticianTimeline";
 import Link from "next/link";
-
-// Party colors
-const partyColors: Record<string, string> = {
-  S: "bg-[#E8112d]",
-  M: "bg-[#52BDEC]",
-  SD: "bg-[#DDDD00] text-black",
-  C: "bg-[#009933]",
-  V: "bg-[#DA291C]",
-  KD: "bg-[#000077]",
-  L: "bg-[#006AB3]",
-  MP: "bg-[#83CF39] text-black",
-};
 
 function getRiksdagenBetankandeUrl(betankandeId: string): string {
   // Using underscore prefix without slug - Riksdagen redirects to the full URL with slug
@@ -88,11 +75,11 @@ function TimelineCard({
   }[indicator];
 
   return (
-    <Card>
+    <Card className="transition-all duration-200 hover:shadow-md hover:border-border/80">
       <CardContent className="py-4 px-4">
         <div className="flex items-start gap-3">
           <div
-            className={`size-2 rounded-full ${indicatorColor} mt-2 shrink-0`}
+            className={`size-2 rounded-full ${indicatorColor} mt-2 shrink-0 transition-transform group-hover:scale-110`}
           />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1 flex-wrap">
@@ -152,7 +139,7 @@ function VoteGroupCard({ group }: { group: VoteGroup }) {
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full">
-      <Card className="transition-colors hover:bg-muted/30">
+      <Card className="transition-all duration-200 hover:shadow-md hover:border-border/80">
         <CollapsibleTrigger className="w-full text-left cursor-pointer">
           <CardContent className="py-4 px-4">
             <div className="flex items-start gap-3">
@@ -298,7 +285,7 @@ function SpeechCard({ item }: { item: TimelineItem }) {
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full">
-      <Card className="transition-colors hover:bg-muted/30">
+      <Card className="transition-all duration-200 hover:shadow-md hover:border-border/80">
         <CollapsibleTrigger className="w-full text-left cursor-pointer">
           <CardContent className="py-4 px-4">
             <div className="flex items-start gap-3">
@@ -868,6 +855,67 @@ function TimelineItemCard({ item }: { item: GroupedTimelineItem }) {
   return <AuthoredCard item={item} />;
 }
 
+const MONTH_NAMES_SV = [
+  "Januari",
+  "Februari",
+  "Mars",
+  "April",
+  "Maj",
+  "Juni",
+  "Juli",
+  "Augusti",
+  "September",
+  "Oktober",
+  "November",
+  "December",
+];
+
+function MonthSeparator({ date }: { date: string }) {
+  const d = new Date(date);
+  const month = MONTH_NAMES_SV[d.getMonth()];
+  const year = d.getFullYear();
+
+  return (
+    <div className="flex items-center gap-3 py-3 my-1">
+      <div className="h-px flex-1 bg-linear-to-r from-transparent via-border to-transparent" />
+      <span className="text-xs font-medium text-muted-foreground bg-background px-3 py-1 rounded-full border">
+        {month} {year}
+      </span>
+      <div className="h-px flex-1 bg-linear-to-r from-transparent via-border to-transparent" />
+    </div>
+  );
+}
+
+function getMonthKey(date: string): string {
+  const d = new Date(date);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+interface TimelineWithSeparators {
+  items: Array<
+    | { type: "separator"; monthKey: string; date: string }
+    | { type: "item"; item: GroupedTimelineItem }
+  >;
+}
+
+function addMonthSeparators(
+  timeline: GroupedTimelineItem[],
+): TimelineWithSeparators["items"] {
+  const result: TimelineWithSeparators["items"] = [];
+  let lastMonthKey: string | null = null;
+
+  for (const item of timeline) {
+    const monthKey = getMonthKey(item.date);
+    if (monthKey !== lastMonthKey) {
+      result.push({ type: "separator", monthKey, date: item.date });
+      lastMonthKey = monthKey;
+    }
+    result.push({ type: "item", item });
+  }
+
+  return result;
+}
+
 export default function PoliticianPageClient({ id }: { id: string }) {
   const router = useRouter();
   const [activityFilter, setActivityFilter] = useState<ActivityType[]>([]);
@@ -892,6 +940,10 @@ export default function PoliticianPageClient({ id }: { id: string }) {
   const groupedTimeline = useMemo(
     () => groupTimelineItems(timeline),
     [timeline],
+  );
+  const timelineWithSeparators = useMemo(
+    () => addMonthSeparators(groupedTimeline),
+    [groupedTimeline],
   );
 
   // Intersection observer for infinite scroll
@@ -928,15 +980,8 @@ export default function PoliticianPageClient({ id }: { id: string }) {
         <main className="page-container py-6">
           <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-8">
             <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <Skeleton className="size-20 rounded-full" />
-                <div className="space-y-2">
-                  <Skeleton className="h-6 w-48" />
-                  <Skeleton className="h-4 w-32" />
-                </div>
-              </div>
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-48 w-full" />
+              <Skeleton className="h-80 w-full rounded-lg" />
+              <Skeleton className="h-32 w-full" />
               <Skeleton className="h-48 w-full" />
             </div>
             <div className="space-y-3">
@@ -969,9 +1014,6 @@ export default function PoliticianPageClient({ id }: { id: string }) {
     );
   }
 
-  const initials = `${politician.firstName[0]}${politician.lastName[0]}`;
-  const partyColor = partyColors[politician.party] ?? "bg-muted";
-
   return (
     <div className="h-full min-w-0 overflow-x-clip bg-background flex flex-col">
       <SiteHeader />
@@ -986,79 +1028,33 @@ export default function PoliticianPageClient({ id }: { id: string }) {
         </div>
 
         {/* Two-column layout: Profile/Insights | Timeline */}
-        {/* On desktop: fixed height, both columns scroll independently */}
         <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-8 flex-1 min-h-0">
-          {/* LEFT COLUMN: Profile + Insights - sticky on desktop, scrollable if tall */}
-          <div className="space-y-6 lg:overflow-y-auto lg:max-h-[calc(100vh-140px)] lg:sticky lg:top-6 lg:pr-2">
-            {/* Profile Card */}
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center">
-                  <Avatar className="size-20 mb-4">
-                    {politician.imageUrl && (
-                      <AvatarImage
-                        src={politician.imageUrl}
-                        alt={politician.name}
-                      />
-                    )}
-                    <AvatarFallback className="text-xl">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex items-center gap-2 mb-1">
-                    <h1 className="text-xl font-bold">{politician.name}</h1>
-                    <Badge className={`${partyColor}`}>
-                      {politician.party}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {politician.status}
-                  </p>
-                  <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <MapPin className="size-3" />
-                      {politician.constituency}
-                    </span>
-                    {politician.birthYear && (
-                      <span className="flex items-center gap-1">
-                        <Calendar className="size-3" />
-                        {politician.birthYear}
-                      </span>
-                    )}
-                  </div>
-                </div>
+          {/* LEFT COLUMN: Profile + Insights */}
+          <div className="space-y-4 lg:overflow-y-auto lg:max-h-[calc(100vh-140px)] lg:sticky lg:top-6 lg:pr-2">
+            {/* Profile Card with actions */}
+            <PoliticianProfileCard politician={politician} />
 
-                {/* Stats row */}
-                <div className="grid grid-cols-3 gap-2 mt-6 pt-6 border-t">
-                  <div className="text-center">
-                    <p className="text-xl font-bold">
-                      {politician.stats.totalVotes.toLocaleString()}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Röster</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xl font-bold">
-                      {politician.stats.totalSpeeches.toLocaleString()}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Anföranden</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xl font-bold">
-                      {politician.stats.totalAuthored.toLocaleString()}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Dokument</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Highlights - meaningful summary */}
+            <HighlightsCard politician={politician} />
 
-            {/* Insight Cards */}
-            {politician.voteBreakdown && politician.stats.totalVotes > 0 && (
-              <VoteBreakdownChart
-                voteBreakdown={politician.voteBreakdown}
-                totalVotes={politician.stats.totalVotes}
-              />
-            )}
+            {/* Motion Effectiveness - real impact metric */}
+            <MotionEffectivenessCard
+              motionEffectiveness={politician.motionEffectiveness}
+            />
+
+            {/* Key Votes - important decisions */}
+            <KeyVotesCard
+              keyVotes={politician.keyVotes}
+              partyName={politician.party}
+            />
+
+            {/* Rebel Votes by Topic - patterns of independence */}
+            <RebelVotesByTopicCard
+              rebelVotesByTopic={politician.rebelVotesByTopic}
+              partyName={politician.party}
+            />
+
+            {/* Party Loyalty - context for rebel votes */}
             {politician.partyLoyalty &&
               politician.partyLoyalty.totalVotes > 0 && (
                 <PartyLoyaltyCard
@@ -1066,18 +1062,9 @@ export default function PoliticianPageClient({ id }: { id: string }) {
                   partyName={politician.party}
                 />
               )}
-            {politician.topTopics && politician.topTopics.length > 0 && (
-              <TopTopicsCard topTopics={politician.topTopics} />
-            )}
-            {politician.rebelVotes && politician.rebelVotes.length > 0 && (
-              <RebelVotesCard
-                rebelVotes={politician.rebelVotes}
-                partyName={politician.party}
-              />
-            )}
           </div>
 
-          {/* RIGHT COLUMN: Activity Timeline - scrollable */}
+          {/* RIGHT COLUMN: Activity Timeline */}
           <div className="flex flex-col min-h-0 lg:max-h-[calc(100vh-140px)]">
             <div className="flex items-center justify-between mb-4 shrink-0 bg-background pb-2">
               <h2 className="text-lg font-semibold">Aktivitet</h2>
@@ -1105,7 +1092,7 @@ export default function PoliticianPageClient({ id }: { id: string }) {
               </ToggleGroup>
             </div>
 
-            {/* Scrollable timeline content */}
+            {/* Scrollable timeline content with month separators */}
             <div className="flex-1 overflow-y-auto lg:pr-2">
               {loadingTimeline ? (
                 <div className="space-y-3">
@@ -1113,18 +1100,29 @@ export default function PoliticianPageClient({ id }: { id: string }) {
                   <Skeleton className="h-24" />
                   <Skeleton className="h-24" />
                 </div>
-              ) : groupedTimeline.length > 0 ? (
-                <div className="space-y-3">
-                  {groupedTimeline.map((item, index) => (
-                    <TimelineItemCard
-                      key={
-                        item.type === "vote-group"
-                          ? `group-${item.betankandeId}-${item.date}-${index}`
-                          : `${item.type}-${item.id}-${index}`
-                      }
-                      item={item}
-                    />
-                  ))}
+              ) : timelineWithSeparators.length > 0 ? (
+                <div className="space-y-2">
+                  {timelineWithSeparators.map((entry, index) => {
+                    if (entry.type === "separator") {
+                      return (
+                        <MonthSeparator
+                          key={`sep-${entry.monthKey}`}
+                          date={entry.date}
+                        />
+                      );
+                    }
+                    const item = entry.item;
+                    return (
+                      <TimelineItemCard
+                        key={
+                          item.type === "vote-group"
+                            ? `group-${item.betankandeId}-${item.date}-${index}`
+                            : `${item.type}-${item.id}-${index}`
+                        }
+                        item={item}
+                      />
+                    );
+                  })}
 
                   {/* Infinite scroll trigger */}
                   <div ref={loadMoreRef} className="py-4 flex justify-center">

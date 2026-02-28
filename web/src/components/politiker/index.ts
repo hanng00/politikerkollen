@@ -9,3 +9,4 @@ export * from "./PromiseTracker";
 export * from "./RankBadge";
 export * from "./ShareDialog";
 export * from "./TopicBreakdown";
+export * from "./WeeklyHighlights";

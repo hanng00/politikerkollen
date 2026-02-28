@@ -39,6 +39,42 @@ export interface RebelVote {
   topic: string | null;
 }
 
+// Rebel votes grouped by topic
+export interface RebelVotesByTopic {
+  topic: string;
+  committee: string;
+  count: number;
+  recentVotes: RebelVote[];
+}
+
+// Motion effectiveness metrics
+export interface MotionEffectiveness {
+  totalMotions: number;
+  motionsPassed: number;
+  motionsRejected: number;
+  motionsPending: number;
+  passRate: number;
+  avgImpactScore: number;
+  topMotion: {
+    dokId: string;
+    title: string;
+    impactScore: number;
+    outcome: string | null;
+  } | null;
+}
+
+// Key vote type
+export interface KeyVote {
+  voteringId: string;
+  date: string;
+  voteValue: string;
+  betankandeId: string;
+  betankandeTitel: string;
+  topic: string | null;
+  isRebel: boolean;
+  partyMajorityVote: string | null;
+}
+
 // API response type (matching backend)
 export interface PoliticianDetail {
   id: string;
@@ -61,7 +97,9 @@ export interface PoliticianDetail {
   voteBreakdown: VoteBreakdown;
   partyLoyalty: PartyLoyalty;
   topTopics: TopicActivity[];
-  rebelVotes: RebelVote[];
+  rebelVotesByTopic: RebelVotesByTopic[];
+  motionEffectiveness: MotionEffectiveness;
+  keyVotes: KeyVote[];
 }
 
 async function fetchPolitician(id: string): Promise<PoliticianDetail | null> {

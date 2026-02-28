@@ -18,6 +18,16 @@ export interface PoliticianSummary {
     totalAuthored: number;
     rebelVoteCount: number;
   };
+  // Accountability metrics
+  motionStats?: {
+    total: number;
+    passed: number;
+    passRate: number;
+  };
+  topRebelTopic?: {
+    topic: string;
+    count: number;
+  };
 }
 
 interface PaginatedResponse {
@@ -26,11 +36,12 @@ interface PaginatedResponse {
   hasMore: boolean;
 }
 
-export type SortOption = "name" | "mostActive" | "mostVotes" | "mostSpeeches" | "mostRebel";
+export type SortOption = "name" | "mostActive" | "mostVotes" | "mostSpeeches" | "mostRebel" | "mostEffective";
 
 export interface FetchPoliticiansOptions {
   search?: string;
   party?: string;
+  constituency?: string;
   limit?: number;
   sortBy?: SortOption;
   fromDate?: string;
@@ -47,6 +58,7 @@ export async function fetchPoliticiansPage(
   const params = new URLSearchParams();
   if (options.search) params.set("search", options.search);
   if (options.party) params.set("party", options.party);
+  if (options.constituency) params.set("constituency", options.constituency);
   if (options.limit) params.set("limit", options.limit.toString());
   if (options.offset) params.set("offset", options.offset.toString());
   if (options.sortBy) params.set("sortBy", options.sortBy);

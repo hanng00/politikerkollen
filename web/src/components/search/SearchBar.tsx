@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { Command, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useFetchPoliticians, useDebounce } from "@/hooks";
 import { cn } from "@/lib/utils";
 
@@ -46,7 +47,8 @@ export function SearchBar({ className, size = "default" }: SearchBarProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const showResults = open && query.length > 0 && !isLoading;
+  const showResults = open && query.length > 0;
+  const showLoading = showResults && isLoading;
 
   const isLarge = size === "lg";
 
@@ -75,10 +77,22 @@ export function SearchBar({ className, size = "default" }: SearchBarProps) {
         <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-lg border bg-popover shadow-md">
           <Command>
             <CommandList>
-              {filtered?.length === 0 && (
+              {showLoading ? (
+                <div className="p-2 space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center gap-3 p-2">
+                      <Skeleton className="size-10 rounded-full shrink-0" />
+                      <div className="flex-1 space-y-1.5">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-40" />
+                      </div>
+                      <Skeleton className="h-3 w-16" />
+                    </div>
+                  ))}
+                </div>
+              ) : filtered?.length === 0 ? (
                 <CommandEmpty>Inga politiker hittades</CommandEmpty>
-              )}
-              {filtered && filtered.length > 0 && (
+              ) : filtered && filtered.length > 0 ? (
                 <CommandGroup>
                   {filtered.map((p) => {
                     const initials = `${p.firstName[0]}${p.lastName[0]}`;
@@ -116,7 +130,7 @@ export function SearchBar({ className, size = "default" }: SearchBarProps) {
                     );
                   })}
                 </CommandGroup>
-              )}
+              ) : null}
             </CommandList>
           </Command>
         </div>

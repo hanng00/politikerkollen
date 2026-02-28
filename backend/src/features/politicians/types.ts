@@ -79,6 +79,16 @@ export interface PoliticianSummary {
     totalAuthored: number;
     rebelVoteCount: number;
   };
+  // Accountability metrics for list view
+  motionStats?: {
+    total: number;
+    passed: number;
+    passRate: number;
+  };
+  topRebelTopic?: {
+    topic: string;
+    count: number;
+  };
 }
 
 export interface VoteBreakdown {
@@ -114,6 +124,39 @@ export interface RebelVote {
   topic: string | null;
 }
 
+export interface MotionEffectiveness {
+  totalMotions: number;
+  motionsPassed: number;
+  motionsRejected: number;
+  motionsPending: number;
+  passRate: number;
+  avgImpactScore: number;
+  topMotion: {
+    dokId: string;
+    title: string;
+    impactScore: number;
+    outcome: string | null;
+  } | null;
+}
+
+export interface RebelVotesByTopic {
+  topic: string;
+  committee: string;
+  count: number;
+  recentVotes: RebelVote[];
+}
+
+export interface KeyVote {
+  voteringId: string;
+  date: string;
+  voteValue: string;
+  betankandeId: string;
+  betankandeTitel: string;
+  topic: string | null;
+  isRebel: boolean;
+  partyMajorityVote: string | null;
+}
+
 export interface PoliticianDetail extends PoliticianSummary {
   birthYear: number | null;
   gender: string | null;
@@ -122,7 +165,9 @@ export interface PoliticianDetail extends PoliticianSummary {
   voteBreakdown: VoteBreakdown;
   partyLoyalty: PartyLoyalty;
   topTopics: TopicActivity[];
-  rebelVotes: RebelVote[];
+  rebelVotesByTopic: RebelVotesByTopic[];
+  motionEffectiveness: MotionEffectiveness;
+  keyVotes: KeyVote[];
 }
 
 export interface DocumentStakeholder {
@@ -207,7 +252,22 @@ export interface PaginatedResponse<T> {
 }
 
 // Transform functions
-export function toSummary(row: MartPerson): PoliticianSummary {
+export interface MotionStatsForSummary {
+  total: number;
+  passed: number;
+  passRate: number;
+}
+
+export interface TopRebelTopicForSummary {
+  topic: string;
+  count: number;
+}
+
+export function toSummary(
+  row: MartPerson,
+  motionStats?: MotionStatsForSummary,
+  topRebelTopic?: TopRebelTopicForSummary,
+): PoliticianSummary {
   return {
     id: row.intressent_id,
     firstName: row.tilltalsnamn,
@@ -223,10 +283,20 @@ export function toSummary(row: MartPerson): PoliticianSummary {
       totalAuthored: row.total_authored,
       rebelVoteCount: row.rebel_vote_count,
     },
+    motionStats,
+    topRebelTopic,
   };
 }
 
-export function toDetail(row: MartPerson, voteBreakdown?: VoteBreakdown, partyLoyalty?: PartyLoyalty, topTopics?: TopicActivity[], rebelVotes?: RebelVote[]): PoliticianDetail {
+export function toDetail(
+  row: MartPerson,
+  voteBreakdown?: VoteBreakdown,
+  partyLoyalty?: PartyLoyalty,
+  topTopics?: TopicActivity[],
+  rebelVotesByTopic?: RebelVotesByTopic[],
+  motionEffectiveness?: MotionEffectiveness,
+  keyVotes?: KeyVote[],
+): PoliticianDetail {
   return {
     ...toSummary(row),
     birthYear: row.fodd_ar,
@@ -236,7 +306,17 @@ export function toDetail(row: MartPerson, voteBreakdown?: VoteBreakdown, partyLo
     voteBreakdown: voteBreakdown ?? { ja: 0, nej: 0, avstar: 0, franvarande: 0 },
     partyLoyalty: partyLoyalty ?? { totalVotes: 0, votesWithParty: 0, votesAgainstParty: 0, loyaltyPercentage: 0 },
     topTopics: topTopics ?? [],
-    rebelVotes: rebelVotes ?? [],
+    rebelVotesByTopic: rebelVotesByTopic ?? [],
+    motionEffectiveness: motionEffectiveness ?? {
+      totalMotions: 0,
+      motionsPassed: 0,
+      motionsRejected: 0,
+      motionsPending: 0,
+      passRate: 0,
+      avgImpactScore: 0,
+      topMotion: null,
+    },
+    keyVotes: keyVotes ?? [],
   };
 }
 

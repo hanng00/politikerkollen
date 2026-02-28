@@ -1,92 +1,36 @@
 "use client";
 
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { Filter, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { SiteHeader } from "@/components/layout";
-import { PoliticianCardSimple } from "@/components/politiker";
+import {
+  PoliticianCardSimple,
+  PoliticianCardSkeleton,
+  WeeklyHighlights,
+} from "@/components/politiker";
 import {
   SearchFilter,
   PartyFilter,
-  PeriodFilter,
-  ActivityFilter,
+  ConstituencyFilter,
   SortFilter,
-  getDateRangeFromPeriod,
-  type ActivityFilterValue,
 } from "@/components/politiker/filters";
 import {
   useDebounce,
   useInfiniteFetchPoliticians,
-  type PoliticianSummary,
   type SortOption,
 } from "@/hooks";
-
-function getTotalActivity(p: PoliticianSummary) {
-  return (
-    Number(p.stats.totalVotes) +
-    Number(p.stats.totalSpeeches) +
-    Number(p.stats.totalAuthored)
-  );
-}
-
-function computePercentiles(politicians: PoliticianSummary[]) {
-  if (politicians.length === 0) return { activity: new Map(), rebel: new Map() };
-
-  const activityValues = politicians
-    .map((p) => ({ id: p.id, value: getTotalActivity(p) }))
-    .sort((a, b) => a.value - b.value);
-
-  const rebelValues = politicians
-    .map((p) => ({ id: p.id, value: p.stats.rebelVoteCount }))
-    .sort((a, b) => a.value - b.value);
-
-  const activityPercentiles = new Map<string, number>();
-  const rebelPercentiles = new Map<string, number>();
-
-  activityValues.forEach((item, index) => {
-    activityPercentiles.set(
-      item.id,
-      Math.round((index / (activityValues.length - 1 || 1)) * 100),
-    );
-  });
-
-  rebelValues.forEach((item, index) => {
-    rebelPercentiles.set(
-      item.id,
-      Math.round((index / (rebelValues.length - 1 || 1)) * 100),
-    );
-  });
-
-  return { activity: activityPercentiles, rebel: rebelPercentiles };
-}
 
 export default function PoliticiansPageClient() {
   const [searchQuery, setSearchQuery] = useState("");
   const [partyFilter, setPartyFilter] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<SortOption>("mostActive");
-  const [activityFilter, setActivityFilter] =
-    useState<ActivityFilterValue>("all");
-  const [periodFilter, setPeriodFilter] = useState("all");
-  const [customFromDate, setCustomFromDate] = useState("");
-  const [customToDate, setCustomToDate] = useState("");
-  const [useCustomDates, setUseCustomDates] = useState(false);
+  const [constituencyFilter, setConstituencyFilter] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>("mostEffective");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   const debouncedSearch = useDebounce(searchQuery, 300);
-
-  const dateRange = useMemo(
-    () =>
-      getDateRangeFromPeriod(
-        periodFilter,
-        customFromDate,
-        customToDate,
-        useCustomDates,
-      ),
-    [periodFilter, customFromDate, customToDate, useCustomDates],
-  );
 
   const {
     data,
@@ -98,35 +42,15 @@ export default function PoliticiansPageClient() {
   } = useInfiniteFetchPoliticians({
     search: debouncedSearch || undefined,
     party: partyFilter ?? undefined,
+    constituency: constituencyFilter ?? undefined,
     sortBy,
     limit: 30,
-    fromDate: dateRange.fromDate,
-    toDate: dateRange.toDate,
   });
 
   const politicians = useMemo(() => {
     if (!data?.pages) return [];
     return data.pages.flatMap((page) => page.data);
   }, [data]);
-
-  const percentiles = useMemo(
-    () => computePercentiles(politicians),
-    [politicians],
-  );
-
-  const filtered = useMemo(() => {
-    if (!politicians.length) return [];
-
-    let result = politicians;
-
-    if (activityFilter === "active") {
-      result = result.filter((p) => getTotalActivity(p) >= 100);
-    } else if (activityFilter === "veryActive") {
-      result = result.filter((p) => getTotalActivity(p) >= 500);
-    }
-
-    return result;
-  }, [politicians, activityFilter]);
 
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -154,8 +78,17 @@ export default function PoliticiansPageClient() {
     return () => observer.disconnect();
   }, [handleObserver]);
 
-  const hasActiveAdvancedFilters =
-    periodFilter !== "all" || activityFilter !== "all" || sortBy !== "mostActive";
+  const hasActiveFilters =
+    partyFilter !== null ||
+    constituencyFilter !== null ||
+    sortBy !== "mostEffective";
+
+  const clearFilters = () => {
+    setPartyFilter(null);
+    setConstituencyFilter(null);
+    setSortBy("mostEffective");
+    setSearchQuery("");
+  };
 
   return (
     <div className="min-h-screen min-w-0 overflow-x-clip">
@@ -165,9 +98,19 @@ export default function PoliticiansPageClient() {
         <header className="text-center space-y-2">
           <h1>Riksdagens ledamöter</h1>
           <p className="text-muted-foreground">
-            Sök, filtrera och se vad politikerna faktiskt gör.
+            Se vilka politiker som faktiskt får igenom sina förslag.
           </p>
         </header>
+
+        {/* Weekly highlights - only show when no filters active */}
+        {!hasActiveFilters && !searchQuery && politicians.length > 0 && (
+          <section>
+            <h2 className="text-sm font-medium text-muted-foreground mb-3">
+              Notabla ledamöter
+            </h2>
+            <WeeklyHighlights politicians={politicians} />
+          </section>
+        )}
 
         <section className="space-y-3">
           {/* Primary filters: always visible */}
@@ -175,36 +118,35 @@ export default function PoliticiansPageClient() {
             <SearchFilter value={searchQuery} onChange={setSearchQuery} />
             <PartyFilter value={partyFilter} onChange={setPartyFilter} />
             <Button
-              variant={hasActiveAdvancedFilters ? "secondary" : "ghost"}
+              variant={showAdvancedFilters || hasActiveFilters ? "secondary" : "ghost"}
               size="sm"
               onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
               className="h-9 gap-1.5"
             >
               <Filter className="size-3.5" />
               <span className="hidden sm:inline">Fler filter</span>
-              {hasActiveAdvancedFilters && (
+              {hasActiveFilters && (
                 <span className="size-1.5 rounded-full bg-primary" />
               )}
             </Button>
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="h-9 text-muted-foreground"
+              >
+                Rensa filter
+              </Button>
+            )}
           </div>
 
           {/* Advanced filters: collapsible */}
           {showAdvancedFilters && (
             <div className="flex flex-wrap items-center gap-2 pt-1 pb-2 border-t border-b">
-              <PeriodFilter
-                periodFilter={periodFilter}
-                onPeriodChange={setPeriodFilter}
-                customFromDate={customFromDate}
-                customToDate={customToDate}
-                onCustomFromDateChange={setCustomFromDate}
-                onCustomToDateChange={setCustomToDate}
-                useCustomDates={useCustomDates}
-                onUseCustomDatesChange={setUseCustomDates}
-              />
-              <Separator orientation="vertical" className="h-6 hidden sm:block" />
-              <ActivityFilter
-                value={activityFilter}
-                onChange={setActivityFilter}
+              <ConstituencyFilter
+                value={constituencyFilter}
+                onChange={setConstituencyFilter}
               />
               <Separator orientation="vertical" className="h-6 hidden sm:block" />
               <SortFilter value={sortBy} onChange={setSortBy} />
@@ -216,7 +158,7 @@ export default function PoliticiansPageClient() {
           {isLoading ? (
             <div className="card-grid-3">
               {[1, 2, 3, 4, 5, 6].map((i) => (
-                <Skeleton key={i} className="h-28" />
+                <PoliticianCardSkeleton key={i} />
               ))}
             </div>
           ) : error ? (
@@ -226,20 +168,17 @@ export default function PoliticiansPageClient() {
                 {error instanceof Error ? error.message : "Okänt fel"}
               </p>
             </div>
-          ) : filtered.length ? (
+          ) : politicians.length ? (
             <>
               <p className="text-sm text-muted-foreground mb-4">
-                {filtered.length === politicians.length
-                  ? `${filtered.length} politiker${hasNextPage ? "+" : ""}`
-                  : `${filtered.length} av ${politicians.length} politiker`}
+                {politicians.length} politiker{hasNextPage ? "+" : ""}
+                {constituencyFilter && ` i ${constituencyFilter}`}
               </p>
               <div className="card-grid-3">
-                {filtered.map((p) => (
+                {politicians.map((p) => (
                   <PoliticianCardSimple
                     key={p.id}
                     politician={p}
-                    activityPercentile={percentiles.activity.get(p.id)}
-                    rebelPercentile={percentiles.rebel.get(p.id)}
                   />
                 ))}
               </div>
