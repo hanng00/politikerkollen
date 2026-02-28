@@ -1,8 +1,8 @@
-name: riksbevakning
+name: politikerkollen
 version: 1.0.0
 config-version: 2
 
-profile: riksbevakning
+profile: politikerkollen
 
 model-paths: ["models"]
 seed-paths: ["seeds"]
@@ -13,9 +13,9 @@ target-path: "target"
 clean-targets: ["target", "dbt_packages"]
 
 models:
-  riksbevakning:
+  politikerkollen:
     +materialized: view
-    
+
     # Staging layer - one-to-one with sources. Only views.
     stg:
       +schema: stg
@@ -23,7 +23,7 @@ models:
       +persist_docs:
         relation: true
         columns: true
-    
+
     # Intermediate layer - feature-scoped transformations. Tables
     int:
       +schema: int
@@ -39,4 +39,3 @@ models:
       +persist_docs:
         relation: true
         columns: true
-

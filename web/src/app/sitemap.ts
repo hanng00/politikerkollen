@@ -1,6 +1,30 @@
 import type { MetadataRoute } from "next";
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://politikerkollen.se";
+const BASE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://politikerkollen.se";
+const API_ENDPOINT = process.env.NEXT_PUBLIC_API_ENDPOINT;
+
+interface PoliticianSitemapEntry {
+  id: string;
+}
+
+async function fetchPoliticianIds(): Promise<PoliticianSitemapEntry[]> {
+  if (!API_ENDPOINT) return [];
+
+  try {
+    const res = await fetch(`${API_ENDPOINT}/politicians?limit=500`, {
+      next: { revalidate: 86400 },
+    });
+
+    if (!res.ok) return [];
+
+    const json = await res.json();
+    const data: Array<{ id: string }> = json.data ?? [];
+    return data.map((p) => ({ id: p.id }));
+  } catch {
+    return [];
+  }
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
@@ -24,14 +48,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  // In the future, we can fetch politician IDs from the API and add individual pages
-  // const politicians = await fetchAllPoliticianIds();
-  // const politicianPages = politicians.map((id) => ({
-  //   url: `${BASE_URL}/politiker/${id}`,
-  //   lastModified: new Date(),
-  //   changeFrequency: "weekly" as const,
-  //   priority: 0.7,
-  // }));
+  const politicians = await fetchPoliticianIds();
+  const politicianPages: MetadataRoute.Sitemap = politicians.map((p) => ({
+    url: `${BASE_URL}/politiker/${p.id}`,
+    lastModified: new Date(),
+    changeFrequency: "weekly" as const,
+    priority: 0.7,
+  }));
 
-  return [...staticPages];
+  return [...staticPages, ...politicianPages];
 }

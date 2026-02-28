@@ -1,41 +1,6 @@
 version: 2
 
 models:
-  - name: int_node_person
-    description: "Graph node: person. node_id = person:{intressent_id}. See docs/RELATIONS.md."
-    columns:
-      - name: node_id
-        description: "Globally unique node identifier"
-        tests:
-          - not_null
-          - unique
-      - name: intressent_id
-        description: "Domain ID from Riksdagen"
-
-  - name: int_node_dok
-    description: "Graph node: document. node_id = dok:{dok_id}. node_typ: betankande, motion, proposition, etc. See docs/RELATIONS.md."
-    columns:
-      - name: node_id
-        description: "Globally unique node identifier"
-        tests:
-          - not_null
-          - unique
-      - name: dok_id
-        description: "Domain ID from Riksdagen"
-      - name: node_typ
-        description: "Document type from serie_kod (01=betankande, 02=motion, 03=proposition)"
-
-  - name: int_node_event
-    description: "Graph node: event (votering, anförande). node_id = event:vot_{votering_id} | event:anf_{systemnyckel}. See docs/RELATIONS.md."
-    columns:
-      - name: node_id
-        description: "Globally unique node identifier"
-        tests:
-          - not_null
-          - unique
-      - name: votering_id
-        description: "Domain ID from Riksdagen"
-
   - name: int_motion_outcome
     description: |
       One row per (motion, betänkande) pair.
@@ -98,26 +63,3 @@ models:
         description: "Total co-signers (undertecknare + huvudman)"
       - name: distinct_parties
         description: "Number of distinct parties among signatories"
-
-  - name: int_edge
-    description: |
-      Graph edges: union of all relation types.
-      Supports: betänkande ↔ votes, who voted, motioner/propositioner → betänkande, who wrote.
-      See docs/RELATIONS.md.
-    columns:
-      - name: from_id
-        description: "Source node_id"
-        tests:
-          - not_null
-      - name: to_id
-        description: "Target node_id"
-        tests:
-          - not_null
-      - name: edge_typ
-        description: "Relation type: undertecknare, rostade, handlar_om, refererar, relaterat, etc."
-      - name: datum
-        description: "Edge timestamp"
-      - name: source
-        description: "Staging source for lineage"
-      - name: payload
-        description: "Edge-specific data (e.g. rost for rostade edges: Ja/Nej/Avstår)"

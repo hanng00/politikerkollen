@@ -1,7 +1,6 @@
 """Ingestion (DLT) assets for Dagster."""
 
 from .assets import (
-    anforandelista,
     anforande,
     dokumentlista,
     dokumentstatus,
@@ -10,7 +9,6 @@ from .assets import (
 )
 
 __all__ = [
-    "anforandelista",
     "anforande",
     "dokumentlista",
     "dokumentstatus",

@@ -311,28 +311,6 @@ models:
       - name: rm
         description: "Parliamentary session (VARCHAR, format: YYYY/YY)"
 
-  - name: stg_anforandelista
-    description: "Staging model for anforandelista - raw passthrough from source. Contains truncated speech text. For full speech text, use stg_anforande."
-    columns:
-      - name: systemnyckel
-        description: "Unique speech identifier (VARCHAR)"
-      - name: dok_datum
-        description: "Speech date (VARCHAR)"
-      - name: dok_id
-        description: "Document identifier (VARCHAR)"
-      - name: dok_id_normalized
-        description: "Trimmed dok_id with empty strings set to null"
-      - name: talare
-        description: "Speaker name (VARCHAR)"
-      - name: parti
-        description: "Party name (VARCHAR)"
-      - name: intressent_id
-        description: "Politician identifier (VARCHAR)"
-      - name: rel_dok_id
-        description: "Related document id (VARCHAR, trimmed/nullified)"
-      - name: anforandetext
-        description: "Speech text (VARCHAR) - truncated, use stg_anforande for full text"
-
   - name: stg_anforande
     description: "Staging model for anforande - full speech text from Riksdagen debates. This source provides complete anforandetext (vs truncated in anforandelista). Deduplicated on systemnyckel."
     columns:

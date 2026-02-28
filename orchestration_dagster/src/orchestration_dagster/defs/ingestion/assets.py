@@ -79,43 +79,49 @@ def _build_ingestion_command(
 
 
 # Create assets for each ingestion resource
-@dg.asset(
-    key=AssetKey(["raw_riksdagen", "anforandelista"]),
-    group_name=GROUP_NAME,
-    partitions_def=month_partition,
-    description="Ingest anforandelista (speeches) data from Riksdagen API. Monthly partitions for efficient batching.",
-)
-def anforandelista(
-    context: AssetExecutionContext,
-    container_executor: ContainerExecutor,
-    secrets_resource: SecretsResource,
-):
-    """Ingest anforandelista data via ContainerExecutor."""
-    command, env_vars = _build_ingestion_command("anforandelista", context, secrets_resource)
 
-    result = container_executor.execute(
-        context=context,
-        image="politikerkollen/ingestion:latest",
-        command=command,
-        env_vars=env_vars,
-        name=f"ingest_anforandelista_{_get_partition_suffix(context)}",
-    )
-
-    if not result.success:
-        raise dg.Failure(
-            f"Ingestion failed with exit code {result.exit_code}",
-            metadata={
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-                "resource": "anforandelista",
-            },
-        )
-
-    return {
-        "status": "success",
-        "resource": "anforandelista",
-        "exit_code": result.exit_code,
-    }
+# DEPRECATED: anforandelista is redundant - anforande fetches the same data with full text.
+# The anforande resource uses anforandelista as a parent (selected=False) internally,
+# so we don't need to ingest anforandelista separately. stg_anforandelista has zero
+# downstream consumers. Keeping commented for reference.
+#
+# @dg.asset(
+#     key=AssetKey(["raw_riksdagen", "anforandelista"]),
+#     group_name=GROUP_NAME,
+#     partitions_def=month_partition,
+#     description="Ingest anforandelista (speeches) data from Riksdagen API. Monthly partitions for efficient batching.",
+# )
+# def anforandelista(
+#     context: AssetExecutionContext,
+#     container_executor: ContainerExecutor,
+#     secrets_resource: SecretsResource,
+# ):
+#     """Ingest anforandelista data via ContainerExecutor."""
+#     command, env_vars = _build_ingestion_command("anforandelista", context, secrets_resource)
+#
+#     result = container_executor.execute(
+#         context=context,
+#         image="politikerkollen/ingestion:latest",
+#         command=command,
+#         env_vars=env_vars,
+#         name=f"ingest_anforandelista_{_get_partition_suffix(context)}",
+#     )
+#
+#     if not result.success:
+#         raise dg.Failure(
+#             f"Ingestion failed with exit code {result.exit_code}",
+#             metadata={
+#                 "stdout": result.stdout,
+#                 "stderr": result.stderr,
+#                 "resource": "anforandelista",
+#             },
+#         )
+#
+#     return {
+#         "status": "success",
+#         "resource": "anforandelista",
+#         "exit_code": result.exit_code,
+#     }
 
 
 @dg.asset(

@@ -108,22 +108,11 @@ export async function generateMetadata({
       siteName: "Politikerkollen",
     },
     twitter: {
-      card: "summary",
+      card: "summary_large_image",
       title: `${politician.name} (${politician.party})`,
       description,
     },
   };
-
-  // Add image if available
-  if (politician.imageUrl) {
-    metadata.openGraph!.images = [
-      {
-        url: politician.imageUrl,
-        alt: `Foto av ${politician.name}`,
-      },
-    ];
-    metadata.twitter!.images = [politician.imageUrl];
-  }
 
   return metadata;
 }

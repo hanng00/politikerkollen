@@ -11,7 +11,6 @@ sources:
       - name: dokumentlista
       - name: personlista
       - name: voteringlista
-      - name: anforandelista
       - name: anforande
       - name: dokumentstatus
       - name: dokumentstatus__dokaktivitet__aktivitet
@@ -27,4 +26,3 @@ sources:
       - name: personlista__personuppdrag__uppdrag__uppgift
       - name: personlista__personuppgift__uppgift
       - name: personlista__personuppgift__uppgift__uppgift
-

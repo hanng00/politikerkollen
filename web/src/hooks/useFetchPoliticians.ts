@@ -41,7 +41,7 @@ interface FetchPoliticiansPageOptions extends FetchPoliticiansOptions {
   offset?: number;
 }
 
-async function fetchPoliticiansPage(
+export async function fetchPoliticiansPage(
   options: FetchPoliticiansPageOptions = {},
 ): Promise<PaginatedResponse> {
   const params = new URLSearchParams();

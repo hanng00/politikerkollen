@@ -1,4 +1,4 @@
-riksbevakning:
+politikerkollen:
   target: dev
   outputs:
     dev:
@@ -8,4 +8,3 @@ riksbevakning:
       # Actual execution will use the real token from environment
       path: "md:spatial_dagster?motherduck_token={{env_var('MOTHERDUCK_ACCESS_TOKEN', default='')}}"
       threads: 4
-

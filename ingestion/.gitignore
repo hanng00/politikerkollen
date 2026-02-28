@@ -16,3 +16,4 @@ build
 README.md
 tests
 *.log
+__pycache__

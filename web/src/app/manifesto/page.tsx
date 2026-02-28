@@ -1,7 +1,21 @@
 import { LogoMark, SiteHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Manifest",
+  description:
+    "Demokratin lider av strukturell informationsasymmetri. Vi bygger infrastruktur för spårbarhet och ansvarsutkrävande.",
+  openGraph: {
+    title: "Manifest — Politikerkollen",
+    description:
+      "Demokratin lider av strukturell informationsasymmetri. Vi bygger infrastruktur för spårbarhet och ansvarsutkrävande.",
+    type: "article",
+    siteName: "Politikerkollen",
+  },
+};
 
 export default function ManifestoPage() {
   return (
@@ -116,9 +130,9 @@ export default function ManifestoPage() {
 
         {/* CTA */}
         <section className="pt-8 border-t">
-          <Link href="/">
+          <Link href="/politiker">
             <Button size="lg">
-              Se motsägelser
+              Utforska riksdagsledamöter
               <ChevronRight className="size-4 ml-1" />
             </Button>
           </Link>
