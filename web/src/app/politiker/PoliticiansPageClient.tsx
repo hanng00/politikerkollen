@@ -2,7 +2,8 @@
 
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Filter, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { SiteHeader } from "@/components/layout";
@@ -31,15 +32,48 @@ function getTotalActivity(p: PoliticianSummary) {
   );
 }
 
+function computePercentiles(politicians: PoliticianSummary[]) {
+  if (politicians.length === 0) return { activity: new Map(), rebel: new Map() };
+
+  const activityValues = politicians
+    .map((p) => ({ id: p.id, value: getTotalActivity(p) }))
+    .sort((a, b) => a.value - b.value);
+
+  const rebelValues = politicians
+    .map((p) => ({ id: p.id, value: p.stats.rebelVoteCount }))
+    .sort((a, b) => a.value - b.value);
+
+  const activityPercentiles = new Map<string, number>();
+  const rebelPercentiles = new Map<string, number>();
+
+  activityValues.forEach((item, index) => {
+    activityPercentiles.set(
+      item.id,
+      Math.round((index / (activityValues.length - 1 || 1)) * 100),
+    );
+  });
+
+  rebelValues.forEach((item, index) => {
+    rebelPercentiles.set(
+      item.id,
+      Math.round((index / (rebelValues.length - 1 || 1)) * 100),
+    );
+  });
+
+  return { activity: activityPercentiles, rebel: rebelPercentiles };
+}
+
 export default function PoliticiansPageClient() {
   const [searchQuery, setSearchQuery] = useState("");
   const [partyFilter, setPartyFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>("mostActive");
-  const [activityFilter, setActivityFilter] = useState<ActivityFilterValue>("all");
+  const [activityFilter, setActivityFilter] =
+    useState<ActivityFilterValue>("all");
   const [periodFilter, setPeriodFilter] = useState("all");
   const [customFromDate, setCustomFromDate] = useState("");
   const [customToDate, setCustomToDate] = useState("");
   const [useCustomDates, setUseCustomDates] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   const debouncedSearch = useDebounce(searchQuery, 300);
 
@@ -49,9 +83,9 @@ export default function PoliticiansPageClient() {
         periodFilter,
         customFromDate,
         customToDate,
-        useCustomDates
+        useCustomDates,
       ),
-    [periodFilter, customFromDate, customToDate, useCustomDates]
+    [periodFilter, customFromDate, customToDate, useCustomDates],
   );
 
   const {
@@ -74,6 +108,11 @@ export default function PoliticiansPageClient() {
     if (!data?.pages) return [];
     return data.pages.flatMap((page) => page.data);
   }, [data]);
+
+  const percentiles = useMemo(
+    () => computePercentiles(politicians),
+    [politicians],
+  );
 
   const filtered = useMemo(() => {
     if (!politicians.length) return [];
@@ -98,7 +137,7 @@ export default function PoliticiansPageClient() {
         fetchNextPage();
       }
     },
-    [fetchNextPage, hasNextPage, isFetchingNextPage]
+    [fetchNextPage, hasNextPage, isFetchingNextPage],
   );
 
   useEffect(() => {
@@ -115,41 +154,62 @@ export default function PoliticiansPageClient() {
     return () => observer.disconnect();
   }, [handleObserver]);
 
+  const hasActiveAdvancedFilters =
+    periodFilter !== "all" || activityFilter !== "all" || sortBy !== "mostActive";
+
   return (
     <div className="min-h-screen min-w-0 overflow-x-clip">
       <SiteHeader />
 
-      <main className="page-container py-8 space-y-8">
-        <header className="page-section text-center">
-          <h1 className="page-title">Riksdagens ledamöter</h1>
-          <p className="page-subtitle">
+      <main className="page-container py-8 space-y-6">
+        <header className="text-center space-y-2">
+          <h1>Riksdagens ledamöter</h1>
+          <p className="text-muted-foreground">
             Sök, filtrera och se vad politikerna faktiskt gör.
           </p>
         </header>
 
         <section className="space-y-3">
-          <SearchFilter value={searchQuery} onChange={setSearchQuery} />
-
+          {/* Primary filters: always visible */}
           <div className="flex flex-wrap items-center gap-2">
+            <SearchFilter value={searchQuery} onChange={setSearchQuery} />
             <PartyFilter value={partyFilter} onChange={setPartyFilter} />
-
-            <Separator orientation="vertical" className="h-6 hidden sm:block" />
-
-            <PeriodFilter
-              periodFilter={periodFilter}
-              onPeriodChange={setPeriodFilter}
-              customFromDate={customFromDate}
-              customToDate={customToDate}
-              onCustomFromDateChange={setCustomFromDate}
-              onCustomToDateChange={setCustomToDate}
-              useCustomDates={useCustomDates}
-              onUseCustomDatesChange={setUseCustomDates}
-            />
-
-            <ActivityFilter value={activityFilter} onChange={setActivityFilter} />
-
-            <SortFilter value={sortBy} onChange={setSortBy} />
+            <Button
+              variant={hasActiveAdvancedFilters ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className="h-9 gap-1.5"
+            >
+              <Filter className="size-3.5" />
+              <span className="hidden sm:inline">Fler filter</span>
+              {hasActiveAdvancedFilters && (
+                <span className="size-1.5 rounded-full bg-primary" />
+              )}
+            </Button>
           </div>
+
+          {/* Advanced filters: collapsible */}
+          {showAdvancedFilters && (
+            <div className="flex flex-wrap items-center gap-2 pt-1 pb-2 border-t border-b">
+              <PeriodFilter
+                periodFilter={periodFilter}
+                onPeriodChange={setPeriodFilter}
+                customFromDate={customFromDate}
+                customToDate={customToDate}
+                onCustomFromDateChange={setCustomFromDate}
+                onCustomToDateChange={setCustomToDate}
+                useCustomDates={useCustomDates}
+                onUseCustomDatesChange={setUseCustomDates}
+              />
+              <Separator orientation="vertical" className="h-6 hidden sm:block" />
+              <ActivityFilter
+                value={activityFilter}
+                onChange={setActivityFilter}
+              />
+              <Separator orientation="vertical" className="h-6 hidden sm:block" />
+              <SortFilter value={sortBy} onChange={setSortBy} />
+            </div>
+          )}
         </section>
 
         <section>
@@ -175,7 +235,12 @@ export default function PoliticiansPageClient() {
               </p>
               <div className="card-grid-3">
                 {filtered.map((p) => (
-                  <PoliticianCardSimple key={p.id} politician={p} />
+                  <PoliticianCardSimple
+                    key={p.id}
+                    politician={p}
+                    activityPercentile={percentiles.activity.get(p.id)}
+                    rebelPercentile={percentiles.rebel.get(p.id)}
+                  />
                 ))}
               </div>
 
