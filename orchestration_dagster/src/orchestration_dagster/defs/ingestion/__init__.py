@@ -5,6 +5,7 @@ from .assets import (
     dokumentlista,
     dokumentstatus,
     personlista,
+    valmanifest,
     voteringlista,
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "dokumentlista",
     "dokumentstatus",
     "personlista",
+    "valmanifest",
     "voteringlista",
 ]

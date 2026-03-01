@@ -48,7 +48,7 @@ export async function Highlights() {
   const threeMonthsAgo = getDateNDaysAgo(90);
 
   const [mostRebel, mostActive] = await Promise.all([
-    fetchHighlights("mostRebel", 5, undefined), // Rebel votes are all-time (not date-filtered in backend)
+    fetchHighlights("mostRebel", 5, threeMonthsAgo),
     fetchHighlights("mostActive", 5, threeMonthsAgo),
   ]);
 
@@ -68,7 +68,7 @@ export async function Highlights() {
         {/* Highlight lists */}
         <div className="grid gap-8 md:grid-cols-2">
           <HighlightList
-            title="Flest rebellröster"
+            title="Flest rebellröster (90 dagar)"
             description="Ledamöter som oftast röstar mot sitt eget parti"
             politicians={mostRebel}
             statFn={(p) =>

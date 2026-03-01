@@ -1,14 +1,16 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoButton } from "@/components/ui/info-button";
 import type { RebelVotesByTopic } from "@/hooks/useFetchPolitician";
-import { AlertTriangle, ExternalLink } from "lucide-react";
+import { ChevronRight, ExternalLink, Scale } from "lucide-react";
 
-interface RebelVotesByTopicCardProps {
+interface VotingIndependenceCardProps {
   rebelVotesByTopic: RebelVotesByTopic[];
   partyName: string;
+  onFilterTimeline?: () => void;
 }
 
 function getVoteColor(vote: string): string {
@@ -28,11 +30,15 @@ function getRiksdagenBetankandeUrl(betankandeId: string): string {
   return `https://www.riksdagen.se/sv/dokument-och-lagar/dokument/betankande/_${betankandeId.toLowerCase()}/`;
 }
 
-export function RebelVotesByTopicCard({
+export function VotingIndependenceCard({
   rebelVotesByTopic,
   partyName,
-}: RebelVotesByTopicCardProps) {
-  const totalRebelVotes = rebelVotesByTopic.reduce((sum, t) => sum + t.count, 0);
+  onFilterTimeline,
+}: VotingIndependenceCardProps) {
+  const totalRebelVotes = rebelVotesByTopic.reduce(
+    (sum, t) => sum + t.count,
+    0
+  );
 
   if (totalRebelVotes === 0) {
     return null;
@@ -43,18 +49,20 @@ export function RebelVotesByTopicCard({
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base font-medium flex items-center gap-2">
-            <AlertTriangle className="size-4 text-amber-500" />
-            Avvikande röster
+            <Scale className="size-4 text-muted-foreground" />
+            Röstoberoende
           </CardTitle>
           <InfoButton
-            title="Avvikande röster"
-            description={`Visar i vilka politikområden ${partyName}-ledamoten oftast röstar annorlunda än partiets majoritet. Detta kan indikera personliga övertygelser eller lokala intressen.`}
+            title="Röstoberoende"
+            description={`Visar när politikern röstat annorlunda än majoriteten av ${partyName}, uppdelat per politikområde. Detta kan indikera personliga övertygelser, lokala intressen eller sakfrågor där ledamoten har en avvikande uppfattning.`}
           />
         </div>
       </CardHeader>
       <CardContent>
         <p className="text-xs text-muted-foreground mb-3">
-          Röstat annorlunda än {partyName} totalt {totalRebelVotes} gånger
+          Röstat annorlunda än {partyName} totalt{" "}
+          <span className="font-medium text-foreground">{totalRebelVotes}</span>{" "}
+          gånger
         </p>
 
         <div className="space-y-3">
@@ -64,13 +72,13 @@ export function RebelVotesByTopicCard({
                 <Badge variant="secondary" className="font-normal">
                   {topicGroup.topic}
                 </Badge>
-                <span className="text-sm font-medium text-amber-600">
+                <span className="text-sm font-medium">
                   {topicGroup.count} {topicGroup.count === 1 ? "gång" : "gånger"}
                 </span>
               </div>
 
               {topicGroup.recentVotes.length > 0 && (
-                <div className="pl-2 border-l-2 border-amber-500/30 space-y-1">
+                <div className="pl-2 border-l-2 border-muted space-y-1">
                   {topicGroup.recentVotes.slice(0, 2).map((vote) => (
                     <a
                       key={vote.voteringId}
@@ -83,7 +91,9 @@ export function RebelVotesByTopicCard({
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors group"
                     >
-                      <span className={`font-medium ${getVoteColor(vote.personVote)}`}>
+                      <span
+                        className={`font-medium ${getVoteColor(vote.personVote)}`}
+                      >
                         {vote.personVote}
                       </span>
                       <span className="truncate flex-1">
@@ -97,6 +107,18 @@ export function RebelVotesByTopicCard({
             </div>
           ))}
         </div>
+
+        {onFilterTimeline && totalRebelVotes > 5 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-xs h-8 text-muted-foreground hover:text-foreground mt-3"
+            onClick={onFilterTimeline}
+          >
+            Visa alla röster i aktivitetsflödet
+            <ChevronRight className="size-3.5 ml-1" />
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

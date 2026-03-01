@@ -1,0 +1,129 @@
+version: 2
+
+models:
+  - name: mart_promise_accountability_cards
+    description: |
+      Mart model joining promises with their semantically matched votes and party voting outcomes.
+      
+      Designed for the viral "accountability card" feature showing how parties
+      voted on issues related to their election promises.
+      
+      Each row represents a promise-vote match with:
+      - The original promise from a party manifesto
+      - The matched vote proposal (based on semantic similarity)
+      - How the promising party voted
+      - The overall vote outcome
+      - An accountability status indicator
+      
+      Use cases:
+      - Generate shareable accountability cards
+      - Analyze party voting consistency with promises
+      - Find contradictions between promises and votes
+    columns:
+      - name: promise_id
+        description: "Foreign key to stg_valmanifest_promises.promise_id."
+        tests:
+          - not_null
+
+      - name: document_id
+        description: "Source document ID from valmanifest."
+        tests:
+          - not_null
+
+      - name: promise_party
+        description: "Party that made the promise (e.g., 's', 'm', 'c')."
+        tests:
+          - not_null
+
+      - name: promise_year
+        description: "Election year when the promise was made."
+
+      - name: promise_text
+        description: "The promise rephrased as a clear, actionable statement."
+        tests:
+          - not_null
+
+      - name: source_quote
+        description: "Exact quote from the source document."
+        tests:
+          - not_null
+
+      - name: category
+        description: "Policy area category (skatt, vard, skola, etc.)."
+        tests:
+          - not_null
+
+      - name: specificity
+        description: "Promise specificity level (high, medium, low)."
+        tests:
+          - not_null
+
+      - name: target_group
+        description: "Target beneficiary group if mentioned."
+
+      - name: measurable
+        description: "Whether the promise can be objectively verified."
+        tests:
+          - not_null
+
+      - name: match_id
+        description: "Unique identifier for this promise-vote match."
+        tests:
+          - not_null
+          - unique
+
+      - name: similarity_score
+        description: |
+          Cosine similarity between promise and vote embeddings.
+          Higher scores indicate stronger semantic match.
+        tests:
+          - not_null
+
+      - name: votering_id
+        description: "Riksdagen vote identifier."
+        tests:
+          - not_null
+
+      - name: dok_id
+        description: "Document ID (betänkande) containing the vote."
+        tests:
+          - not_null
+
+      - name: vote_proposal_text
+        description: "The proposal text that was voted on."
+        tests:
+          - not_null
+
+      - name: promise_party_vote
+        description: |
+          How the promising party voted (Ja, Nej, Avstår).
+          Based on party majority vote.
+
+      - name: promise_party_vote_count
+        description: "Number of party members who voted this way."
+
+      - name: ja_count
+        description: "Total 'Ja' votes across all parties."
+
+      - name: nej_count
+        description: "Total 'Nej' votes across all parties."
+
+      - name: avstar_count
+        description: "Total 'Avstår' votes across all parties."
+
+      - name: vote_outcome
+        description: |
+          Overall vote outcome.
+          - Bifall: Proposal passed (more Ja than Nej)
+          - Avslag: Proposal rejected (more Nej than Ja)
+
+      - name: accountability_status
+        description: |
+          Indicator of how the party's vote relates to the outcome.
+          Values:
+          - supported_passed: Party voted Ja, proposal passed
+          - supported_failed: Party voted Ja, proposal failed
+          - opposed_passed: Party voted Nej, proposal passed
+          - opposed_failed: Party voted Nej, proposal failed
+          - abstained: Party abstained
+          - unknown: Vote data unavailable

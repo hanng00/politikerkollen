@@ -24,12 +24,11 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { SiteHeader } from "@/components/layout";
-import { HighlightsCard } from "@/components/politiker/HighlightsCard";
-import { KeyVotesCard } from "@/components/politiker/KeyVotesCard";
+import { AccountabilityCard } from "@/components/politiker/AccountabilityCard";
 import { MotionEffectivenessCard } from "@/components/politiker/MotionEffectivenessCard";
 import { PartyLoyaltyCard } from "@/components/politiker/PartyLoyaltyCard";
 import { PoliticianProfileCard } from "@/components/politiker/PoliticianProfileCard";
-import { RebelVotesByTopicCard } from "@/components/politiker/RebelVotesByTopicCard";
+import { VotingIndependenceCard } from "@/components/politiker/VotingIndependenceCard";
 import { useFetchPolitician } from "@/hooks/useFetchPolitician";
 import {
   groupTimelineItems,
@@ -137,6 +136,15 @@ function VoteGroupCard({ group }: { group: VoteGroup }) {
       </span>,
     );
 
+  // Format winner for display
+  const formatWinner = (winner: string | undefined) => {
+    if (!winner) return null;
+    if (winner === "utskottet") return "Utskottet vann";
+    if (winner === "motförslaget") return "Motförslaget vann";
+    if (winner.startsWith("reservation")) return `${winner.charAt(0).toUpperCase() + winner.slice(1)} vann`;
+    return winner;
+  };
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full">
       <Card className="transition-all duration-200 hover:shadow-md hover:border-border/80">
@@ -198,29 +206,44 @@ function VoteGroupCard({ group }: { group: VoteGroup }) {
         </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="mx-4 mb-4 pl-5 border-l border-border py-2">
-            {group.votes.map((vote, idx) => (
-              <div
-                key={`${vote.id}-${idx}`}
-                className="py-2 flex items-start gap-3"
-              >
-                <span
-                  className={`text-xs font-medium w-12 shrink-0 ${
-                    vote.voteValue === "Ja"
-                      ? "text-green-500"
-                      : vote.voteValue === "Nej"
-                        ? "text-red-500"
-                        : vote.voteValue === "Avstår"
-                          ? "text-yellow-500"
-                          : "text-muted-foreground"
-                  }`}
+            {group.votes.map((vote, idx) => {
+              const winnerText = formatWinner(vote.winner);
+              return (
+                <div
+                  key={`${vote.id}-${idx}`}
+                  className="py-2 flex items-start gap-3"
                 >
-                  {vote.voteValue}
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  {vote.title || vote.subjectText || `Punkt ${vote.votePunkt}`}
-                </span>
-              </div>
-            ))}
+                  <span
+                    className={`text-xs font-medium w-12 shrink-0 ${
+                      vote.voteValue === "Ja"
+                        ? "text-green-500"
+                        : vote.voteValue === "Nej"
+                          ? "text-red-500"
+                          : vote.voteValue === "Avstår"
+                            ? "text-yellow-500"
+                            : "text-muted-foreground"
+                    }`}
+                  >
+                    {vote.voteValue}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm text-muted-foreground">
+                      {vote.title || vote.subjectText || `Punkt ${vote.votePunkt}`}
+                    </span>
+                    {winnerText && (
+                      <span className="text-xs text-muted-foreground/70 ml-2">
+                        · {winnerText}
+                      </span>
+                    )}
+                  </div>
+                  {vote.decisionType === "acklamation" && (
+                    <span className="text-[10px] text-muted-foreground/60 shrink-0">
+                      acklamation
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </CollapsibleContent>
       </Card>
@@ -231,11 +254,23 @@ function VoteGroupCard({ group }: { group: VoteGroup }) {
 function SingleVoteCard({ item }: { item: TimelineItem }) {
   const date = new Date(item.date).toLocaleDateString("sv-SE");
 
+  // Format winner for display
+  const formatWinner = (winner: string | undefined) => {
+    if (!winner) return null;
+    if (winner === "utskottet") return "Utskottet vann";
+    if (winner === "motförslaget") return "Motförslaget vann";
+    if (winner.startsWith("reservation")) return `${winner.charAt(0).toUpperCase() + winner.slice(1)} vann`;
+    return winner;
+  };
+
+  const winnerText = formatWinner(item.winner);
+
   return (
     <TimelineCard
       indicator="vote"
       label={item.voteValue ?? "RÖST"}
       date={date}
+      meta={item.decisionType === "acklamation" ? "acklamation" : undefined}
       topic={item.topic}
       title={item.title || item.betankandeTitel || "Votering"}
       actions={
@@ -251,9 +286,14 @@ function SingleVoteCard({ item }: { item: TimelineItem }) {
         ) : undefined
       }
     >
-      {item.subjectText && (
-        <p className="text-sm text-muted-foreground mt-1">{item.subjectText}</p>
-      )}
+      <div className="space-y-1">
+        {item.subjectText && (
+          <p className="text-sm text-muted-foreground">{item.subjectText}</p>
+        )}
+        {winnerText && (
+          <p className="text-xs text-muted-foreground/70">{winnerText}</p>
+        )}
+      </div>
     </TimelineCard>
   );
 }
@@ -916,9 +956,32 @@ function addMonthSeparators(
   return result;
 }
 
+function ProfileSkeleton() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-80 w-full rounded-lg" />
+      <Skeleton className="h-32 w-full" />
+      <Skeleton className="h-48 w-full" />
+      <Skeleton className="h-32 w-full" />
+    </div>
+  );
+}
+
+function TimelineSkeleton() {
+  return (
+    <div className="space-y-3">
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-24 w-full" />
+      <Skeleton className="h-24 w-full" />
+      <Skeleton className="h-24 w-full" />
+    </div>
+  );
+}
+
 export default function PoliticianPageClient({ id }: { id: string }) {
   const router = useRouter();
   const [activityFilter, setActivityFilter] = useState<ActivityType[]>([]);
+  const timelineRef = useRef<HTMLDivElement>(null);
 
   const {
     data: politician,
@@ -945,6 +1008,15 @@ export default function PoliticianPageClient({ id }: { id: string }) {
     () => addMonthSeparators(groupedTimeline),
     [groupedTimeline],
   );
+
+  // Helper to scroll to timeline and set filter
+  const scrollToTimelineWithFilter = useCallback((filter: ActivityType[]) => {
+    setActivityFilter(filter);
+    // Scroll to timeline section on mobile, or just highlight on desktop
+    if (timelineRef.current) {
+      timelineRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
 
   // Intersection observer for infinite scroll
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -973,30 +1045,8 @@ export default function PoliticianPageClient({ id }: { id: string }) {
     return () => observer.disconnect();
   }, [handleObserver]);
 
-  if (loadingPolitician) {
-    return (
-      <div className="min-h-screen min-w-0 overflow-x-clip bg-background">
-        <SiteHeader />
-        <main className="page-container py-6">
-          <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-8">
-            <div className="space-y-4">
-              <Skeleton className="h-80 w-full rounded-lg" />
-              <Skeleton className="h-32 w-full" />
-              <Skeleton className="h-48 w-full" />
-            </div>
-            <div className="space-y-3">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-24 w-full" />
-            </div>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  if (error || !politician) {
+  // Error state - show full page error
+  if (error) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -1018,7 +1068,7 @@ export default function PoliticianPageClient({ id }: { id: string }) {
     <div className="h-full min-w-0 overflow-x-clip bg-background flex flex-col">
       <SiteHeader />
 
-      <main className="page-container py-6 flex-1 flex flex-col min-h-0 gap-4">
+      <main className="page-container py-6 lg:flex-1 flex flex-col lg:min-h-0 gap-4">
         {/* Back button */}
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="sm" onClick={() => router.back()}>
@@ -1028,44 +1078,49 @@ export default function PoliticianPageClient({ id }: { id: string }) {
         </div>
 
         {/* Two-column layout: Profile/Insights | Timeline */}
-        <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-8 flex-1 min-h-0">
+        <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-8 lg:flex-1 lg:min-h-0">
           {/* LEFT COLUMN: Profile + Insights */}
           <div className="space-y-4 lg:overflow-y-auto lg:max-h-[calc(100vh-140px)] lg:sticky lg:top-6 lg:pr-2">
-            {/* Profile Card with actions */}
-            <PoliticianProfileCard politician={politician} />
+            {loadingPolitician || !politician ? (
+              <ProfileSkeleton />
+            ) : (
+              <>
+                {/* Profile Card with actions */}
+                <PoliticianProfileCard politician={politician} />
 
-            {/* Highlights - meaningful summary */}
-            <HighlightsCard politician={politician} />
-
-            {/* Motion Effectiveness - real impact metric */}
-            <MotionEffectivenessCard
-              motionEffectiveness={politician.motionEffectiveness}
-            />
-
-            {/* Key Votes - important decisions */}
-            <KeyVotesCard
-              keyVotes={politician.keyVotes}
-              partyName={politician.party}
-            />
-
-            {/* Rebel Votes by Topic - patterns of independence */}
-            <RebelVotesByTopicCard
-              rebelVotesByTopic={politician.rebelVotesByTopic}
-              partyName={politician.party}
-            />
-
-            {/* Party Loyalty - context for rebel votes */}
-            {politician.partyLoyalty &&
-              politician.partyLoyalty.totalVotes > 0 && (
-                <PartyLoyaltyCard
-                  partyLoyalty={politician.partyLoyalty}
-                  partyName={politician.party}
+                {/* Accountability - questioning the government */}
+                <AccountabilityCard
+                  accountabilityStats={politician.accountabilityStats}
+                  onFilterTimeline={() => scrollToTimelineWithFilter(["authored"])}
                 />
-              )}
+
+                {/* Motion Effectiveness - real impact metric */}
+                <MotionEffectivenessCard
+                  motionEffectiveness={politician.motionEffectiveness}
+                  onFilterTimeline={() => scrollToTimelineWithFilter(["authored"])}
+                />
+
+                {/* Voting Independence - patterns of independent voting */}
+                <VotingIndependenceCard
+                  rebelVotesByTopic={politician.rebelVotesByTopic}
+                  partyName={politician.party}
+                  onFilterTimeline={() => scrollToTimelineWithFilter(["vote"])}
+                />
+
+                {/* Party Loyalty - context for rebel votes */}
+                {politician.partyLoyalty &&
+                  politician.partyLoyalty.totalVotes > 0 && (
+                    <PartyLoyaltyCard
+                      partyLoyalty={politician.partyLoyalty}
+                      partyName={politician.party}
+                    />
+                  )}
+              </>
+            )}
           </div>
 
           {/* RIGHT COLUMN: Activity Timeline */}
-          <div className="flex flex-col min-h-0 lg:max-h-[calc(100vh-140px)]">
+          <div ref={timelineRef} className="flex flex-col lg:min-h-0 lg:max-h-[calc(100vh-140px)]">
             <div className="flex items-center justify-between mb-4 shrink-0 bg-background pb-2">
               <h2 className="text-lg font-semibold">Aktivitet</h2>
               <ToggleGroup
@@ -1093,7 +1148,7 @@ export default function PoliticianPageClient({ id }: { id: string }) {
             </div>
 
             {/* Scrollable timeline content with month separators */}
-            <div className="flex-1 overflow-y-auto lg:pr-2">
+            <div className="flex-1 lg:overflow-y-auto lg:pr-2">
               {loadingTimeline ? (
                 <div className="space-y-3">
                   <Skeleton className="h-24" />

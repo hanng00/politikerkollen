@@ -37,6 +37,8 @@ export interface TimelineItem {
   subjectText?: string;
   betankandeId?: string;
   betankandeTitel?: string;
+  decisionType?: string; // röstning, acklamation
+  winner?: string; // utskottet, reservation X, motförslaget
   // Speech-specific
   speechText?: string;
   activityType?: string;

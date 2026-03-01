@@ -3,7 +3,7 @@
 import { SearchBar } from "@/components/search";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { FileText } from "lucide-react";
+import { FileText, FlaskConical } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -11,6 +11,7 @@ const navItems = [
   { href: "/politiker", label: "Politiker" },
   { href: "/manifesto", label: "Manifest", icon: FileText, secondary: true },
   { href: "/c", label: "Chat", secondary: true },
+  { href: "/om/metodik", label: "Metodik", icon: FlaskConical, secondary: true },
 ];
 
 export function LogoMark({ className }: { className?: string }) {

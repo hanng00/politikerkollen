@@ -47,6 +47,17 @@ export interface RebelVotesByTopic {
   recentVotes: RebelVote[];
 }
 
+// Bayesian statistics for fair ranking
+export interface BayesianStats {
+  adjustedPassRate: number;
+  rawPassRate: number;
+  globalPassRate: number;
+  shrinkagePct: number;
+  credibleLowerBound: number;
+  confidenceTier: "high" | "medium" | "low" | "very_low";
+  resolvedMotions: number;
+}
+
 // Motion effectiveness metrics
 export interface MotionEffectiveness {
   totalMotions: number;
@@ -61,6 +72,30 @@ export interface MotionEffectiveness {
     impactScore: number;
     outcome: string | null;
   } | null;
+  bifallBreakdown: {
+    viaReservation: number;
+    viaUtskott: number;
+    direktBifall: number;
+    tillkannagivanden: number;
+    delvisBifall: number;
+  };
+  bayesianStats?: BayesianStats;
+}
+
+// Recent question type
+export interface RecentQuestion {
+  type: "interpellation" | "skriftlig_fraga";
+  title: string;
+  date: string;
+  dokId: string;
+}
+
+// Accountability stats - interpellations and written questions
+export interface AccountabilityStats {
+  interpellations: number;
+  writtenQuestions: number;
+  totalQuestions: number;
+  recentQuestions: RecentQuestion[];
 }
 
 // Key vote type
@@ -100,6 +135,7 @@ export interface PoliticianDetail {
   rebelVotesByTopic: RebelVotesByTopic[];
   motionEffectiveness: MotionEffectiveness;
   keyVotes: KeyVote[];
+  accountabilityStats: AccountabilityStats;
 }
 
 async function fetchPolitician(id: string): Promise<PoliticianDetail | null> {

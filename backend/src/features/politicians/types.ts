@@ -89,6 +89,11 @@ export interface PoliticianSummary {
     topic: string;
     count: number;
   };
+  accountabilityStats?: {
+    interpellations: number;
+    writtenQuestions: number;
+    totalQuestions: number;
+  };
 }
 
 export interface VoteBreakdown {
@@ -137,6 +142,31 @@ export interface MotionEffectiveness {
     impactScore: number;
     outcome: string | null;
   } | null;
+  // Bifall breakdown - how motions passed
+  bifallBreakdown: {
+    viaReservation: number;
+    viaUtskott: number;
+    direktBifall: number;
+    tillkannagivanden: number;
+    delvisBifall: number;
+  };
+  // Bayesian-adjusted statistics for fair ranking
+  bayesianStats?: {
+    // Adjusted pass rate (shrunk toward global mean)
+    adjustedPassRate: number;
+    // Raw pass rate for comparison
+    rawPassRate: number;
+    // Global average pass rate across all politicians
+    globalPassRate: number;
+    // How much the estimate was shrunk (0-100%)
+    shrinkagePct: number;
+    // 95% credible interval lower bound
+    credibleLowerBound: number;
+    // Confidence tier based on sample size
+    confidenceTier: 'high' | 'medium' | 'low' | 'very_low';
+    // Number of resolved motions (passed + rejected)
+    resolvedMotions: number;
+  };
 }
 
 export interface RebelVotesByTopic {
@@ -144,6 +174,20 @@ export interface RebelVotesByTopic {
   committee: string;
   count: number;
   recentVotes: RebelVote[];
+}
+
+export interface RecentQuestion {
+  type: 'interpellation' | 'skriftlig_fraga';
+  title: string;
+  date: string;
+  dokId: string;
+}
+
+export interface AccountabilityStats {
+  interpellations: number;
+  writtenQuestions: number;
+  totalQuestions: number;
+  recentQuestions: RecentQuestion[];
 }
 
 export interface KeyVote {
@@ -168,6 +212,7 @@ export interface PoliticianDetail extends PoliticianSummary {
   rebelVotesByTopic: RebelVotesByTopic[];
   motionEffectiveness: MotionEffectiveness;
   keyVotes: KeyVote[];
+  accountabilityStats: AccountabilityStats;
 }
 
 export interface DocumentStakeholder {
@@ -225,6 +270,8 @@ export interface TimelineItem {
   subjectText?: string;
   betankandeId?: string;
   betankandeTitel?: string;
+  decisionType?: string; // röstning, acklamation
+  winner?: string; // utskottet, reservation X, motförslaget
   // Speech-specific
   speechText?: string;
   activityType?: string;
@@ -263,10 +310,17 @@ export interface TopRebelTopicForSummary {
   count: number;
 }
 
+export interface AccountabilityStatsForSummary {
+  interpellations: number;
+  writtenQuestions: number;
+  totalQuestions: number;
+}
+
 export function toSummary(
   row: MartPerson,
   motionStats?: MotionStatsForSummary,
   topRebelTopic?: TopRebelTopicForSummary,
+  accountabilityStats?: AccountabilityStatsForSummary,
 ): PoliticianSummary {
   return {
     id: row.intressent_id,
@@ -285,6 +339,7 @@ export function toSummary(
     },
     motionStats,
     topRebelTopic,
+    accountabilityStats,
   };
 }
 
@@ -296,6 +351,7 @@ export function toDetail(
   rebelVotesByTopic?: RebelVotesByTopic[],
   motionEffectiveness?: MotionEffectiveness,
   keyVotes?: KeyVote[],
+  accountabilityStats?: AccountabilityStats,
 ): PoliticianDetail {
   return {
     ...toSummary(row),
@@ -315,8 +371,21 @@ export function toDetail(
       passRate: 0,
       avgImpactScore: 0,
       topMotion: null,
+      bifallBreakdown: {
+        viaReservation: 0,
+        viaUtskott: 0,
+        direktBifall: 0,
+        tillkannagivanden: 0,
+        delvisBifall: 0,
+      },
     },
     keyVotes: keyVotes ?? [],
+    accountabilityStats: accountabilityStats ?? {
+      interpellations: 0,
+      writtenQuestions: 0,
+      totalQuestions: 0,
+      recentQuestions: [],
+    },
   };
 }
 
@@ -368,6 +437,8 @@ export function toTimelineItem(row: MartPersonTimeline): TimelineItem {
       subjectText: row.subject_text ?? undefined,
       betankandeId: row.betankande_dok_id ?? undefined,
       betankandeTitel: row.betankande_titel ?? undefined,
+      decisionType: row.subject_decision_type ?? undefined,
+      winner: row.subject_winner ?? undefined,
     };
   }
 

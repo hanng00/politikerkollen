@@ -21,10 +21,10 @@ export function PartyLoyaltyCard({
 
   const loyaltyColor =
     partyLoyalty.loyaltyPercentage >= 90
-      ? "text-green-500"
+      ? "text-green-600"
       : partyLoyalty.loyaltyPercentage >= 70
-        ? "text-yellow-500"
-        : "text-red-500";
+        ? "text-yellow-600"
+        : "text-muted-foreground";
 
   const loyaltyLabel =
     partyLoyalty.loyaltyPercentage >= 95
@@ -49,7 +49,7 @@ export function PartyLoyaltyCard({
           />
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
             Röstar med {partyName}
@@ -68,16 +68,6 @@ export function PartyLoyaltyCard({
             {partyLoyalty.totalVotes.toLocaleString()} röster
           </span>
         </div>
-
-        {partyLoyalty.votesAgainstParty > 0 && (
-          <p className="text-xs text-muted-foreground">
-            Röstade annorlunda än partimajoriteten{" "}
-            <span className="font-medium text-foreground">
-              {partyLoyalty.votesAgainstParty.toLocaleString()}
-            </span>{" "}
-            gånger
-          </p>
-        )}
       </CardContent>
     </Card>
   );

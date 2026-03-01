@@ -17,6 +17,15 @@ services:
     networks:
       - politikerkollen-network
 
+  # Cognition (LLM processing) image
+  cognition:
+    build:
+      context: .
+      dockerfile: cognition/Dockerfile
+    image: politikerkollen/cognition:latest
+    networks:
+      - politikerkollen-network
+
   # Transformations (dbt) image
   transformations_dbt:
     build:

@@ -1,3 +1,4 @@
+export * from "./AccountabilityCard";
 export * from "./ActivityCard";
 export * from "./CompareSection";
 export * from "./ContradictionCard";
@@ -9,4 +10,5 @@ export * from "./PromiseTracker";
 export * from "./RankBadge";
 export * from "./ShareDialog";
 export * from "./TopicBreakdown";
+export * from "./VotingIndependenceCard";
 export * from "./WeeklyHighlights";

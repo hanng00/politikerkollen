@@ -26,3 +26,29 @@ sources:
       - name: personlista__personuppdrag__uppdrag__uppgift
       - name: personlista__personuppgift__uppgift
       - name: personlista__personuppgift__uppgift__uppgift
+
+  - name: raw_snd
+    database: spatial_dagster
+    # SND (Swedish National Data Service) - static datasets
+    # Contains party programs and election manifestos
+    schema: raw_snd
+    tables:
+      - name: valmanifest
+        description: "Swedish party programs and election manifestos from 1897 to present"
+
+  - name: processed_snd
+    database: spatial_dagster
+    # Processed SND data - LLM-extracted and embedded data
+    # Contains promises, embeddings, and matches from cognition module
+    schema: processed_snd
+    tables:
+      - name: valmanifest_promises
+        description: "Political promises extracted from party manifestos using LLM"
+      - name: extraction_state
+        description: "Tracks which documents have been processed for promise extraction"
+      - name: promise_embeddings
+        description: "Vector embeddings for promises using text-embedding-3-small"
+      - name: vote_embeddings
+        description: "Vector embeddings for vote proposals using text-embedding-3-small"
+      - name: promise_vote_matches
+        description: "Semantic matches between promises and votes based on cosine similarity"

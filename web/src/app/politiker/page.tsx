@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import PoliticiansPageClient from "./PoliticiansPageClient";
 
 export const metadata: Metadata = {
@@ -21,5 +22,9 @@ export const metadata: Metadata = {
 };
 
 export default function PoliticiansPage() {
-  return <PoliticiansPageClient />;
+  return (
+    <Suspense>
+      <PoliticiansPageClient />
+    </Suspense>
+  );
 }

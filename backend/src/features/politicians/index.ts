@@ -23,7 +23,7 @@ function error(message: string, status: number) {
   return json({ error: message }, status);
 }
 
-const validSortOptions = ['name', 'mostActive', 'mostVotes', 'mostSpeeches', 'mostRebel'];
+const validSortOptions = ['name', 'mostActive', 'mostVotes', 'mostSpeeches', 'mostRebel', 'mostEffective'];
 
 const server = Bun.serve({
   port: PORT,
@@ -40,11 +40,13 @@ const server = Bun.serve({
         const result = await handleListPoliticians({
           search: url.searchParams.get('search') || undefined,
           party: url.searchParams.get('party') || undefined,
+          constituency: url.searchParams.get('constituency') || undefined,
           limit: parseInt(url.searchParams.get('limit') || '50', 10),
           offset: parseInt(url.searchParams.get('offset') || '0', 10),
           sortBy,
           fromDate: url.searchParams.get('fromDate') || undefined,
           toDate: url.searchParams.get('toDate') || undefined,
+          includeIndependents: url.searchParams.get('includeIndependents') === 'true',
         });
         return json(result);
       },

@@ -298,7 +298,10 @@ models:
         description: "Trimmed dok_id with empty strings set to null"
 
   - name: stg_voteringlista
-    description: "Staging model for voteringlista - raw passthrough from source"
+    description: |
+      Staging model for voteringlista - deduplicated voting records.
+      One row per (votering_id, intressent_id). Materialized as table for performance.
+      Uses arg_max() pattern for memory-efficient deduplication of 80M+ raw rows.
     columns:
       - name: votering_id
         description: "Voting identifier (VARCHAR)"
@@ -306,10 +309,16 @@ models:
         description: "Politician identifier (VARCHAR)"
         tests:
           - not_null
+      - name: parti
+        description: "Political party abbreviation"
       - name: rost
-        description: "Vote choice (VARCHAR, values: 'Ja', 'Nej', 'Avstår')"
+        description: "Vote choice (VARCHAR, values: 'Ja', 'Nej', 'Avstår', 'Frånvarande')"
       - name: rm
         description: "Parliamentary session (VARCHAR, format: YYYY/YY)"
+      - name: _dlt_load_id
+        description: "DLT load identifier (max value from deduplication)"
+      - name: _dlt_id
+        description: "DLT record identifier"
 
   - name: stg_anforande
     description: "Staging model for anforande - full speech text from Riksdagen debates. This source provides complete anforandetext (vs truncated in anforandelista). Deduplicated on systemnyckel."

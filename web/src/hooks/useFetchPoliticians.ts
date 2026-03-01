@@ -28,6 +28,11 @@ export interface PoliticianSummary {
     topic: string;
     count: number;
   };
+  accountabilityStats?: {
+    interpellations: number;
+    writtenQuestions: number;
+    totalQuestions: number;
+  };
 }
 
 interface PaginatedResponse {
@@ -46,6 +51,8 @@ export interface FetchPoliticiansOptions {
   sortBy?: SortOption;
   fromDate?: string;
   toDate?: string;
+  /** Include politicians without party affiliation ("-") in rebel vote rankings. Default: false */
+  includeIndependents?: boolean;
 }
 
 interface FetchPoliticiansPageOptions extends FetchPoliticiansOptions {
@@ -64,6 +71,7 @@ export async function fetchPoliticiansPage(
   if (options.sortBy) params.set("sortBy", options.sortBy);
   if (options.fromDate) params.set("fromDate", options.fromDate);
   if (options.toDate) params.set("toDate", options.toDate);
+  if (options.includeIndependents) params.set("includeIndependents", "true");
 
   const url = `${API_ENDPOINT}/politicians${params.toString() ? `?${params}` : ""}`;
   const res = await fetch(url);

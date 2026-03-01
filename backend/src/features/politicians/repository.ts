@@ -26,7 +26,7 @@ import {
   quote,
   type Condition,
 } from '../../utils/sql-builder';
-import type { MartMotionImpactScore, MartPerson, MartPersonTimeline, VoteBreakdown } from './types';
+import type { AccountabilityStats, MartMotionImpactScore, MartPerson, MartPersonTimeline, MotionEffectiveness, RecentQuestion, VoteBreakdown } from './types';
 
 export interface ListPoliticiansOptions {
   search?: string;
@@ -37,6 +37,8 @@ export interface ListPoliticiansOptions {
   sortBy?: 'name' | 'mostActive' | 'mostVotes' | 'mostSpeeches' | 'mostRebel' | 'mostEffective';
   fromDate?: string;
   toDate?: string;
+  /** Include politicians without party affiliation ("-") in rebel vote rankings. Default: false */
+  includeIndependents?: boolean;
 }
 
 export interface GetTimelineOptions {
@@ -94,7 +96,8 @@ export async function listPoliticians(options: ListPoliticiansOptions = {}): Pro
 }
 
 /**
- * List politicians sorted by motion effectiveness (pass rate)
+ * List politicians sorted by motion effectiveness using Bayesian ranking
+ * Uses Beta-Binomial shrinkage to fairly rank politicians regardless of sample size
  */
 async function listPoliticiansByEffectiveness(options: ListPoliticiansOptions): Promise<MartPerson[]> {
   const { search, party, constituency, limit = 50, offset = 0 } = options;
@@ -114,37 +117,17 @@ async function listPoliticiansByEffectiveness(options: ListPoliticiansOptions): 
     conditions.push(eq(PersonColumns.valkrets, constituency, 'p'));
   }
 
-  // CTE to calculate motion effectiveness per politician
-  const motionStatsCTE = cte(
-    'motion_stats',
-    `
-SELECT 
-  t.intressent_id,
-  COUNT(DISTINCT t.authored_dok_id) as total_motions,
-  COUNT(DISTINCT t.authored_dok_id) FILTER (WHERE m.outcome_label = 'bifall') as passed_motions
-FROM ${Tables.timeline} t
-LEFT JOIN ${Tables.motionImpact} m ON m.mot_dok_id = t.authored_dok_id
-WHERE t.action_type = 'authored'
-  AND t.authored_dok_typ IN ('mot', 'Motion')
-  AND t.authored_dok_id IS NOT NULL
-GROUP BY t.intressent_id
-  `,
-  );
-
+  // Join with Bayesian motion rank table for fair ranking
   const sql = buildQuery({
-    ctes: [motionStatsCTE],
     select: 'p.*',
     from: `${Tables.person} p`,
-    joins: ['LEFT JOIN motion_stats ms ON p.intressent_id = ms.intressent_id'],
+    joins: [`LEFT JOIN ${Tables.motionRank} mr ON p.intressent_id = mr.intressent_id`],
     where: and(...conditions),
-    // Sort by pass rate (passed/total), with minimum 3 motions to qualify
-    // Politicians with fewer motions sorted by total activity as fallback
+    // Sort by Bayesian ranking score (shrunk toward global mean)
+    // Politicians without motions sorted by total activity as fallback
     orderBy: search?.trim()
       ? politicianOrderBy('name', search, 'p')
-      : `CASE WHEN COALESCE(ms.total_motions, 0) >= 3 THEN 1 ELSE 2 END,
-         CASE WHEN COALESCE(ms.total_motions, 0) >= 3 
-              THEN COALESCE(ms.passed_motions, 0)::FLOAT / ms.total_motions 
-              ELSE 0 END DESC,
+      : `COALESCE(mr.ranking_score, 0) DESC,
          (COALESCE(p.total_votes, 0) + COALESCE(p.total_speeches, 0) + COALESCE(p.total_authored, 0)) DESC`,
     limit,
     offset,
@@ -160,7 +143,16 @@ GROUP BY t.intressent_id
  * List politicians with date-filtered stats aggregated from timeline
  */
 async function listPoliticiansWithDateFilter(options: ListPoliticiansOptions): Promise<MartPerson[]> {
-  const { search, party, constituency, limit = 50, offset = 0, sortBy = 'mostEffective', fromDate, toDate } = options;
+  const {
+    search,
+    party,
+    constituency,
+    limit = 50,
+    offset = 0,
+    sortBy = 'mostEffective',
+    fromDate,
+    toDate,
+  } = options;
 
   // Build timeline date conditions
   const timelineConditions: Condition[] = [];
@@ -186,8 +178,8 @@ async function listPoliticiansWithDateFilter(options: ListPoliticiansOptions): P
   // Build the stats CTE
   const statsCTE = buildTimelineStatsCTE('filtered_stats', timelineConditions);
 
-  // Build select columns - explicitly list to control output
-  // Note: rebel_vote_count uses all-time value from mart_person (not date-filtered)
+  // Build select columns - rebel_vote_count comes from person table (all-time)
+  // Date-filtered rebel stats are handled separately by getBatchTopRebelTopics if needed
   const selectColumns = [
     'p.intressent_id',
     'p.tilltalsnamn',
@@ -211,24 +203,27 @@ async function listPoliticiansWithDateFilter(options: ListPoliticiansOptions): P
     'stats.last_action_date',
   ].join(',\n  ');
 
-  // Determine ORDER BY - search always uses person table alias 'p' for namn column
-  // Activity sorting uses 'stats' alias for aggregated columns
-  // Rebel sorting uses 'p' alias since rebel_vote_count is pre-computed in mart_person
+  // Determine ORDER BY
+  // mostEffective and mostRebel fall back to mostActive when date filters are applied
+  // since those calculations don't support date filtering
+  const effectiveSortBy = (sortBy === 'mostEffective' || sortBy === 'mostRebel') ? 'mostActive' : sortBy;
+  
   let orderByClause: string;
   if (search?.trim()) {
-    // Search term present: sort by name similarity (always uses person table)
-    orderByClause = politicianOrderBy(sortBy, search, 'p');
+    orderByClause = politicianOrderBy(effectiveSortBy, search, 'p');
   } else {
-    // No search: use appropriate alias based on sort type
-    const usePersonTable = sortBy === 'name' || sortBy === 'mostRebel';
-    orderByClause = politicianOrderBy(sortBy, undefined, usePersonTable ? 'p' : 'stats');
+    // Name sorting uses person table, others use stats CTE
+    const tableAlias = effectiveSortBy === 'name' ? 'p' : 'stats';
+    orderByClause = politicianOrderBy(effectiveSortBy, undefined, tableAlias);
   }
 
   const sql = buildQuery({
     ctes: [statsCTE],
     select: selectColumns,
     from: `${Tables.person} p`,
-    joins: ['LEFT JOIN filtered_stats stats ON p.intressent_id = stats.intressent_id'],
+    joins: [
+      'LEFT JOIN filtered_stats stats ON p.intressent_id = stats.intressent_id',
+    ],
     where: and(...personConditions),
     orderBy: orderByClause,
     limit,
@@ -322,24 +317,10 @@ WHERE ${PersonColumns.status} = 'Tjänstgörande riksdagsledamot'
   };
 }
 
-export interface MotionEffectiveness {
-  totalMotions: number;
-  motionsPassed: number;
-  motionsRejected: number;
-  motionsPending: number;
-  passRate: number;
-  avgImpactScore: number;
-  topMotion: {
-    dokId: string;
-    title: string;
-    impactScore: number;
-    outcome: string | null;
-  } | null;
-}
-
 /**
  * Calculate motion effectiveness for a politician
  * How many of their motions actually passed vs were rejected
+ * Includes Bayesian-adjusted statistics for fair ranking
  */
 export async function getMotionEffectiveness(intressentId: string): Promise<MotionEffectiveness> {
   console.log('[getMotionEffectiveness] Called with intressentId:', intressentId);
@@ -360,7 +341,10 @@ motion_outcomes AS (
     m.mot_titel,
     m.impact_score,
     m.outcome_label,
-    m.is_provisional
+    m.is_provisional,
+    m.bifall_typ,
+    m.is_tillkannagivande,
+    m.is_delvis_bifall
   FROM person_motions pm
   LEFT JOIN ${Tables.motionImpact} m ON m.mot_dok_id = pm.mot_dok_id
 )
@@ -370,6 +354,13 @@ SELECT
   COUNT(*) FILTER (WHERE outcome_label = 'avslag') as motions_rejected,
   COUNT(*) FILTER (WHERE outcome_label IS NULL OR is_provisional = true) as motions_pending,
   AVG(impact_score) FILTER (WHERE impact_score IS NOT NULL) as avg_impact_score,
+  -- Bifall breakdown
+  COUNT(*) FILTER (WHERE bifall_typ = 'reservation_bifall') as via_reservation,
+  COUNT(*) FILTER (WHERE bifall_typ = 'utskott_bifall') as via_utskott,
+  COUNT(*) FILTER (WHERE bifall_typ = 'direkt_bifall') as direkt_bifall,
+  COUNT(*) FILTER (WHERE is_tillkannagivande = true AND outcome_label = 'bifall') as tillkannagivanden,
+  COUNT(*) FILTER (WHERE is_delvis_bifall = true) as delvis_bifall,
+  -- Top motion
   (SELECT mot_dok_id FROM motion_outcomes WHERE impact_score IS NOT NULL ORDER BY impact_score DESC LIMIT 1) as top_mot_dok_id,
   (SELECT mot_titel FROM motion_outcomes WHERE impact_score IS NOT NULL ORDER BY impact_score DESC LIMIT 1) as top_mot_title,
   (SELECT impact_score FROM motion_outcomes WHERE impact_score IS NOT NULL ORDER BY impact_score DESC LIMIT 1) as top_impact_score,
@@ -384,6 +375,11 @@ FROM motion_outcomes
     motions_rejected: number;
     motions_pending: number;
     avg_impact_score: number | null;
+    via_reservation: number;
+    via_utskott: number;
+    direkt_bifall: number;
+    tillkannagivanden: number;
+    delvis_bifall: number;
     top_mot_dok_id: string | null;
     top_mot_title: string | null;
     top_impact_score: number | null;
@@ -395,6 +391,46 @@ FROM motion_outcomes
   const motionsPassed = Number(row?.motions_passed ?? 0);
   const motionsRejected = Number(row?.motions_rejected ?? 0);
   const resolvedMotions = motionsPassed + motionsRejected;
+
+  // Fetch Bayesian stats from the ranking table
+  let bayesianStats: MotionEffectiveness['bayesianStats'];
+  if (resolvedMotions > 0) {
+    const bayesianSql = `
+SELECT 
+  bayesian_pass_rate_pct,
+  raw_pass_rate_pct,
+  global_pass_rate_pct,
+  shrinkage_pct,
+  credible_lower_bound_pct,
+  confidence_tier,
+  resolved_motions
+FROM ${Tables.motionRank}
+WHERE intressent_id = ${quote(intressentId)}
+    `;
+    
+    const bayesianResult = await query<{
+      bayesian_pass_rate_pct: number;
+      raw_pass_rate_pct: number;
+      global_pass_rate_pct: number;
+      shrinkage_pct: number;
+      credible_lower_bound_pct: number;
+      confidence_tier: 'high' | 'medium' | 'low' | 'very_low';
+      resolved_motions: number;
+    }>(bayesianSql);
+    
+    const bayesianRow = bayesianResult.data[0];
+    if (bayesianRow) {
+      bayesianStats = {
+        adjustedPassRate: Number(bayesianRow.bayesian_pass_rate_pct),
+        rawPassRate: Number(bayesianRow.raw_pass_rate_pct),
+        globalPassRate: Number(bayesianRow.global_pass_rate_pct),
+        shrinkagePct: Number(bayesianRow.shrinkage_pct),
+        credibleLowerBound: Number(bayesianRow.credible_lower_bound_pct),
+        confidenceTier: bayesianRow.confidence_tier,
+        resolvedMotions: Number(bayesianRow.resolved_motions),
+      };
+    }
+  }
 
   return {
     totalMotions,
@@ -411,6 +447,14 @@ FROM motion_outcomes
           outcome: row.top_outcome,
         }
       : null,
+    bifallBreakdown: {
+      viaReservation: Number(row?.via_reservation ?? 0),
+      viaUtskott: Number(row?.via_utskott ?? 0),
+      direktBifall: Number(row?.direkt_bifall ?? 0),
+      tillkannagivanden: Number(row?.tillkannagivanden ?? 0),
+      delvisBifall: Number(row?.delvis_bifall ?? 0),
+    },
+    bayesianStats,
   };
 }
 
@@ -901,6 +945,74 @@ const COMMITTEE_TO_TOPIC: Record<string, string> = {
 };
 
 /**
+ * Get accountability stats - interpellations and written questions
+ * These represent the politician's work in questioning/scrutinizing the government
+ */
+export async function getAccountabilityStats(intressentId: string): Promise<AccountabilityStats> {
+  console.log('[getAccountabilityStats] Called with intressentId:', intressentId);
+
+  // Count interpellations and written questions
+  const countSql = buildQuery({
+    select: `
+      COUNT(*) FILTER (WHERE lower(${TimelineColumns.authored_dok_typ}) IN ('ip', 'interpellation')) as interpellations,
+      COUNT(*) FILTER (WHERE lower(${TimelineColumns.authored_dok_typ}) IN ('fr', 'skriftlig fråga')) as written_questions
+    `.trim(),
+    from: Tables.timeline,
+    where: and(
+      eq(TimelineColumns.intressent_id, intressentId),
+      eq(TimelineColumns.action_type, 'authored'),
+      or(
+        inList(`lower(${TimelineColumns.authored_dok_typ})`, ['ip', 'interpellation', 'fr', 'skriftlig fråga']),
+      ),
+    ),
+  });
+
+  console.log('[getAccountabilityStats] Executing count SQL:', countSql);
+  const countResult = await query<{ interpellations: number; written_questions: number }>(countSql);
+  const counts = countResult.data[0] ?? { interpellations: 0, written_questions: 0 };
+
+  // Get recent questions (up to 5)
+  const recentSql = buildQuery({
+    select: `
+      ${TimelineColumns.authored_dok_typ} as dok_typ,
+      ${TimelineColumns.authored_dok_titel} as title,
+      ${TimelineColumns.action_date} as date,
+      ${TimelineColumns.authored_dok_id} as dok_id
+    `.trim(),
+    from: Tables.timeline,
+    where: and(
+      eq(TimelineColumns.intressent_id, intressentId),
+      eq(TimelineColumns.action_type, 'authored'),
+      or(
+        inList(`lower(${TimelineColumns.authored_dok_typ})`, ['ip', 'interpellation', 'fr', 'skriftlig fråga']),
+      ),
+    ),
+    orderBy: `${TimelineColumns.action_date} DESC`,
+    limit: 5,
+  });
+
+  console.log('[getAccountabilityStats] Executing recent SQL:', recentSql);
+  const recentResult = await query<{ dok_typ: string; title: string; date: string; dok_id: string }>(recentSql);
+
+  const recentQuestions: RecentQuestion[] = recentResult.data.map((row) => ({
+    type: ['ip', 'interpellation'].includes(row.dok_typ?.toLowerCase()) ? 'interpellation' : 'skriftlig_fraga',
+    title: row.title ?? 'Utan titel',
+    date: row.date,
+    dokId: row.dok_id,
+  }));
+
+  const interpellations = Number(counts.interpellations);
+  const writtenQuestions = Number(counts.written_questions);
+
+  return {
+    interpellations,
+    writtenQuestions,
+    totalQuestions: interpellations + writtenQuestions,
+    recentQuestions,
+  };
+}
+
+/**
  * Get recent votes where the politician voted against their party majority
  */
 export async function getRebelVotes(intressentId: string, party: string, limit: number = 10): Promise<RebelVote[]> {
@@ -1285,4 +1397,56 @@ export async function getConstituencies(): Promise<string[]> {
 
   const result = await query<{ valkrets: string }>(sql);
   return result.data.map((row) => row.valkrets);
+}
+
+export interface AccountabilityStatsForList {
+  intressentId: string;
+  interpellations: number;
+  writtenQuestions: number;
+  totalQuestions: number;
+}
+
+/**
+ * Get accountability stats (interpellations + written questions) for multiple politicians
+ */
+export async function getBatchAccountabilityStats(
+  intressentIds: string[],
+): Promise<Map<string, AccountabilityStatsForList>> {
+  if (intressentIds.length === 0) return new Map();
+
+  console.log('[getBatchAccountabilityStats] Called for', intressentIds.length, 'politicians');
+
+  const idList = intressentIds.map(quote).join(', ');
+
+  const sql = `
+SELECT 
+  ${TimelineColumns.intressent_id} as intressent_id,
+  COUNT(*) FILTER (WHERE lower(${TimelineColumns.authored_dok_typ}) IN ('ip', 'interpellation')) as interpellations,
+  COUNT(*) FILTER (WHERE lower(${TimelineColumns.authored_dok_typ}) IN ('fr', 'skriftlig fråga')) as written_questions
+FROM ${Tables.timeline}
+WHERE ${TimelineColumns.intressent_id} IN (${idList})
+  AND ${TimelineColumns.action_type} = 'authored'
+  AND lower(${TimelineColumns.authored_dok_typ}) IN ('ip', 'interpellation', 'fr', 'skriftlig fråga')
+GROUP BY ${TimelineColumns.intressent_id}
+  `;
+
+  const result = await query<{
+    intressent_id: string;
+    interpellations: number;
+    written_questions: number;
+  }>(sql);
+
+  const map = new Map<string, AccountabilityStatsForList>();
+  for (const row of result.data) {
+    const interpellations = Number(row.interpellations);
+    const writtenQuestions = Number(row.written_questions);
+    map.set(row.intressent_id, {
+      intressentId: row.intressent_id,
+      interpellations,
+      writtenQuestions,
+      totalQuestions: interpellations + writtenQuestions,
+    });
+  }
+
+  return map;
 }

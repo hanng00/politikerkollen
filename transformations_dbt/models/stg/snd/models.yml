@@ -1,0 +1,306 @@
+version: 2
+
+models:
+  - name: stg_valmanifest
+    description: |
+      Staging model for Swedish party programs and election manifestos from SND (Swedish National Data Service).
+      
+      Source: https://snd.se/vivill
+      DOI: 10.5878/kcsf-k293
+      
+      Contains ~370 documents from 1897 to present covering all major Swedish political parties.
+      This is a static dataset that is fully refreshed on each ingestion run.
+    columns:
+      - name: document_id
+        description: |
+          Primary key - unique document identifier from SND.
+          Format: {party_id}-{year}-{type_id}[_suffix]
+          Examples: 's-2022-v' (Socialdemokraterna 2022 valmanifest), 'c-1912-p' (Centerpartiet 1912 partiprogram)
+        tests:
+          - not_null
+          - unique
+
+      - name: year
+        description: |
+          Publication year of the document.
+          Range: 1897 to present.
+        tests:
+          - not_null
+
+      - name: party_id
+        description: |
+          Party abbreviation code.
+          Values include: s (Socialdemokraterna), m (Moderaterna), c (Centerpartiet), 
+          l (Liberalerna), kd (Kristdemokraterna), v (Vänsterpartiet), mp (Miljöpartiet),
+          sd (Sverigedemokraterna), all (Alliansen), fi (Feministiskt initiativ), etc.
+        tests:
+          - not_null
+
+      - name: parti
+        description: |
+          Full party name in Swedish.
+          Examples: 'Socialdemokraterna', 'Moderaterna', 'Centerpartiet', 'Alliansen'
+        tests:
+          - not_null
+
+      - name: type_id
+        description: |
+          Document type code.
+          Values:
+          - p: Partiprogram (party program - long-term ideological platform)
+          - v: Valmanifest (election manifesto - specific election promises)
+          - h: Handlingsprogram (action program)
+          - r: Reformagenda (reform agenda)
+          - v_eu: Valmanifest for European Parliament elections
+        tests:
+          - not_null
+
+      - name: document_type
+        description: |
+          Full document type name in Swedish.
+          Examples: 'Partiprogram', 'Valmanifest - Riksdagsval', 'Valmanifest - Europaval'
+        tests:
+          - not_null
+
+      - name: title
+        description: |
+          Document title in Swedish.
+          Example: 'Fler i arbete - Mer att dela på. Valmanifest 2006. Allians för Sverige'
+
+      - name: source
+        description: |
+          Source attribution for the document.
+          Examples: 'Hämtat från partiets officiella hemsida.', 'Dokumentet är hämtat från riksdagens bibliotek.'
+
+      - name: text_content
+        description: |
+          Full text content of the document.
+          Plain text extracted from PDF/TXT files in the SND archive.
+          Average length: ~39,000 characters per document.
+
+      - name: text_length
+        description: |
+          Character count of text_content.
+          Useful for filtering and analysis.
+
+      - name: _dlt_load_id
+        description: "DLT load identifier - unique identifier for each data ingestion run."
+        tests:
+          - not_null
+
+      - name: _dlt_id
+        description: "DLT record identifier - unique identifier for each row within a load."
+        tests:
+          - not_null
+
+  - name: stg_valmanifest_promises
+    description: |
+      Staging model for political promises extracted from party manifestos using LLM.
+      
+      Source: cognition module using OpenAI Agents SDK with gpt-4o-mini.
+      Schema derived from cognition.models.promise.ExtractedPromise Pydantic model.
+      
+      Each row represents a single promise extracted from a valmanifest document.
+      Promises are categorized by policy area, specificity level, and measurability.
+    columns:
+      - name: promise_id
+        description: "Primary key - UUID generated during extraction."
+        tests:
+          - not_null
+          - unique
+
+      - name: document_id
+        description: |
+          Foreign key to stg_valmanifest.document_id.
+          Links the promise back to its source document.
+        tests:
+          - not_null
+
+      - name: party_id
+        description: "Party abbreviation code (e.g., 's', 'm', 'c')."
+
+      - name: year
+        description: "Election year from the source document."
+
+      - name: promise_text
+        description: |
+          The promise rephrased as a clear, actionable statement in Swedish.
+          Written by the LLM to be standalone and understandable without context.
+        tests:
+          - not_null
+
+      - name: source_quote
+        description: |
+          The exact quote from the source document that contains this promise.
+          Used for verification and citation.
+        tests:
+          - not_null
+
+      - name: category
+        description: |
+          Policy area category for the promise.
+          Values: skatt, vard, skola, miljo, migration, forsvar, rattsvasende,
+          arbetsmarknad, bostader, pension, ovrigt.
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['skatt', 'vard', 'skola', 'miljo', 'migration', 'forsvar', 
+                       'rattsvasende', 'arbetsmarknad', 'bostader', 'pension', 'ovrigt']
+
+      - name: specificity
+        description: |
+          Level of specificity for the promise.
+          - high: Contains specific numbers, dates, or measurable targets
+          - medium: Describes concrete action but without specific metrics
+          - low: General direction or intent
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['high', 'medium', 'low']
+
+      - name: target_group
+        description: |
+          Target beneficiary group if explicitly mentioned.
+          Examples: 'pensionärer', 'företagare', 'barnfamiljer'.
+          NULL if no specific group mentioned.
+
+      - name: measurable
+        description: |
+          Whether the promise can be objectively verified as kept or broken.
+          TRUE if there's a clear way to measure fulfillment.
+        tests:
+          - not_null
+
+      - name: extracted_at
+        description: "Timestamp when the promise was extracted."
+        tests:
+          - not_null
+
+      - name: model_version
+        description: |
+          LLM model used for extraction (e.g., 'gpt-4o-mini').
+          Useful for tracking extraction quality across model versions.
+        tests:
+          - not_null
+
+  - name: stg_promise_embeddings
+    description: |
+      Staging model for vector embeddings of political promises.
+      
+      Source: cognition module using OpenAI text-embedding-3-small.
+      Schema derived from cognition.models.embedding.PromiseEmbedding Pydantic model.
+      
+      Each row contains a 1536-dimensional embedding vector for a promise.
+      Used for semantic matching between promises and votes.
+    columns:
+      - name: promise_id
+        description: "Foreign key to stg_valmanifest_promises.promise_id."
+        tests:
+          - not_null
+          - unique
+
+      - name: embedding
+        description: |
+          Vector embedding (1536 dimensions) from text-embedding-3-small.
+          Represents the semantic meaning of the promise_text.
+        tests:
+          - not_null
+
+      - name: embedded_at
+        description: "Timestamp when the embedding was generated."
+        tests:
+          - not_null
+
+      - name: model_version
+        description: |
+          Embedding model used (e.g., 'text-embedding-3-small').
+          Useful for tracking embedding quality across model versions.
+        tests:
+          - not_null
+
+  - name: stg_vote_embeddings
+    description: |
+      Staging model for vector embeddings of vote proposals (utskottsförslag).
+      
+      Source: cognition module using OpenAI text-embedding-3-small.
+      Schema derived from cognition.models.embedding.VoteEmbedding Pydantic model.
+      
+      Each row contains a 1536-dimensional embedding vector for a vote proposal.
+      Used for semantic matching between promises and votes.
+    columns:
+      - name: votering_id
+        description: "Unique vote identifier from Riksdagen."
+        tests:
+          - not_null
+          - unique
+
+      - name: dok_id
+        description: "Document ID (betänkande) containing the vote."
+        tests:
+          - not_null
+
+      - name: forslag_text
+        description: |
+          The proposal text being voted on.
+          Extracted from dokumentstatus__dokutskottsforslag__utskottsforslag.
+        tests:
+          - not_null
+
+      - name: embedding
+        description: |
+          Vector embedding (1536 dimensions) from text-embedding-3-small.
+          Represents the semantic meaning of the forslag_text.
+        tests:
+          - not_null
+
+      - name: embedded_at
+        description: "Timestamp when the embedding was generated."
+        tests:
+          - not_null
+
+      - name: model_version
+        description: |
+          Embedding model used (e.g., 'text-embedding-3-small').
+          Useful for tracking embedding quality across model versions.
+        tests:
+          - not_null
+
+  - name: stg_promise_vote_matches
+    description: |
+      Staging model for semantic matches between promises and votes.
+      
+      Source: cognition module using DuckDB array_cosine_similarity.
+      Schema derived from cognition.models.embedding.PromiseVoteMatch Pydantic model.
+      
+      Each row represents a match between a promise and a vote based on
+      cosine similarity of their embeddings. Only matches above the
+      similarity threshold (default 0.7) are included.
+    columns:
+      - name: match_id
+        description: "Primary key - UUID generated during matching."
+        tests:
+          - not_null
+          - unique
+
+      - name: promise_id
+        description: "Foreign key to stg_promise_embeddings.promise_id."
+        tests:
+          - not_null
+
+      - name: votering_id
+        description: "Foreign key to stg_vote_embeddings.votering_id."
+        tests:
+          - not_null
+
+      - name: similarity_score
+        description: |
+          Cosine similarity score between promise and vote embeddings.
+          Range: 0-1, where 1 = identical meaning.
+          Only matches >= 0.7 are typically stored.
+        tests:
+          - not_null
+
+      - name: matched_at
+        description: "Timestamp when the match was computed."
+        tests:
+          - not_null

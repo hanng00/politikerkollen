@@ -73,6 +73,9 @@ outcomes_best as (
         arg_max(bet_dok_id, outcome_score)           as bet_dok_id,
         arg_max(votering_id, outcome_score)          as votering_id,
         arg_max(punkt_rubrik, outcome_score)         as punkt_rubrik,
+        arg_max(bifall_typ, outcome_score)           as bifall_typ,
+        arg_max(is_delvis_bifall, outcome_score)     as is_delvis_bifall,
+        arg_max(is_tillkannagivande, outcome_score)  as is_tillkannagivande,
         count(*)                                     as bet_count
     from outcomes
     group by mot_dok_id
@@ -102,6 +105,9 @@ assembled as (
         o.bet_dok_id,
         o.votering_id,
         o.punkt_rubrik,
+        o.bifall_typ,
+        o.is_delvis_bifall,
+        o.is_tillkannagivande,
 
         -- Vote margin (null if acklamation or unresolved)
         vm.vote_margin_score,
@@ -185,6 +191,11 @@ select
     cross_party_score,
     signatory_score,
     topic_score,
+
+    -- Bifall metadata
+    bifall_typ,
+    is_delvis_bifall,
+    is_tillkannagivande,
 
     -- Supporting detail (for breakdown tooltip)
     ja_count,

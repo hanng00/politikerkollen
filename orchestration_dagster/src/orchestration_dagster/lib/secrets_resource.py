@@ -24,6 +24,7 @@ class SecretsResource(dg.ConfigurableResource):
         # In resources.py:
         secrets_resource = SecretsResource(
             motherduck_access_token=dg.EnvVar("MOTHERDUCK_ACCESS_TOKEN"),
+            openai_api_key=dg.EnvVar("OPENAI_API_KEY"),
             database_name=dg.EnvVar("DATABASE_NAME", default="spatial_dagster"),
             use_secrets_manager=False,  # Set to True in production
             secrets_manager_secret_name="spatial/secrets",  # If using Secrets Manager
@@ -32,6 +33,7 @@ class SecretsResource(dg.ConfigurableResource):
     
     # Secrets - use EnvVar for local/dev
     motherduck_access_token: Optional[str] = None
+    openai_api_key: Optional[str] = None
     database_name: str = "spatial_dagster"
     
     # AWS Secrets Manager configuration (for production)
@@ -86,6 +88,7 @@ class SecretsResource(dg.ConfigurableResource):
         Expected secret format in AWS Secrets Manager:
         {
             "MOTHERDUCK_ACCESS_TOKEN": "token_value",
+            "OPENAI_API_KEY": "openai_key",
             "DATABASE_NAME": "database_name"
         }
         """
@@ -117,6 +120,8 @@ class SecretsResource(dg.ConfigurableResource):
             result = {}
             if "MOTHERDUCK_ACCESS_TOKEN" in secrets:
                 result["motherduck_access_token"] = secrets["MOTHERDUCK_ACCESS_TOKEN"]
+            if "OPENAI_API_KEY" in secrets:
+                result["openai_api_key"] = secrets["OPENAI_API_KEY"]
             if "DATABASE_NAME" in secrets:
                 result["database_name"] = secrets["DATABASE_NAME"]
             
@@ -130,6 +135,15 @@ class SecretsResource(dg.ConfigurableResource):
     def get_motherduck_token(self) -> str:
         """Get MotherDuck access token."""
         return self.motherduck_access_token
+    
+    def get_openai_api_key(self) -> str:
+        """Get OpenAI API key."""
+        if not self.openai_api_key:
+            raise ValueError(
+                "openai_api_key is required for cognition tasks. "
+                "Set OPENAI_API_KEY environment variable or use Secrets Manager."
+            )
+        return self.openai_api_key
     
     def get_database_name(self) -> str:
         """Get database name."""

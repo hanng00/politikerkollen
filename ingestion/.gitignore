@@ -17,3 +17,6 @@ README.md
 tests
 *.log
 __pycache__
+
+# Downloaded datasets
+data/

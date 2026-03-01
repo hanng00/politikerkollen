@@ -6,12 +6,11 @@
 -- Join strategy:
 --   1. Motion links to betänkande via stg_dokumentstatus_referens (referenstyp='behandlar')
 --   2. Betänkande links to utskottsforslag via _dlt_root_id
---   Note: We do NOT filter on forslag text - it uses rm:beteckning format (e.g. "2024/25:3322")
---   which differs from dok_id (e.g. "HC023322"), and doesn't reliably list all related motions.
+--   3. Explicit bifall from int_motion_bifall (parsed from forslag text) overrides default outcome
 --
 -- A motion is considered:
---   - approved (bifall)  when vinnare = 'motförslaget'
---   - rejected (avslag)  when vinnare = 'utskottet'
+--   - approved (bifall)  when explicitly approved in int_motion_bifall OR vinnare = 'motförslaget'
+--   - rejected (avslag)  when vinnare = 'utskottet' (and not explicitly approved)
 --   - acklamation        when beslutstyp = 'acklamation' (no roll-call vote)
 --
 -- One motion may appear in multiple utskottsforslag punkter within a betänkande.
@@ -66,6 +65,23 @@ utskottsforslag as (
     where forslag is not null
 ),
 
+-- Explicit bifall from parsed forslag text (reservation wins, etc.)
+-- This is the authoritative source for motion approvals
+explicit_bifall as (
+    select
+        mot_dok_id,
+        bet_dok_id,
+        outcome_score as bifall_score,
+        bifall_typ,
+        is_delvis_bifall,
+        is_tillkannagivande,
+        votering_id as bifall_votering_id,
+        punkt as bifall_punkt,
+        punkt_rubrik as bifall_punkt_rubrik,
+        motforslag_partier as bifall_motforslag_partier
+    from {{ ref('int_motion_bifall') }}
+),
+
 -- Join chain: mot → referens → bet → utskottsforslag
 -- The referens table links motion to betänkande via _dlt_root_id.
 -- We do NOT filter on forslag text since it uses a different ID format (rm:beteckning)
@@ -102,24 +118,57 @@ motion_to_punkt as (
 
 -- When one motion is linked to a betänkande, we get ALL punkter in that betänkande.
 -- We keep only the best outcome per (mot_dok_id, bet_dok_id) pair.
+-- Explicit bifall from int_motion_bifall takes precedence.
 motion_best_outcome as (
     select
-        mot_dok_id,
+        mtp.mot_dok_id,
         -- Use any_value for non-aggregated columns (they're the same per motion)
-        any_value(mot_titel)                                       as mot_titel,
-        any_value(rm)                                              as rm,
-        any_value(organ)                                           as organ,
-        bet_dok_id,
-        -- Best outcome wins (bifall=1.0 > acklamation/avslag=0.3)
-        max(outcome_score)                                         as outcome_score,
-        -- votering_id for the highest-stakes punkt (prefer voted over acklamation)
-        arg_max(votering_id, coalesce(outcome_score, 0))           as votering_id,
-        arg_max(punkt, coalesce(outcome_score, 0))                 as punkt,
-        arg_max(punkt_rubrik, coalesce(outcome_score, 0))          as punkt_rubrik,
-        arg_max(motforslag_partier, coalesce(outcome_score, 0))    as motforslag_partier,
-        count(*)                                                   as punkt_count
-    from motion_to_punkt
-    group by mot_dok_id, bet_dok_id
+        any_value(mtp.mot_titel)                                       as mot_titel,
+        any_value(mtp.rm)                                              as rm,
+        any_value(mtp.organ)                                           as organ,
+        mtp.bet_dok_id,
+        
+        -- Check if this motion has explicit bifall in this betänkande
+        max(eb.bifall_score)                                           as explicit_bifall_score,
+        any_value(eb.bifall_typ)                                       as bifall_typ,
+        any_value(eb.is_delvis_bifall)                                 as is_delvis_bifall,
+        any_value(eb.is_tillkannagivande)                              as is_tillkannagivande,
+        
+        -- Best outcome: explicit bifall > inferred outcome
+        coalesce(
+            max(eb.bifall_score),
+            max(mtp.outcome_score)
+        )                                                              as outcome_score,
+        
+        -- votering_id: prefer explicit bifall's votering_id, else best inferred
+        coalesce(
+            any_value(eb.bifall_votering_id),
+            arg_max(mtp.votering_id, coalesce(mtp.outcome_score, 0))
+        )                                                              as votering_id,
+        
+        -- punkt: prefer explicit bifall's punkt, else best inferred
+        coalesce(
+            any_value(eb.bifall_punkt),
+            arg_max(mtp.punkt, coalesce(mtp.outcome_score, 0))
+        )                                                              as punkt,
+        
+        coalesce(
+            any_value(eb.bifall_punkt_rubrik),
+            arg_max(mtp.punkt_rubrik, coalesce(mtp.outcome_score, 0))
+        )                                                              as punkt_rubrik,
+        
+        coalesce(
+            any_value(eb.bifall_motforslag_partier),
+            arg_max(mtp.motforslag_partier, coalesce(mtp.outcome_score, 0))
+        )                                                              as motforslag_partier,
+        
+        count(distinct mtp.punkt)                                      as punkt_count
+        
+    from motion_to_punkt mtp
+    left join explicit_bifall eb 
+        on eb.mot_dok_id = mtp.mot_dok_id 
+        and eb.bet_dok_id = mtp.bet_dok_id
+    group by mtp.mot_dok_id, mtp.bet_dok_id
 )
 
 select
@@ -134,10 +183,14 @@ select
     punkt_rubrik,
     motforslag_partier,
     punkt_count,
+    bifall_typ,
+    is_delvis_bifall,
+    is_tillkannagivande,
 
     -- Human-readable outcome label
+    -- Score thresholds: 1.0 = full bifall, 0.7 = delvis bifall, 0.3 = avslag
     case
-        when outcome_score = 1.0 then 'bifall'
+        when outcome_score >= 0.7 then 'bifall'
         when outcome_score = 0.3 then 'avslag'
         else 'unknown'
     end as outcome_label

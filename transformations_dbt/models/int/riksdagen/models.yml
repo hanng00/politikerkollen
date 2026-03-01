@@ -1,11 +1,45 @@
 version: 2
 
 models:
+  - name: int_motion_bifall
+    description: |
+      Extracts explicit motion approvals from utskottsforslag decision text.
+      Swedish parliament rarely approves motions via vinnare='motförslaget'.
+      Instead, motions are approved through reservation wins where forslag text
+      explicitly states "bifaller riksdagen motion(erna) X".
+      
+      This model parses the forslag text to extract specific motion dok_ids
+      that were approved, enabling accurate attribution of wins to motions.
+    columns:
+      - name: mot_dok_id
+        description: "Motion document ID that was approved"
+        tests:
+          - not_null
+      - name: bet_dok_id
+        description: "Betänkande where the motion was approved"
+        tests:
+          - not_null
+      - name: bifall_typ
+        description: "Type of approval: direkt_bifall | reservation_bifall | utskott_bifall"
+      - name: is_delvis_bifall
+        description: "True if motion was partially approved (delvis bifallen)"
+      - name: is_tillkannagivande
+        description: "True if decision includes a tillkännagivande (parliamentary directive)"
+      - name: outcome_score
+        description: "1.0 for full bifall, 0.7 for delvis bifall"
+    tests:
+      - unique:
+          column_name: "mot_dok_id || '|' || bet_dok_id || '|' || punkt"
+
   - name: int_motion_outcome
     description: |
       One row per (motion, betänkande) pair.
       A motion can be treated in multiple betänkanden when it spans multiple policy areas.
       Resolves mot → bet → utskottsforslag via dlt join keys.
+      
+      Explicit bifall from int_motion_bifall (parsed from forslag text) takes precedence
+      over inferred outcomes from vinnare field.
+      
       Provides outcome_score (O) and votering_id for downstream margin calculation.
     columns:
       - name: mot_dok_id
@@ -17,9 +51,15 @@ models:
         tests:
           - not_null
       - name: outcome_score
-        description: "O component: bifall=1.0, avslag/acklamation=0.3"
+        description: "O component: bifall=1.0, delvis_bifall=0.7, avslag/acklamation=0.3"
       - name: outcome_label
         description: "Human-readable: bifall | avslag | unknown"
+      - name: bifall_typ
+        description: "Type of approval if bifall: direkt_bifall | reservation_bifall | utskott_bifall"
+      - name: is_delvis_bifall
+        description: "True if motion was partially approved"
+      - name: is_tillkannagivande
+        description: "True if decision includes a tillkännagivande"
       - name: organ
         description: "Committee organ from parent betänkande (e.g. FiU, KU, CU)"
       - name: votering_id

@@ -96,6 +96,7 @@ def get_secrets_resource() -> SecretsResource:
         # Production with AWS Secrets Manager
         return SecretsResource(
             motherduck_access_token=None,  # Will be loaded from Secrets Manager in __init__
+            openai_api_key=None,  # Will be loaded from Secrets Manager in __init__
             database_name=os.environ.get("DATABASE_NAME", "spatial_dagster"),
             use_secrets_manager=True,
             secrets_manager_secret_name=os.environ.get(
@@ -106,8 +107,11 @@ def get_secrets_resource() -> SecretsResource:
     else:
         # Local/dev: use EnvVar (can be loaded from .env file)
         # For optional values with defaults, use os.environ.get() directly
+        # OpenAI API key is optional - only required for cognition tasks
+        openai_key = os.environ.get("OPENAI_API_KEY")
         return SecretsResource(
             motherduck_access_token=dg.EnvVar("MOTHERDUCK_ACCESS_TOKEN"),
+            openai_api_key=openai_key,
             database_name=os.environ.get("DATABASE_NAME", "spatial_dagster"),
             use_secrets_manager=False,
         )

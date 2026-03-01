@@ -326,3 +326,73 @@ def dokumentstatus(
         "exit_code": result.exit_code,
     }
 
+
+# SND (Swedish National Data Service) assets - static datasets
+
+SND_GROUP_NAME = "raw_snd"
+
+
+def _build_snd_ingestion_command(
+    resource_name: str,
+    secrets_resource: SecretsResource,
+    database_name: str = None,
+) -> Tuple[List[str], Dict[str, str]]:
+    """Build command and env vars for SND ingestion container.
+    
+    SND resources are not partitioned - they are static datasets that are
+    fully replaced on each run.
+    """
+    database_name = database_name or secrets_resource.get_database_name()
+    
+    command = ["run", resource_name]
+    if database_name:
+        command.extend(["--database", database_name])
+    
+    env_vars = {
+        "MOTHERDUCK_ACCESS_TOKEN": secrets_resource.get_motherduck_token(),
+        "DATABASE_NAME": database_name,
+    }
+    
+    return command, env_vars
+
+
+@dg.asset(
+    key=AssetKey(["raw_snd", "valmanifest"]),
+    group_name=SND_GROUP_NAME,
+    description="Ingest Swedish party programs and election manifestos from SND (Swedish National Data Service). Static dataset - full refresh on each run.",
+)
+def valmanifest(
+    context: AssetExecutionContext,
+    container_executor: ContainerExecutor,
+    secrets_resource: SecretsResource,
+):
+    """Ingest valmanifest data via ContainerExecutor.
+    
+    This is a static dataset from SND containing ~370 party programs and
+    election manifestos from 1897 to present. Full refresh on each run.
+    """
+    command, env_vars = _build_snd_ingestion_command("valmanifest", secrets_resource)
+
+    result = container_executor.execute(
+        context=context,
+        image="politikerkollen/ingestion:latest",
+        command=command,
+        env_vars=env_vars,
+        name="ingest_valmanifest",
+    )
+
+    if not result.success:
+        raise dg.Failure(
+            f"Ingestion failed with exit code {result.exit_code}",
+            metadata={
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "resource": "valmanifest",
+            },
+        )
+
+    return {
+        "status": "success",
+        "resource": "valmanifest",
+        "exit_code": result.exit_code,
+    }

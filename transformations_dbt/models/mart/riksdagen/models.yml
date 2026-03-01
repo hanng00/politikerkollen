@@ -163,3 +163,77 @@ models:
           JSON object with all five components for UI rendering.
           Structure: { outcome, vote_margin, cross_party, signatories, topic }
           Each: { score, weight, ...detail fields }
+
+  - name: mart_politician_motion_rank
+    description: |
+      One row per politician with Bayesian-adjusted motion pass rate.
+      
+      Uses Beta-Binomial Bayesian shrinkage to fairly rank politicians by motion effectiveness.
+      Raw pass rate (passed/total) is misleading for politicians with few motions.
+      This model shrinks estimates toward the global mean, with shrinkage intensity
+      inversely proportional to sample size.
+      
+      Formula:
+        Prior: θ ~ Beta(α, β) where α = μk, β = (1-μ)k
+        Posterior mean: E[θ] = (s + α) / (n + α + β)
+        
+        μ = global pass rate across all politicians
+        k = 20 (prior strength in pseudo-motions)
+        s = passed motions
+        n = resolved motions (passed + rejected)
+      
+      Effect:
+        - 1 motion passed out of 1: ~7% (shrunk heavily toward ~5% global mean)
+        - 50 motions passed out of 100: ~48% (minimal shrinkage)
+      
+      Query patterns:
+        - Rank by effectiveness: ORDER BY ranking_score DESC
+        - Filter by confidence: WHERE confidence_tier IN ('high', 'medium')
+
+    columns:
+      - name: intressent_id
+        description: "Riksdagen person identifier (primary key)"
+        tests:
+          - not_null
+          - unique
+
+      - name: total_motions
+        description: "Total motions authored/signed"
+
+      - name: passed_motions
+        description: "Motions that received bifall"
+
+      - name: rejected_motions
+        description: "Motions that received avslag"
+
+      - name: pending_motions
+        description: "Motions without outcome yet"
+
+      - name: resolved_motions
+        description: "passed_motions + rejected_motions"
+
+      - name: raw_pass_rate_pct
+        description: "Raw pass rate as percentage (passed/resolved * 100)"
+
+      - name: bayesian_pass_rate_pct
+        description: "Bayesian posterior mean as percentage"
+
+      - name: credible_lower_bound_pct
+        description: "95% credible interval lower bound as percentage"
+
+      - name: global_pass_rate_pct
+        description: "Global average pass rate across all politicians"
+
+      - name: ranking_score
+        description: "Score used for ranking (= bayesian_pass_rate)"
+
+      - name: shrinkage_pct
+        description: "How much the estimate was shrunk toward the prior (0-100%)"
+
+      - name: confidence_tier
+        description: |
+          Confidence level based on sample size:
+            - high: 50+ resolved motions
+            - medium: 20-49 resolved motions
+            - low: 5-19 resolved motions
+            - very_low: <5 resolved motions

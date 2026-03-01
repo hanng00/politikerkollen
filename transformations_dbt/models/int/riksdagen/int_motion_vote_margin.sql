@@ -9,6 +9,8 @@
 -- margin calculation — only deliberate Ja/Nej votes signal contentiousness.
 --
 -- votering_id joins to int_motion_outcome.votering_id
+--
+-- PERFORMANCE: Reads from materialized stg_voteringlista (already deduplicated).
 
 with vote_counts as (
     select
@@ -22,8 +24,7 @@ with vote_counts as (
         count(distinct case when rost = 'Ja'  then parti end) as parties_ja,
         count(distinct case when rost = 'Nej' then parti end) as parties_nej
     from {{ ref('stg_voteringlista') }}
-    where votering_id is not null
-      and rost is not null
+    where rost is not null
     group by lower(votering_id)
 )
 

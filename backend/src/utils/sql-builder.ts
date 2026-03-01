@@ -102,6 +102,7 @@ export const Tables = {
   person:        `${SCHEMA}.mart_person`,
   timeline:      `${SCHEMA}.mart_person_timeline`,
   motionImpact:  `${SCHEMA}.mart_motion_impact_score`,
+  motionRank:    `${SCHEMA}.mart_politician_motion_rank`,
 } as const;
 
 // =============================================================================
