@@ -17,12 +17,14 @@ from cognition.embeddings.repository import (
 
 @click.command("embed-promises")
 @click.option("--database", envvar="DATABASE_NAME", default="spatial_dagster")
+@click.option("--year", type=int, default=None, help="Filter by election year (e.g., 2022)")
 @click.option("--limit", type=int, default=None, help="Maximum number of promises to embed")
 @click.option("--batch-size", type=int, default=100, help="Number of texts per API call")
 @click.option("--dry-run", is_flag=True, help="Estimate cost without calling API")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
 def embed_promises_cmd(
     database: str,
+    year: int | None,
     limit: int | None,
     batch_size: int,
     dry_run: bool,
@@ -35,11 +37,11 @@ def embed_promises_cmd(
     logger.info("Connecting to MotherDuck...")
     conn = get_connection(database)
 
-    counts = get_counts(conn)
+    counts = get_counts(conn, year=year)
     logger.info(f"Embedding counts: {counts}")
 
-    promises = get_unembedded_promises(conn, limit=limit)
-    logger.info(f"Found {len(promises)} promises to embed")
+    promises = get_unembedded_promises(conn, limit=limit, year=year)
+    logger.info(f"Found {len(promises)} promises to embed" + (f" for year {year}" if year else ""))
 
     if not promises:
         logger.info("No promises to embed")
@@ -80,12 +82,14 @@ def embed_promises_cmd(
 
 @click.command("embed-votes")
 @click.option("--database", envvar="DATABASE_NAME", default="spatial_dagster")
+@click.option("--year", type=int, default=None, help="Filter by riksmöte year (e.g., 2022 for 2022/23)")
 @click.option("--limit", type=int, default=None, help="Maximum number of votes to embed")
 @click.option("--batch-size", type=int, default=100, help="Number of texts per API call")
 @click.option("--dry-run", is_flag=True, help="Estimate cost without calling API")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
 def embed_votes_cmd(
     database: str,
+    year: int | None,
     limit: int | None,
     batch_size: int,
     dry_run: bool,
@@ -98,11 +102,11 @@ def embed_votes_cmd(
     logger.info("Connecting to MotherDuck...")
     conn = get_connection(database)
 
-    counts = get_counts(conn)
+    counts = get_counts(conn, year=year)
     logger.info(f"Embedding counts: {counts}")
 
-    votes = get_unembedded_votes(conn, limit=limit)
-    logger.info(f"Found {len(votes)} votes to embed")
+    votes = get_unembedded_votes(conn, limit=limit, year=year)
+    logger.info(f"Found {len(votes)} votes to embed" + (f" for riksmöte {year}/{year+1-2000}" if year else ""))
 
     if not votes:
         logger.info("No votes to embed")

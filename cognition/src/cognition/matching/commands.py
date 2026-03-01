@@ -9,13 +9,15 @@ from cognition.matching.repository import clear_matches, find_matches, get_count
 
 @click.command("match-promises")
 @click.option("--database", envvar="DATABASE_NAME", default="spatial_dagster")
+@click.option("--year", type=int, default=None, help="Filter by election year (e.g., 2022)")
 @click.option("--threshold", type=float, default=0.7, help="Minimum similarity score (0-1)")
 @click.option("--top-k", type=int, default=5, help="Maximum matches per promise")
-@click.option("--clear", is_flag=True, help="Clear existing matches before computing new ones")
+@click.option("--clear", is_flag=True, help="Clear existing matches for this year before computing new ones")
 @click.option("--dry-run", is_flag=True, help="Show what would be matched without saving")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
 def match_promises_cmd(
     database: str,
+    year: int | None,
     threshold: float,
     top_k: int,
     clear: bool,
@@ -29,7 +31,7 @@ def match_promises_cmd(
     logger.info("Connecting to MotherDuck...")
     conn = get_connection(database)
 
-    counts = get_counts(conn)
+    counts = get_counts(conn, year=year)
     logger.info(f"Counts: {counts}")
 
     if counts["promise_embeddings"] == 0:
@@ -41,13 +43,15 @@ def match_promises_cmd(
         return
 
     if clear and not dry_run:
-        deleted = clear_matches(conn)
-        logger.info(f"Cleared {deleted} existing matches")
+        deleted = clear_matches(conn, year=year)
+        logger.info(f"Cleared {deleted} existing matches" + (f" for year {year}" if year else ""))
 
     logger.info(f"Finding matches with threshold={threshold}, top_k={top_k}...")
+    if year:
+        logger.info(f"Filtering to election year {year}")
 
     try:
-        matches = find_matches(conn, similarity_threshold=threshold, top_k=top_k)
+        matches = find_matches(conn, similarity_threshold=threshold, top_k=top_k, year=year)
         logger.info(f"Found {len(matches)} matches")
 
         if verbose and matches:

@@ -13,6 +13,7 @@ SCHEMA = "processed_snd"
 MATCHES_TABLE = f"{SCHEMA}.promise_vote_matches"
 PROMISE_EMBEDDINGS_TABLE = f"{SCHEMA}.promise_embeddings"
 VOTE_EMBEDDINGS_TABLE = f"{SCHEMA}.vote_embeddings"
+PROMISES_TABLE = f"{SCHEMA}.valmanifest_promises"
 
 
 def ensure_tables_exist(conn: duckdb.DuckDBPyConnection) -> None:
@@ -30,35 +31,92 @@ def ensure_tables_exist(conn: duckdb.DuckDBPyConnection) -> None:
     """)
 
 
+def _get_riksmote_filter(year: int, table_alias: str = "v") -> str:
+    """Get SQL filter for riksmöte year.
+    
+    Swedish riksmöte runs from September to June, e.g., 2022/23.
+    For election year 2022, we want votes from the mandate period 2022-2026.
+    """
+    next_election = year + 4
+    return f"""
+        AND (
+            (EXTRACT(YEAR FROM {table_alias}.datum) = {year} AND EXTRACT(MONTH FROM {table_alias}.datum) >= 9)
+            OR (EXTRACT(YEAR FROM {table_alias}.datum) > {year} AND EXTRACT(YEAR FROM {table_alias}.datum) < {next_election})
+            OR (EXTRACT(YEAR FROM {table_alias}.datum) = {next_election} AND EXTRACT(MONTH FROM {table_alias}.datum) < 9)
+        )
+    """
+
+
 def find_matches(
     conn: duckdb.DuckDBPyConnection,
     similarity_threshold: float = 0.7,
     top_k: int = 5,
+    year: int | None = None,
 ) -> list[dict[str, Any]]:
     """
     Find matches between promises and votes using vector similarity.
 
     Uses DuckDB's array_cosine_similarity for efficient vector comparison.
+    
+    Args:
+        conn: DuckDB connection
+        similarity_threshold: Minimum cosine similarity score (0-1)
+        top_k: Maximum number of matches per promise
+        year: Filter by election year (matches promises from that year to votes in mandate period)
     """
-    query = f"""
-        WITH ranked_matches AS (
-            SELECT
-                p.promise_id,
-                v.votering_id,
-                array_cosine_similarity(p.embedding, v.embedding) as similarity_score,
-                ROW_NUMBER() OVER (
-                    PARTITION BY p.promise_id
-                    ORDER BY array_cosine_similarity(p.embedding, v.embedding) DESC
-                ) as rank
-            FROM {PROMISE_EMBEDDINGS_TABLE} p
-            CROSS JOIN {VOTE_EMBEDDINGS_TABLE} v
-            WHERE array_cosine_similarity(p.embedding, v.embedding) >= {similarity_threshold}
-        )
-        SELECT promise_id, votering_id, similarity_score
-        FROM ranked_matches
-        WHERE rank <= {top_k}
-        ORDER BY promise_id, similarity_score DESC
-    """
+    if year:
+        # Filter promises by election year and votes by mandate period
+        query = f"""
+            WITH filtered_promises AS (
+                SELECT pe.promise_id, pe.embedding
+                FROM {PROMISE_EMBEDDINGS_TABLE} pe
+                JOIN {PROMISES_TABLE} p ON pe.promise_id = p.promise_id
+                WHERE p.year = {year}
+            ),
+            filtered_votes AS (
+                SELECT ve.votering_id, ve.embedding
+                FROM {VOTE_EMBEDDINGS_TABLE} ve
+                JOIN raw_riksdagen.voteringlista v ON ve.votering_id = v.votering_id
+                WHERE 1=1 {_get_riksmote_filter(year, 'v')}
+            ),
+            ranked_matches AS (
+                SELECT
+                    p.promise_id,
+                    v.votering_id,
+                    array_cosine_similarity(p.embedding, v.embedding) as similarity_score,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY p.promise_id
+                        ORDER BY array_cosine_similarity(p.embedding, v.embedding) DESC
+                    ) as rank
+                FROM filtered_promises p
+                CROSS JOIN filtered_votes v
+                WHERE array_cosine_similarity(p.embedding, v.embedding) >= {similarity_threshold}
+            )
+            SELECT promise_id, votering_id, similarity_score
+            FROM ranked_matches
+            WHERE rank <= {top_k}
+            ORDER BY promise_id, similarity_score DESC
+        """
+    else:
+        query = f"""
+            WITH ranked_matches AS (
+                SELECT
+                    p.promise_id,
+                    v.votering_id,
+                    array_cosine_similarity(p.embedding, v.embedding) as similarity_score,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY p.promise_id
+                        ORDER BY array_cosine_similarity(p.embedding, v.embedding) DESC
+                    ) as rank
+                FROM {PROMISE_EMBEDDINGS_TABLE} p
+                CROSS JOIN {VOTE_EMBEDDINGS_TABLE} v
+                WHERE array_cosine_similarity(p.embedding, v.embedding) >= {similarity_threshold}
+            )
+            SELECT promise_id, votering_id, similarity_score
+            FROM ranked_matches
+            WHERE rank <= {top_k}
+            ORDER BY promise_id, similarity_score DESC
+        """
 
     result = conn.execute(query).fetchall()
     return [
@@ -88,24 +146,60 @@ def save_matches(
     return len(matches)
 
 
-def clear_matches(conn: duckdb.DuckDBPyConnection) -> int:
-    """Clear all existing matches (for re-computation)."""
+def clear_matches(conn: duckdb.DuckDBPyConnection, year: int | None = None) -> int:
+    """Clear existing matches (for re-computation).
+    
+    Args:
+        conn: DuckDB connection
+        year: If provided, only clear matches for promises from this election year
+    """
     try:
-        count = conn.execute(f"SELECT COUNT(*) FROM {MATCHES_TABLE}").fetchone()[0]
-        conn.execute(f"DELETE FROM {MATCHES_TABLE}")
+        if year:
+            count = conn.execute(
+                f"""
+                SELECT COUNT(*) FROM {MATCHES_TABLE} m
+                JOIN {PROMISES_TABLE} p ON m.promise_id = p.promise_id
+                WHERE p.year = {year}
+                """
+            ).fetchone()[0]
+            conn.execute(
+                f"""
+                DELETE FROM {MATCHES_TABLE}
+                WHERE promise_id IN (
+                    SELECT promise_id FROM {PROMISES_TABLE} WHERE year = {year}
+                )
+                """
+            )
+        else:
+            count = conn.execute(f"SELECT COUNT(*) FROM {MATCHES_TABLE}").fetchone()[0]
+            conn.execute(f"DELETE FROM {MATCHES_TABLE}")
         return count
     except duckdb.CatalogException:
         return 0
 
 
-def get_counts(conn: duckdb.DuckDBPyConnection) -> dict[str, int]:
-    """Get counts of embeddings and matches."""
+def get_counts(conn: duckdb.DuckDBPyConnection, year: int | None = None) -> dict[str, int]:
+    """Get counts of embeddings and matches.
+    
+    Args:
+        conn: DuckDB connection
+        year: Filter by election year
+    """
     counts = {}
 
     try:
-        counts["promise_embeddings"] = conn.execute(
-            f"SELECT COUNT(*) FROM {PROMISE_EMBEDDINGS_TABLE}"
-        ).fetchone()[0]
+        if year:
+            counts["promise_embeddings"] = conn.execute(
+                f"""
+                SELECT COUNT(*) FROM {PROMISE_EMBEDDINGS_TABLE} pe
+                JOIN {PROMISES_TABLE} p ON pe.promise_id = p.promise_id
+                WHERE p.year = {year}
+                """
+            ).fetchone()[0]
+        else:
+            counts["promise_embeddings"] = conn.execute(
+                f"SELECT COUNT(*) FROM {PROMISE_EMBEDDINGS_TABLE}"
+            ).fetchone()[0]
     except duckdb.CatalogException:
         counts["promise_embeddings"] = 0
 
@@ -117,9 +211,18 @@ def get_counts(conn: duckdb.DuckDBPyConnection) -> dict[str, int]:
         counts["vote_embeddings"] = 0
 
     try:
-        counts["matches"] = conn.execute(
-            f"SELECT COUNT(*) FROM {MATCHES_TABLE}"
-        ).fetchone()[0]
+        if year:
+            counts["matches"] = conn.execute(
+                f"""
+                SELECT COUNT(*) FROM {MATCHES_TABLE} m
+                JOIN {PROMISES_TABLE} p ON m.promise_id = p.promise_id
+                WHERE p.year = {year}
+                """
+            ).fetchone()[0]
+        else:
+            counts["matches"] = conn.execute(
+                f"SELECT COUNT(*) FROM {MATCHES_TABLE}"
+            ).fetchone()[0]
     except duckdb.CatalogException:
         counts["matches"] = 0
 

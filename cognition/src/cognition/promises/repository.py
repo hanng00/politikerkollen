@@ -61,8 +61,16 @@ def get_unprocessed_documents(
     conn: duckdb.DuckDBPyConnection,
     limit: int | None = None,
     document_id: str | None = None,
+    year: int | None = None,
 ) -> list[dict[str, Any]]:
-    """Get documents from valmanifest that haven't been processed yet."""
+    """Get documents from valmanifest that haven't been processed yet.
+    
+    Args:
+        conn: DuckDB connection
+        limit: Maximum number of documents to return
+        document_id: Filter to a specific document
+        year: Filter by election year (e.g., 2022)
+    """
     if document_id:
         query = """
             SELECT document_id, party_id, year, text_content
@@ -72,6 +80,11 @@ def get_unprocessed_documents(
         result = conn.execute(query, [document_id]).fetchall()
     else:
         state_exists = table_exists(conn, STATE_TABLE)
+        
+        # Build year filter clause
+        year_filter = ""
+        if year:
+            year_filter = f"AND v.year = {year}"
 
         if state_exists:
             query = f"""
@@ -81,13 +94,15 @@ def get_unprocessed_documents(
                 WHERE s.document_id IS NULL
                     AND v.text_content IS NOT NULL
                     AND LENGTH(v.text_content) > 100
+                    {year_filter}
             """
         else:
-            query = """
+            query = f"""
                 SELECT document_id, party_id, year, text_content
-                FROM raw_snd.valmanifest
+                FROM raw_snd.valmanifest v
                 WHERE text_content IS NOT NULL
                     AND LENGTH(text_content) > 100
+                    {year_filter}
             """
 
         if limit:
@@ -98,14 +113,30 @@ def get_unprocessed_documents(
     return [dict(zip(columns, row)) for row in result]
 
 
-def get_document_count(conn: duckdb.DuckDBPyConnection) -> dict[str, int]:
-    """Get counts of total and unprocessed documents."""
+def get_document_count(conn: duckdb.DuckDBPyConnection, year: int | None = None) -> dict[str, int]:
+    """Get counts of total and unprocessed documents.
+    
+    Args:
+        conn: DuckDB connection
+        year: Filter by election year (e.g., 2022)
+    """
+    year_filter = f"AND year = {year}" if year else ""
+    
     total = conn.execute(
-        "SELECT COUNT(*) FROM raw_snd.valmanifest WHERE text_content IS NOT NULL"
+        f"SELECT COUNT(*) FROM raw_snd.valmanifest WHERE text_content IS NOT NULL {year_filter}"
     ).fetchone()[0]
 
     try:
-        processed = conn.execute(f"SELECT COUNT(*) FROM {STATE_TABLE}").fetchone()[0]
+        if year:
+            processed = conn.execute(
+                f"""
+                SELECT COUNT(*) FROM {STATE_TABLE} s
+                JOIN raw_snd.valmanifest v ON s.document_id = v.document_id
+                WHERE v.year = {year}
+                """
+            ).fetchone()[0]
+        else:
+            processed = conn.execute(f"SELECT COUNT(*) FROM {STATE_TABLE}").fetchone()[0]
     except duckdb.CatalogException:
         processed = 0
 

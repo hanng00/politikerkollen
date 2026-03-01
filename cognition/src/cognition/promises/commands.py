@@ -11,12 +11,14 @@ from cognition.promises.repository import get_document_count, get_unprocessed_do
 @click.command("extract-promises")
 @click.option("--database", envvar="DATABASE_NAME", default="spatial_dagster")
 @click.option("--document-id", default=None, help="Process only this specific document")
+@click.option("--year", type=int, default=None, help="Filter by election year (e.g., 2022)")
 @click.option("--limit", type=int, default=None, help="Maximum number of documents to process")
 @click.option("--dry-run", is_flag=True, help="Estimate cost without calling API")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
 def extract_promises_cmd(
     database: str,
     document_id: str | None,
+    year: int | None,
     limit: int | None,
     dry_run: bool,
     verbose: bool,
@@ -28,10 +30,10 @@ def extract_promises_cmd(
     logger.info("Connecting to MotherDuck...")
     conn = get_connection(database)
 
-    counts = get_document_count(conn)
+    counts = get_document_count(conn, year=year)
     logger.info(f"Document counts: {counts}")
 
-    documents = get_unprocessed_documents(conn, limit=limit, document_id=document_id)
+    documents = get_unprocessed_documents(conn, limit=limit, document_id=document_id, year=year)
     logger.info(f"Found {len(documents)} documents to process")
 
     if not documents:

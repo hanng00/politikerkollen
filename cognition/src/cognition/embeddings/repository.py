@@ -47,9 +47,17 @@ def ensure_tables_exist(conn: duckdb.DuckDBPyConnection) -> None:
 def get_unembedded_promises(
     conn: duckdb.DuckDBPyConnection,
     limit: int | None = None,
+    year: int | None = None,
 ) -> list[dict[str, Any]]:
-    """Get promises that haven't been embedded yet."""
+    """Get promises that haven't been embedded yet.
+    
+    Args:
+        conn: DuckDB connection
+        limit: Maximum number of promises to return
+        year: Filter by election year (e.g., 2022)
+    """
     embeddings_exist = table_exists(conn, PROMISE_EMBEDDINGS_TABLE)
+    year_filter = f"AND p.year = {year}" if year else ""
 
     if embeddings_exist:
         query = f"""
@@ -57,9 +65,14 @@ def get_unembedded_promises(
             FROM {PROMISES_TABLE} p
             LEFT JOIN {PROMISE_EMBEDDINGS_TABLE} e ON p.promise_id = e.promise_id
             WHERE e.promise_id IS NULL
+            {year_filter}
         """
     else:
-        query = f"SELECT promise_id, promise_text FROM {PROMISES_TABLE}"
+        query = f"""
+            SELECT promise_id, promise_text 
+            FROM {PROMISES_TABLE} p
+            WHERE 1=1 {year_filter}
+        """
 
     if limit:
         query += f" LIMIT {limit}"
@@ -68,39 +81,62 @@ def get_unembedded_promises(
     return [{"promise_id": row[0], "promise_text": row[1]} for row in result]
 
 
+def _get_riksmote_filter(year: int) -> str:
+    """Get SQL filter for riksmöte year.
+    
+    Swedish riksmöte runs from September to June, e.g., 2022/23.
+    Votes in riksmöte 2022/23 have dates from 2022-09 to 2023-06.
+    
+    For election year 2022, we want votes from riksmöte 2022/23, 2023/24, 2024/25, 2025/26
+    (the mandate period until next election in 2026).
+    """
+    next_election = year + 4
+    return f"""
+        AND (
+            (EXTRACT(YEAR FROM v.datum) = {year} AND EXTRACT(MONTH FROM v.datum) >= 9)
+            OR (EXTRACT(YEAR FROM v.datum) > {year} AND EXTRACT(YEAR FROM v.datum) < {next_election})
+            OR (EXTRACT(YEAR FROM v.datum) = {next_election} AND EXTRACT(MONTH FROM v.datum) < 9)
+        )
+    """
+
+
 def get_unembedded_votes(
     conn: duckdb.DuckDBPyConnection,
     limit: int | None = None,
+    year: int | None = None,
 ) -> list[dict[str, Any]]:
     """Get vote proposals that haven't been embedded yet.
     
     Joins voteringlista with utskottsforslag on votering_id to get the proposal text.
     Returns unique (votering_id, dok_id, forslag_text) combinations.
+    
+    Args:
+        conn: DuckDB connection
+        limit: Maximum number of votes to return
+        year: Filter by riksmöte year (e.g., 2022 for votes in mandate period 2022-2026)
     """
     embeddings_exist = table_exists(conn, VOTE_EMBEDDINGS_TABLE)
+    year_filter = _get_riksmote_filter(year) if year else ""
 
-    # Join on votering_id - the utskottsforslag table has votering_id but not dok_id
-    # We get dok_id from voteringlista
-    base_query = """
+    base_query = f"""
         SELECT DISTINCT v.votering_id, v.dok_id, u.forslag as forslag_text
         FROM raw_riksdagen.voteringlista v
         JOIN raw_riksdagen.dokumentstatus__dokutskottsforslag__utskottsforslag u
             ON v.votering_id = u.votering_id
+        WHERE u.forslag IS NOT NULL AND LENGTH(u.forslag) > 10
+        {year_filter}
     """
 
     if embeddings_exist:
         query = f"""
-            {base_query}
-            LEFT JOIN {VOTE_EMBEDDINGS_TABLE} e ON v.votering_id = e.votering_id
+            WITH base AS ({base_query})
+            SELECT b.votering_id, b.dok_id, b.forslag_text
+            FROM base b
+            LEFT JOIN {VOTE_EMBEDDINGS_TABLE} e ON b.votering_id = e.votering_id
             WHERE e.votering_id IS NULL
-                AND u.forslag IS NOT NULL
-                AND LENGTH(u.forslag) > 10
         """
     else:
-        query = f"""
-            {base_query}
-            WHERE u.forslag IS NOT NULL AND LENGTH(u.forslag) > 10
-        """
+        query = base_query
 
     if limit:
         query += f" LIMIT {limit}"
@@ -154,14 +190,29 @@ def save_vote_embeddings(
     return len(embeddings)
 
 
-def get_counts(conn: duckdb.DuckDBPyConnection) -> dict[str, int]:
-    """Get counts of embeddings."""
+def get_counts(conn: duckdb.DuckDBPyConnection, year: int | None = None) -> dict[str, int]:
+    """Get counts of embeddings.
+    
+    Args:
+        conn: DuckDB connection
+        year: Filter by year (election year for promises, riksmöte year for votes)
+    """
     counts = {}
+    year_filter_promises = f"WHERE p.year = {year}" if year else ""
 
     try:
-        counts["promise_embeddings"] = conn.execute(
-            f"SELECT COUNT(*) FROM {PROMISE_EMBEDDINGS_TABLE}"
-        ).fetchone()[0]
+        if year:
+            counts["promise_embeddings"] = conn.execute(
+                f"""
+                SELECT COUNT(*) FROM {PROMISE_EMBEDDINGS_TABLE} e
+                JOIN {PROMISES_TABLE} p ON e.promise_id = p.promise_id
+                WHERE p.year = {year}
+                """
+            ).fetchone()[0]
+        else:
+            counts["promise_embeddings"] = conn.execute(
+                f"SELECT COUNT(*) FROM {PROMISE_EMBEDDINGS_TABLE}"
+            ).fetchone()[0]
     except duckdb.CatalogException:
         counts["promise_embeddings"] = 0
 
@@ -174,7 +225,7 @@ def get_counts(conn: duckdb.DuckDBPyConnection) -> dict[str, int]:
 
     try:
         counts["promises_total"] = conn.execute(
-            f"SELECT COUNT(*) FROM {PROMISES_TABLE}"
+            f"SELECT COUNT(*) FROM {PROMISES_TABLE} p {year_filter_promises}"
         ).fetchone()[0]
     except duckdb.CatalogException:
         counts["promises_total"] = 0
