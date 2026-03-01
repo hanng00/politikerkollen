@@ -58,6 +58,15 @@ export interface BayesianStats {
   resolvedMotions: number;
 }
 
+// Motion list item for display
+export interface MotionListItem {
+  dokId: string;
+  title: string;
+  date: string;
+  outcome: "bifall" | "avslag" | null;
+  impactScore: number | null;
+}
+
 // Motion effectiveness metrics
 export interface MotionEffectiveness {
   totalMotions: number;
@@ -72,6 +81,7 @@ export interface MotionEffectiveness {
     impactScore: number;
     outcome: string | null;
   } | null;
+  recentMotions: MotionListItem[];
   bifallBreakdown: {
     viaReservation: number;
     viaUtskott: number;
@@ -113,6 +123,7 @@ export interface KeyVote {
 // API response type (matching backend)
 export interface PoliticianDetail {
   id: string;
+  sourceId: string;
   firstName: string;
   lastName: string;
   name: string;

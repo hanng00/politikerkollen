@@ -4,7 +4,12 @@ import click
 
 from cognition.core.config import load_env, setup_logging
 from cognition.core.db import get_connection
-from cognition.promises.extractor import MODEL_NAME, create_agent, estimate_cost, extract_promises
+from cognition.promises.extractor import (
+    MODEL_NAME,
+    create_agent,
+    estimate_cost,
+    extract_batch,
+)
 from cognition.promises.repository import get_document_count, get_unprocessed_documents, save_promises
 
 
@@ -13,6 +18,7 @@ from cognition.promises.repository import get_document_count, get_unprocessed_do
 @click.option("--document-id", default=None, help="Process only this specific document")
 @click.option("--year", type=int, default=None, help="Filter by election year (e.g., 2022)")
 @click.option("--limit", type=int, default=None, help="Maximum number of documents to process")
+@click.option("--max-concurrency", type=int, default=1, help="Concurrent extractions")
 @click.option("--dry-run", is_flag=True, help="Estimate cost without calling API")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
 def extract_promises_cmd(
@@ -20,6 +26,7 @@ def extract_promises_cmd(
     document_id: str | None,
     year: int | None,
     limit: int | None,
+    max_concurrency: int,
     dry_run: bool,
     verbose: bool,
 ) -> None:
@@ -58,37 +65,40 @@ def extract_promises_cmd(
 
     agent = create_agent()
     logger.info(f"Created extraction agent with model: {MODEL_NAME}")
+    logger.info(f"Processing with max_concurrency={max_concurrency}")
+
+    def on_progress(completed: int, total: int, doc_id: str):
+        logger.info(f"[{completed}/{total}] Completed {doc_id}")
+
+    results = extract_batch(documents, agent, max_concurrency=max_concurrency, on_progress=on_progress)
 
     total_promises = 0
-    for i, doc in enumerate(documents, 1):
+    errors = 0
+    for doc, result in results:
         doc_id = doc["document_id"]
         party_id = doc.get("party_id")
-        year = doc.get("year")
-        text = doc.get("text_content", "") or ""
+        doc_year = doc.get("year")
 
-        logger.info(f"[{i}/{len(documents)}] Processing {doc_id} ({len(text):,} chars)")
-
-        try:
-            result = extract_promises(doc_id, text, agent)
-            promise_count = len(result.promises)
-
-            cost_info = estimate_cost(len(text))
-            save_promises(
-                conn, result, party_id=party_id, year=year,
-                model_version=MODEL_NAME, cost_usd=cost_info["total_cost_usd"],
-            )
-
-            total_promises += promise_count
-            logger.info(f"  Extracted {promise_count} promises")
-
-            if result.extraction_notes:
-                logger.info(f"  Notes: {result.extraction_notes}")
-
-        except Exception as e:
-            logger.error(f"  Error processing {doc_id}: {e}")
-            if verbose:
-                import traceback
-                traceback.print_exc()
+        if isinstance(result, Exception):
+            logger.error(f"  Error processing {doc_id}: {result}")
+            errors += 1
             continue
 
-    logger.info(f"Extraction complete: {total_promises} promises from {len(documents)} documents")
+        promise_count = len(result.promises)
+        text_length = len(doc.get("text_content", "") or "")
+        cost_info = estimate_cost(text_length)
+
+        save_promises(
+            conn, result, party_id=party_id, year=doc_year,
+            model_version=MODEL_NAME, cost_usd=cost_info["total_cost_usd"],
+        )
+
+        total_promises += promise_count
+        logger.info(f"  {doc_id}: {promise_count} promises extracted")
+
+        if result.extraction_notes:
+            logger.info(f"    Notes: {result.extraction_notes}")
+
+    logger.info(f"Extraction complete: {total_promises} promises from {len(documents) - errors} documents")
+    if errors:
+        logger.warning(f"  {errors} documents failed")

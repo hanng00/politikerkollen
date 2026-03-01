@@ -22,4 +22,4 @@ select
     extracted_at,
     model_version
 
-from {{ source('processed_snd', 'valmanifest_promises') }}
+from {{ source('cognition', 'valmanifest_promises') }}

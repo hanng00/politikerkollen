@@ -36,11 +36,11 @@ sources:
       - name: valmanifest
         description: "Swedish party programs and election manifestos from 1897 to present"
 
-  - name: processed_snd
+  - name: cognition
     database: spatial_dagster
     # Processed SND data - LLM-extracted and embedded data
     # Contains promises, embeddings, and matches from cognition module
-    schema: processed_snd
+    schema: cognition
     tables:
       - name: valmanifest_promises
         description: "Political promises extracted from party manifestos using LLM"

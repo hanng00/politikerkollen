@@ -6,10 +6,10 @@ from typing import Any
 
 import duckdb
 
+from cognition.core.config import SCHEMA, VALMANIFEST_SOURCE
 from cognition.core.db import ensure_schema_exists, python_type_to_sql, table_exists
 from cognition.promises.models import DocumentExtractionResult, ExtractedPromise
 
-SCHEMA = "processed_snd"
 PROMISES_TABLE = f"{SCHEMA}.valmanifest_promises"
 STATE_TABLE = f"{SCHEMA}.extraction_state"
 
@@ -72,9 +72,9 @@ def get_unprocessed_documents(
         year: Filter by election year (e.g., 2022)
     """
     if document_id:
-        query = """
+        query = f"""
             SELECT document_id, party_id, year, text_content
-            FROM raw_snd.valmanifest
+            FROM {VALMANIFEST_SOURCE}
             WHERE document_id = ?
         """
         result = conn.execute(query, [document_id]).fetchall()
@@ -89,7 +89,7 @@ def get_unprocessed_documents(
         if state_exists:
             query = f"""
                 SELECT v.document_id, v.party_id, v.year, v.text_content
-                FROM raw_snd.valmanifest v
+                FROM {VALMANIFEST_SOURCE} v
                 LEFT JOIN {STATE_TABLE} s ON v.document_id = s.document_id
                 WHERE s.document_id IS NULL
                     AND v.text_content IS NOT NULL
@@ -99,7 +99,7 @@ def get_unprocessed_documents(
         else:
             query = f"""
                 SELECT document_id, party_id, year, text_content
-                FROM raw_snd.valmanifest v
+                FROM {VALMANIFEST_SOURCE} v
                 WHERE text_content IS NOT NULL
                     AND LENGTH(text_content) > 100
                     {year_filter}
@@ -123,7 +123,7 @@ def get_document_count(conn: duckdb.DuckDBPyConnection, year: int | None = None)
     year_filter = f"AND year = {year}" if year else ""
     
     total = conn.execute(
-        f"SELECT COUNT(*) FROM raw_snd.valmanifest WHERE text_content IS NOT NULL {year_filter}"
+        f"SELECT COUNT(*) FROM {VALMANIFEST_SOURCE} WHERE text_content IS NOT NULL {year_filter}"
     ).fetchone()[0]
 
     try:
@@ -131,7 +131,7 @@ def get_document_count(conn: duckdb.DuckDBPyConnection, year: int | None = None)
             processed = conn.execute(
                 f"""
                 SELECT COUNT(*) FROM {STATE_TABLE} s
-                JOIN raw_snd.valmanifest v ON s.document_id = v.document_id
+                JOIN {VALMANIFEST_SOURCE} v ON s.document_id = v.document_id
                 WHERE v.year = {year}
                 """
             ).fetchone()[0]

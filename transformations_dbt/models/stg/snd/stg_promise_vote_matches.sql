@@ -11,4 +11,4 @@ select
     similarity_score,
     matched_at
 
-from {{ source('processed_snd', 'promise_vote_matches') }}
+from {{ source('cognition', 'promise_vote_matches') }}

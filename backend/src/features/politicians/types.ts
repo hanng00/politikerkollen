@@ -5,6 +5,7 @@
 // Database row types (from mart tables)
 export interface MartPerson {
   intressent_id: string;
+  sourceid: string;
   tilltalsnamn: string;
   efternamn: string;
   namn: string;
@@ -66,6 +67,7 @@ export interface MartPersonTimeline {
 // API response types
 export interface PoliticianSummary {
   id: string;
+  sourceId: string;
   firstName: string;
   lastName: string;
   name: string;
@@ -93,6 +95,11 @@ export interface PoliticianSummary {
     interpellations: number;
     writtenQuestions: number;
     totalQuestions: number;
+  };
+  scrutinizedStats?: {
+    interpellationsReceived: number;
+    writtenQuestionsReceived: number;
+    totalQuestionsReceived: number;
   };
 }
 
@@ -129,6 +136,14 @@ export interface RebelVote {
   topic: string | null;
 }
 
+export interface MotionListItem {
+  dokId: string;
+  title: string;
+  date: string;
+  outcome: 'bifall' | 'avslag' | null;
+  impactScore: number | null;
+}
+
 export interface MotionEffectiveness {
   totalMotions: number;
   motionsPassed: number;
@@ -142,6 +157,8 @@ export interface MotionEffectiveness {
     impactScore: number;
     outcome: string | null;
   } | null;
+  // List of recent motions for display
+  recentMotions: MotionListItem[];
   // Bifall breakdown - how motions passed
   bifallBreakdown: {
     viaReservation: number;
@@ -248,11 +265,11 @@ export interface MotionImpactScore {
   isProvisional: boolean;
   organ: string | null;
   breakdown: {
-    outcome:     { score: number | null; label: string | null; weight: number };
-    voteMargin:  { score: number | null; ja: number | null; nej: number | null; weight: number };
-    crossParty:  { score: number; parties: number; weight: number };
+    outcome: { score: number | null; label: string | null; weight: number };
+    voteMargin: { score: number | null; ja: number | null; nej: number | null; weight: number };
+    crossParty: { score: number; parties: number; weight: number };
     signatories: { score: number; count: number; weight: number };
-    topic:       { score: number; organ: string | null; weight: number };
+    topic: { score: number; organ: string | null; weight: number };
   };
 }
 
@@ -316,14 +333,22 @@ export interface AccountabilityStatsForSummary {
   totalQuestions: number;
 }
 
+export interface ScrutinizedStatsForSummary {
+  interpellationsReceived: number;
+  writtenQuestionsReceived: number;
+  totalQuestionsReceived: number;
+}
+
 export function toSummary(
   row: MartPerson,
   motionStats?: MotionStatsForSummary,
   topRebelTopic?: TopRebelTopicForSummary,
   accountabilityStats?: AccountabilityStatsForSummary,
+  scrutinizedStats?: ScrutinizedStatsForSummary,
 ): PoliticianSummary {
   return {
     id: row.intressent_id,
+    sourceId: row.sourceid,
     firstName: row.tilltalsnamn,
     lastName: row.efternamn,
     name: row.namn,
@@ -340,6 +365,7 @@ export function toSummary(
     motionStats,
     topRebelTopic,
     accountabilityStats,
+    scrutinizedStats,
   };
 }
 
@@ -371,6 +397,7 @@ export function toDetail(
       passRate: 0,
       avgImpactScore: 0,
       topMotion: null,
+      recentMotions: [],
       bifallBreakdown: {
         viaReservation: 0,
         viaUtskott: 0,
@@ -419,7 +446,7 @@ function getTopicFromCommittee(committee: string | null): string | undefined {
 export function toTimelineItem(row: MartPersonTimeline): TimelineItem {
   const committee = row.betankande_organ ?? undefined;
   const topic = getTopicFromCommittee(row.betankande_organ);
-  
+
   const base: TimelineItem = {
     id: row.action_id,
     type: row.action_type,
@@ -482,7 +509,19 @@ export function formatAuthorRole(role: string | null | undefined): string | unde
 }
 
 export function toMotionImpactScore(row: MartMotionImpactScore): MotionImpactScore {
-  let parsed: Record<string, { score: number | null; weight: number; label?: string | null; ja?: number | null; nej?: number | null; parties?: number; count?: number; organ?: string | null }> = {};
+  let parsed: Record<
+    string,
+    {
+      score: number | null;
+      weight: number;
+      label?: string | null;
+      ja?: number | null;
+      nej?: number | null;
+      parties?: number;
+      count?: number;
+      organ?: string | null;
+    }
+  > = {};
   try {
     parsed = JSON.parse(row.score_breakdown);
   } catch {
@@ -495,30 +534,30 @@ export function toMotionImpactScore(row: MartMotionImpactScore): MotionImpactSco
     organ: row.organ,
     breakdown: {
       outcome: {
-        score:  row.outcome_score,
-        label:  row.outcome_label,
-        weight: parsed.outcome?.weight ?? 0.40,
+        score: row.outcome_score,
+        label: row.outcome_label,
+        weight: parsed.outcome?.weight ?? 0.4,
       },
       voteMargin: {
-        score:  row.vote_margin_score,
-        ja:     row.ja_count,
-        nej:    row.nej_count,
+        score: row.vote_margin_score,
+        ja: row.ja_count,
+        nej: row.nej_count,
         weight: parsed.vote_margin?.weight ?? 0.25,
       },
       crossParty: {
-        score:   row.cross_party_score,
+        score: row.cross_party_score,
         parties: row.distinct_parties,
-        weight:  parsed.cross_party?.weight ?? 0.15,
+        weight: parsed.cross_party?.weight ?? 0.15,
       },
       signatories: {
-        score:  row.signatory_score,
-        count:  row.signatory_count,
-        weight: parsed.signatories?.weight ?? 0.10,
+        score: row.signatory_score,
+        count: row.signatory_count,
+        weight: parsed.signatories?.weight ?? 0.1,
       },
       topic: {
-        score:  row.topic_score,
-        organ:  row.organ,
-        weight: parsed.topic?.weight ?? 0.10,
+        score: row.topic_score,
+        organ: row.organ,
+        weight: parsed.topic?.weight ?? 0.1,
       },
     },
   };

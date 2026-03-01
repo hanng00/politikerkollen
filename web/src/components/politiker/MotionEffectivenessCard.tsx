@@ -3,6 +3,11 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { InfoButton } from "@/components/ui/info-button";
 import {
   Tooltip,
@@ -10,8 +15,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { MotionEffectiveness } from "@/hooks/useFetchPolitician";
-import { CheckCircle, ChevronRight, ExternalLink, FileText, HelpCircle, Info, XCircle } from "lucide-react";
+import { CheckCircle, ChevronDown, ExternalLink, FileText, HelpCircle, Info, XCircle } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 interface MotionEffectivenessCardProps {
   motionEffectiveness: MotionEffectiveness;
@@ -29,12 +35,14 @@ export function MotionEffectivenessCard({
   motionEffectiveness,
   onFilterTimeline,
 }: MotionEffectivenessCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const {
     totalMotions,
     motionsPassed,
     motionsRejected,
     passRate,
     topMotion,
+    recentMotions,
     bifallBreakdown,
     bayesianStats,
   } = motionEffectiveness;
@@ -54,6 +62,11 @@ export function MotionEffectivenessCard({
   const displayRate = bayesianStats?.adjustedPassRate ?? passRate;
   const hasSignificantAdjustment =
     bayesianStats && Math.abs(bayesianStats.rawPassRate - bayesianStats.adjustedPassRate) > 5;
+
+  // Show up to 5 motions initially, rest on expand
+  const initialMotions = recentMotions?.slice(0, 5) ?? [];
+  const remainingMotions = recentMotions?.slice(5) ?? [];
+  const hasMoreMotions = remainingMotions.length > 0;
 
   return (
     <Card>
@@ -218,7 +231,45 @@ export function MotionEffectivenessCard({
           </div>
         )}
 
-        {topMotion && (
+        {/* Recent motions list */}
+        {initialMotions.length > 0 && (
+          <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+            <div className="pt-3 border-t">
+              <CollapsibleTrigger className="flex items-center justify-between w-full text-left group cursor-pointer">
+                <p className="text-xs text-muted-foreground">
+                  Senaste motioner
+                </p>
+                <ChevronDown
+                  className={`size-4 text-muted-foreground transition-transform ${
+                    isExpanded ? "rotate-180" : ""
+                  }`}
+                />
+              </CollapsibleTrigger>
+              
+              <div className="mt-2 space-y-2">
+                {initialMotions.map((motion) => (
+                  <MotionListItemRow key={motion.dokId} motion={motion} />
+                ))}
+              </div>
+
+              <CollapsibleContent>
+                <div className="mt-2 space-y-2">
+                  {remainingMotions.map((motion) => (
+                    <MotionListItemRow key={motion.dokId} motion={motion} />
+                  ))}
+                </div>
+              </CollapsibleContent>
+
+              {hasMoreMotions && !isExpanded && (
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  + {remainingMotions.length} till
+                </p>
+              )}
+            </div>
+          </Collapsible>
+        )}
+
+        {topMotion && !initialMotions.some(m => m.dokId === topMotion.dokId) && (
           <div className="pt-3 border-t">
             <p className="text-xs text-muted-foreground mb-2">
               Mest betydelsefulla motion
@@ -264,10 +315,43 @@ export function MotionEffectivenessCard({
             onClick={onFilterTimeline}
           >
             Visa alla {totalMotions} motioner i aktivitetsflödet
-            <ChevronRight className="size-3.5 ml-1" />
+            <ChevronDown className="size-3.5 ml-1 -rotate-90" />
           </Button>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function MotionListItemRow({ motion }: { motion: { dokId: string; title: string; date: string; outcome: "bifall" | "avslag" | null; impactScore: number | null } }) {
+  const date = new Date(motion.date).toLocaleDateString("sv-SE", {
+    year: "numeric",
+    month: "short",
+  });
+
+  return (
+    <a
+      href={`https://www.riksdagen.se/sv/dokument-och-lagar/dokument/_${motion.dokId}/`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-start gap-2 group"
+    >
+      <div className="shrink-0 mt-1">
+        {motion.outcome === "bifall" ? (
+          <CheckCircle className="size-3.5 text-green-600" />
+        ) : motion.outcome === "avslag" ? (
+          <XCircle className="size-3.5 text-red-500" />
+        ) : (
+          <div className="size-3.5 rounded-full border-2 border-muted-foreground/30" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm line-clamp-1 group-hover:text-primary transition-colors">
+          {motion.title}
+        </p>
+        <p className="text-xs text-muted-foreground">{date}</p>
+      </div>
+      <ExternalLink className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-1" />
+    </a>
   );
 }

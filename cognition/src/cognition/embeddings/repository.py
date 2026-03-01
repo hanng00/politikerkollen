@@ -5,6 +5,7 @@ from typing import Any
 
 import duckdb
 
+from cognition.core.config import SCHEMA
 from cognition.core.db import ensure_schema_exists, table_exists
 from cognition.embeddings.models import (
     EMBEDDING_MODEL,
@@ -13,7 +14,6 @@ from cognition.embeddings.models import (
     get_embedding_columns,
 )
 
-SCHEMA = "processed_snd"
 PROMISE_EMBEDDINGS_TABLE = f"{SCHEMA}.promise_embeddings"
 VOTE_EMBEDDINGS_TABLE = f"{SCHEMA}.vote_embeddings"
 PROMISES_TABLE = f"{SCHEMA}.valmanifest_promises"

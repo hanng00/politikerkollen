@@ -12,4 +12,4 @@ select
     embedded_at,
     model_version
 
-from {{ source('processed_snd', 'vote_embeddings') }}
+from {{ source('cognition', 'vote_embeddings') }}

@@ -33,6 +33,11 @@ export interface PoliticianSummary {
     writtenQuestions: number;
     totalQuestions: number;
   };
+  scrutinizedStats?: {
+    interpellationsReceived: number;
+    writtenQuestionsReceived: number;
+    totalQuestionsReceived: number;
+  };
 }
 
 interface PaginatedResponse {

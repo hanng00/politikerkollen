@@ -5,13 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { PoliticianDetail } from "@/hooks/useFetchPolitician";
-import {
-  Calendar,
-  ExternalLink,
-  Mail,
-  MapPin,
-  Share2,
-} from "lucide-react";
+import { Calendar, ExternalLink, Mail, MapPin, Share2 } from "lucide-react";
 
 const partyColors: Record<string, string> = {
   S: "bg-[#E8112d]",
@@ -66,7 +60,7 @@ export function PoliticianProfileCard({
   const handleShare = async () => {
     const url = window.location.href;
     const text = `${politician.name} (${politician.party}) — Se aktivitet i riksdagen`;
-    
+
     if (navigator.share) {
       try {
         await navigator.share({ title: politician.name, text, url });
@@ -81,15 +75,19 @@ export function PoliticianProfileCard({
   const handleEmail = () => {
     const subject = encodeURIComponent(`Fråga till ${politician.name}`);
     const body = encodeURIComponent(
-      `Hej ${politician.firstName},\n\nJag skriver till dig som din väljare.\n\n[Skriv ditt meddelande här]\n\nMed vänliga hälsningar`
+      `Hej ${politician.firstName},\n\nJag skriver till dig som din väljare.\n\n[Skriv ditt meddelande här]\n\nMed vänliga hälsningar`,
     );
     // Note: We don't have actual email addresses, so this opens a template
     // In a real implementation, this would link to riksdagen.se contact form
     window.open(
       `https://www.riksdagen.se/sv/ledamoter-och-partier/ledamot/${politician.id}`,
-      "_blank"
+      "_blank",
     );
   };
+
+  const slugify = (text: string) => text.toLowerCase().replace(/ /g, "-");
+  const politicianSlug = `${slugify(politician.firstName)}-${slugify(politician.lastName)}-${politician.sourceId}`;
+  const RIKSDAGEN_POLITICIAN_URL = `https://www.riksdagen.se/sv/ledamoter-och-partier/ledamot/${politicianSlug}`;
 
   return (
     <Card className="overflow-hidden">
@@ -123,9 +121,7 @@ export function PoliticianProfileCard({
               </span>
             )}
             {activityYears && (
-              <span className="text-xs">
-                Aktiv {activityYears}
-              </span>
+              <span className="text-xs">Aktiv {activityYears}</span>
             )}
           </div>
         </div>
@@ -151,7 +147,7 @@ export function PoliticianProfileCard({
             Dela profilen
           </Button>
           <a
-            href={`https://www.riksdagen.se/sv/ledamoter-och-partier/ledamot/${politician.id}`}
+            href={RIKSDAGEN_POLITICIAN_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-start gap-2 w-full text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2"

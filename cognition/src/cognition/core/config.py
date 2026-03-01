@@ -6,6 +6,13 @@ from pathlib import Path
 
 import dotenv
 
+# Single source of truth for schema name
+# Used in: MotherDuck tables, Dagster asset keys
+SCHEMA = "cognition"
+
+# Source table for valmanifest - read from dbt staging layer
+VALMANIFEST_SOURCE = "main_stg.stg_valmanifest"
+
 
 def get_root_path() -> Path:
     """Get the root path of the cognition module."""

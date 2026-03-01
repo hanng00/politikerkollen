@@ -6,10 +6,10 @@ from typing import Any
 
 import duckdb
 
+from cognition.core.config import SCHEMA
 from cognition.core.db import ensure_schema_exists, table_exists
 from cognition.matching.models import get_match_columns
 
-SCHEMA = "processed_snd"
 MATCHES_TABLE = f"{SCHEMA}.promise_vote_matches"
 PROMISE_EMBEDDINGS_TABLE = f"{SCHEMA}.promise_embeddings"
 VOTE_EMBEDDINGS_TABLE = f"{SCHEMA}.vote_embeddings"

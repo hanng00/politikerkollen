@@ -11,6 +11,8 @@ Commands:
 
 import click
 
+from cognition.core.config import load_env
+from cognition.core.tracing import setup_tracing
 from cognition.embeddings.commands import embed_promises_cmd, embed_votes_cmd
 from cognition.matching.commands import match_promises_cmd
 from cognition.promises.commands import extract_promises_cmd
@@ -19,7 +21,8 @@ from cognition.promises.commands import extract_promises_cmd
 @click.group()
 def cli() -> None:
     """Cognition CLI for LLM-based data processing."""
-    pass
+    load_env()
+    setup_tracing()
 
 
 cli.add_command(extract_promises_cmd)

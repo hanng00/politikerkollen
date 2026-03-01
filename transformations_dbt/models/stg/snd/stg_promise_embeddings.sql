@@ -10,4 +10,4 @@ select
     embedded_at,
     model_version
 
-from {{ source('processed_snd', 'promise_embeddings') }}
+from {{ source('cognition', 'promise_embeddings') }}

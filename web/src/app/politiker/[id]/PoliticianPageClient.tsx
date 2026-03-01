@@ -141,7 +141,8 @@ function VoteGroupCard({ group }: { group: VoteGroup }) {
     if (!winner) return null;
     if (winner === "utskottet") return "Utskottet vann";
     if (winner === "motförslaget") return "Motförslaget vann";
-    if (winner.startsWith("reservation")) return `${winner.charAt(0).toUpperCase() + winner.slice(1)} vann`;
+    if (winner.startsWith("reservation"))
+      return `${winner.charAt(0).toUpperCase() + winner.slice(1)} vann`;
     return winner;
   };
 
@@ -228,7 +229,9 @@ function VoteGroupCard({ group }: { group: VoteGroup }) {
                   </span>
                   <div className="flex-1 min-w-0">
                     <span className="text-sm text-muted-foreground">
-                      {vote.title || vote.subjectText || `Punkt ${vote.votePunkt}`}
+                      {vote.title ||
+                        vote.subjectText ||
+                        `Punkt ${vote.votePunkt}`}
                     </span>
                     {winnerText && (
                       <span className="text-xs text-muted-foreground/70 ml-2">
@@ -259,7 +262,8 @@ function SingleVoteCard({ item }: { item: TimelineItem }) {
     if (!winner) return null;
     if (winner === "utskottet") return "Utskottet vann";
     if (winner === "motförslaget") return "Motförslaget vann";
-    if (winner.startsWith("reservation")) return `${winner.charAt(0).toUpperCase() + winner.slice(1)} vann`;
+    if (winner.startsWith("reservation"))
+      return `${winner.charAt(0).toUpperCase() + winner.slice(1)} vann`;
     return winner;
   };
 
@@ -1014,7 +1018,10 @@ export default function PoliticianPageClient({ id }: { id: string }) {
     setActivityFilter(filter);
     // Scroll to timeline section on mobile, or just highlight on desktop
     if (timelineRef.current) {
-      timelineRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      timelineRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     }
   }, []);
 
@@ -1091,13 +1098,17 @@ export default function PoliticianPageClient({ id }: { id: string }) {
                 {/* Accountability - questioning the government */}
                 <AccountabilityCard
                   accountabilityStats={politician.accountabilityStats}
-                  onFilterTimeline={() => scrollToTimelineWithFilter(["authored"])}
+                  onFilterTimeline={() =>
+                    scrollToTimelineWithFilter(["authored"])
+                  }
                 />
 
                 {/* Motion Effectiveness - real impact metric */}
                 <MotionEffectivenessCard
                   motionEffectiveness={politician.motionEffectiveness}
-                  onFilterTimeline={() => scrollToTimelineWithFilter(["authored"])}
+                  onFilterTimeline={() =>
+                    scrollToTimelineWithFilter(["authored"])
+                  }
                 />
 
                 {/* Voting Independence - patterns of independent voting */}
@@ -1120,7 +1131,10 @@ export default function PoliticianPageClient({ id }: { id: string }) {
           </div>
 
           {/* RIGHT COLUMN: Activity Timeline */}
-          <div ref={timelineRef} className="flex flex-col lg:min-h-0 lg:max-h-[calc(100vh-140px)]">
+          <div
+            ref={timelineRef}
+            className="flex flex-col lg:min-h-0 lg:max-h-[calc(100vh-140px)]"
+          >
             <div className="flex items-center justify-between mb-4 shrink-0 bg-background pb-2">
               <h2 className="text-lg font-semibold">Aktivitet</h2>
               <ToggleGroup

@@ -2,7 +2,7 @@
  * GET /politicians/{id}/timeline - Get a politician's action timeline
  */
 
-import { getMotionImpactScores, getTimeline } from './repository';
+import { getMotionImpactScores, getTimeline } from './queries';
 import type { PaginatedResponse, TimelineItem } from './types';
 import { toMotionImpactScore, toTimelineItem } from './types';
 
