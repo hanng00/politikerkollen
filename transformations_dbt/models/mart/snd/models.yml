@@ -3,19 +3,19 @@ version: 2
 models:
   - name: mart_promise_accountability_cards
     description: |
-      Mart model joining promises with their semantically matched source documents
+      Mart model grouping promises with their semantically matched source documents
       and voting outcomes.
       
       Designed for the viral "accountability card" feature showing how parties
       voted on issues related to their election promises.
       
+      Output: One row per promise, with an array of related motions and their votes.
+      This enables the UI to show one card per promise with multiple motions listed.
+      
       Join path:
         promise → stg_promise_vote_matches → source_dok_id
         source_dok_id → int_vote_source_links → votering_id
         votering_id → stg_voteringlista → party votes
-      
-      Note: One promise-source match may have multiple votes (different punkter).
-      This is intentional - shows all relevant voting activity.
       
       Use cases:
       - Generate shareable accountability cards
@@ -23,9 +23,10 @@ models:
       - Find contradictions between promises and votes
     columns:
       - name: promise_id
-        description: "Foreign key to stg_valmanifest_promises.promise_id."
+        description: "Primary key - unique identifier for the promise."
         tests:
           - not_null
+          - unique
 
       - name: document_id
         description: "Source document ID from valmanifest."
@@ -68,86 +69,39 @@ models:
         tests:
           - not_null
 
-      - name: match_id
-        description: "Unique identifier for this promise-source match."
+      - name: motions
+        description: |
+          Array of related motions/propositions and their voting outcomes.
+          Each element contains: match_id, similarity_score, source_dok_id,
+          source_dok_typ, source_titel, source_parti, source_url, votering_id,
+          bet_dok_id, punkt, punkt_rubrik, promise_party_vote, ja_count,
+          nej_count, riksdag_outcome, accountability_status.
         tests:
           - not_null
 
-      - name: similarity_score
-        description: |
-          Cosine similarity between promise and source embeddings.
-          Higher scores indicate stronger semantic match.
+      - name: motion_count
+        description: "Number of related motions for this promise."
         tests:
           - not_null
 
-      - name: source_dok_id
-        description: "Document ID of the matched source (motion or proposition)."
+      - name: best_similarity_score
+        description: |
+          Highest similarity score among all matched motions.
+          Used for sorting/filtering in the feed.
         tests:
           - not_null
 
-      - name: source_dok_typ
-        description: "Type of source document: 'mot' (motion) or 'prop' (proposition)."
+      - name: best_accountability_status
+        description: |
+          Accountability status of the best matching motion.
+          Values: supported_passed, supported_failed, opposed_passed,
+          opposed_failed, abstained, unknown.
         tests:
           - not_null
 
-      - name: source_titel
-        description: "Title of the source document."
+      - name: has_contradiction
+        description: |
+          Boolean indicating if any motion has a contradiction
+          (party voted Nej on a related proposal).
         tests:
           - not_null
-
-      - name: source_parti
-        description: "Party that authored the source (for motions) or 'Regeringen' (for props)."
-
-      - name: source_url
-        description: "URL to the source document on riksdagen.se."
-
-      - name: votering_id
-        description: "Riksdagen vote identifier."
-
-      - name: bet_dok_id
-        description: "Betänkande document ID containing the vote."
-
-      - name: punkt
-        description: "Vote punkt number within the betänkande."
-
-      - name: punkt_rubrik
-        description: "Title/description of the vote punkt."
-
-      - name: source_outcome
-        description: |
-          Outcome for this specific source in this vote.
-          Values: approved, rejected, acklamation, unknown.
-
-      - name: promise_party_vote
-        description: |
-          How the promising party voted (Ja, Nej, Avstår).
-          Based on party majority vote.
-
-      - name: promise_party_vote_count
-        description: "Number of party members who voted this way."
-
-      - name: ja_count
-        description: "Total 'Ja' votes across all parties."
-
-      - name: nej_count
-        description: "Total 'Nej' votes across all parties."
-
-      - name: avstar_count
-        description: "Total 'Avstår' votes across all parties."
-
-      - name: riksdag_outcome
-        description: |
-          Overall vote outcome.
-          - Bifall: Proposal passed (more Ja than Nej)
-          - Avslag: Proposal rejected (more Nej than Ja)
-
-      - name: accountability_status
-        description: |
-          Indicator of how the party's vote relates to the outcome.
-          Values:
-          - supported_passed: Party voted Ja, proposal passed
-          - supported_failed: Party voted Ja, proposal failed
-          - opposed_passed: Party voted Nej, proposal passed
-          - opposed_failed: Party voted Nej, proposal failed
-          - abstained: Party abstained
-          - unknown: Vote data unavailable
