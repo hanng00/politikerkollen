@@ -60,6 +60,6 @@ export const SCORING_WEIGHTS = {
   voted_nej: -3,
 } as const;
 
-export const DEFAULT_SIMILARITY_THRESHOLD = 0.7;
+export const DEFAULT_SIMILARITY_THRESHOLD = 0.45;
 export const DEFAULT_LIMIT = 20;
 export const DEFAULT_RIKSMOTE_YEAR = 2024;

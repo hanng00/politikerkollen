@@ -9,6 +9,13 @@ When writing user-facing copy, UI text, or marketing concepts, always consult `d
 ## Tech Stack
 
 - **web/**: Next.js 16, React 19, TypeScript, Tailwind CSS 4, shadcn/ui, Vercel AI SDK
+
+## UI Components
+
+shadcn/ui in this project uses **Base UI** (`@base-ui/react`), NOT Radix UI. Key differences:
+- Polymorphism uses the `render` prop, NOT `asChild` (which is Radix-only)
+- Example: `<Button render={<Link href="/foo" />}>` instead of `<Button asChild><Link href="/foo"></Button>`
+- Never assume Radix primitives or patterns – check `web/src/components/ui/` for actual implementations
 - **backend/**: Bun, TypeScript, DuckDB, AWS Lambda
 - **ingestion/**: Python, dlt (data load tool), MotherDuck
 - **orchestration_dagster/**: Dagster, Docker, ECS

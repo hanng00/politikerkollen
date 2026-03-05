@@ -2,6 +2,7 @@
  * Queries for votes - rebel votes, key votes, party voting patterns
  */
 
+import { logSql } from '../../../utils/logger';
 import { query } from '../../../utils/motherduck';
 import {
   Tables,
@@ -125,7 +126,7 @@ WHERE pv.vote_value != pm.majority_vote
     limit: 10,
   });
 
-  console.log('[getRebelVotesByTopic] Executing SQL:', sql);
+  logSql('[getRebelVotesByTopic] Executing SQL:', sql);
 
   try {
     const result = await query<{
@@ -278,7 +279,7 @@ WHERE (votering_id, vote_count) IN (
     limit,
   });
 
-  console.log('[getKeyVotes] Executing SQL:', sql);
+  logSql('[getKeyVotes] Executing SQL:', sql);
   const result = await query<{
     votering_id: string;
     date: string;
@@ -376,7 +377,7 @@ WHERE (votering_id, vote_count) IN (
     limit,
   });
 
-  console.log('[getRebelVotes] Executing SQL:', sql);
+  logSql('[getRebelVotes] Executing SQL:', sql);
   const result = await query<{
     votering_id: string;
     date: string;

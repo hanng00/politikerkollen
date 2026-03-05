@@ -2,6 +2,7 @@
  * Queries for motion effectiveness and impact scores
  */
 
+import { logSql } from '../../../utils/logger';
 import { query } from '../../../utils/motherduck';
 import {
   MotionImpactColumns,
@@ -61,7 +62,7 @@ SELECT
 FROM motion_outcomes
   `;
 
-  console.log('[getMotionEffectiveness] Executing SQL:', sql);
+  logSql('[getMotionEffectiveness] Executing SQL:', sql);
   const result = await query<{
     total_motions: number;
     motions_passed: number;
@@ -294,7 +295,7 @@ export async function getMotionImpactScores(dokIds: string[]): Promise<Map<strin
     where: inList(MotionImpactColumns.mot_dok_id, dokIds),
   });
 
-  console.log('[getMotionImpactScores] Executing SQL:', sql);
+  logSql('[getMotionImpactScores] Executing SQL:', sql);
   const result = await query<MartMotionImpactScore>(sql);
 
   return new Map(result.data.map((row) => [row.mot_dok_id, row]));

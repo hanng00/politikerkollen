@@ -18,6 +18,7 @@ import { usePathname } from "next/navigation";
 
 const navItems = [
   { href: "/politiker", label: "Politiker" },
+  { href: "/loften", label: "Löften" },
   { href: "/manifesto", label: "Manifest", icon: FileText, secondary: true },
   { href: "/c", label: "Chat", secondary: true },
   { href: "/om/metodik", label: "Metodik", icon: FlaskConical, secondary: true },

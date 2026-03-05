@@ -3,29 +3,21 @@
  */
 
 import { query } from '../../utils/motherduck';
-import type { ContradictionCard, GetContradictionsRequest } from './types';
+import type { AccountabilityCard, GetContradictionsRequest } from './types';
 import { DEFAULT_LIMIT, DEFAULT_MIN_SIMILARITY } from './types';
 
 const MART_SCHEMA = 'main_mart';
 
 /**
- * Get contradiction cards - promises where party voted against related motions
+ * Get accountability cards - promises grouped with their related motions and votes
  */
 export async function getContradictions(
-  request: GetContradictionsRequest
-): Promise<{ data: ContradictionCard[]; total: number }> {
-  const {
-    party,
-    category,
-    limit = DEFAULT_LIMIT,
-    offset = 0,
-    min_similarity = DEFAULT_MIN_SIMILARITY,
-  } = request;
+  request: GetContradictionsRequest,
+): Promise<{ data: AccountabilityCard[]; total: number }> {
+  const { party, category, limit = DEFAULT_LIMIT, offset = 0, min_similarity = DEFAULT_MIN_SIMILARITY } = request;
 
   const conditions: string[] = [
-    `similarity_score >= ${min_similarity}`,
-    `votering_id IS NOT NULL`,
-    `promise_party_vote IS NOT NULL`,
+    `best_similarity_score >= ${min_similarity}`,
   ];
 
   if (party) {
@@ -48,7 +40,7 @@ export async function getContradictions(
   const countResult = await query<{ total: number }>(countSql);
   const total = countResult.data[0]?.total ?? 0;
 
-  // Get data with pagination, ordered by similarity (most relevant first)
+  // Get data with pagination, ordered by contradiction status then similarity
   const dataSql = `
     SELECT 
       promise_id,
@@ -57,31 +49,22 @@ export async function getContradictions(
       promise_text,
       source_quote,
       category,
-      match_id,
-      similarity_score,
-      source_dok_id,
-      source_dok_typ,
-      source_titel,
-      source_parti,
-      source_url,
-      votering_id,
-      bet_dok_id,
-      punkt,
-      punkt_rubrik,
-      promise_party_vote,
-      promise_party_vote_count,
-      ja_count,
-      nej_count,
-      riksdag_outcome,
-      accountability_status
+      motions,
+      motion_count,
+      best_similarity_score,
+      best_accountability_status,
+      has_contradiction
     FROM ${MART_SCHEMA}.mart_promise_accountability_cards
     ${whereClause}
-    ORDER BY similarity_score DESC, promise_year DESC
+    ORDER BY 
+      has_contradiction DESC,
+      best_similarity_score DESC, 
+      promise_year DESC
     LIMIT ${limit}
     OFFSET ${offset}
   `;
 
-  const dataResult = await query<ContradictionCard>(dataSql);
+  const dataResult = await query<AccountabilityCard>(dataSql);
 
   return {
     data: dataResult.data,
@@ -100,7 +83,6 @@ export async function getContradictionFilters(): Promise<{
     SELECT 
       DISTINCT promise_party as party
     FROM ${MART_SCHEMA}.mart_promise_accountability_cards
-    WHERE votering_id IS NOT NULL
     ORDER BY promise_party
   `;
 
@@ -108,7 +90,6 @@ export async function getContradictionFilters(): Promise<{
     SELECT 
       DISTINCT category
     FROM ${MART_SCHEMA}.mart_promise_accountability_cards
-    WHERE votering_id IS NOT NULL
     ORDER BY category
   `;
 
@@ -118,7 +99,7 @@ export async function getContradictionFilters(): Promise<{
   ]);
 
   return {
-    parties: partyResult.data.map(r => r.party),
-    categories: categoryResult.data.map(r => r.category),
+    parties: partyResult.data.map((r) => r.party),
+    categories: categoryResult.data.map((r) => r.category),
   };
 }

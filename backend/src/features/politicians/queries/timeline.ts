@@ -2,6 +2,7 @@
  * Queries for politician timeline
  */
 
+import { logSql } from '../../../utils/logger';
 import { query } from '../../../utils/motherduck';
 import {
   Tables,
@@ -62,7 +63,7 @@ export async function getTimeline(
     limit: limit + 1,
   });
 
-  console.log('[getTimeline] Executing SQL:', sql);
+  logSql('[getTimeline] Executing SQL:', sql);
   const result = await query<MartPersonTimeline>(sql);
 
   const hasMore = result.data.length > limit;

@@ -1,4 +1,5 @@
 import { getOpenAIKey } from '@/utils/secrets';
+import { models } from '@/utils/models';
 import { createOpenAI } from '@ai-sdk/openai';
 import { convertToModelMessages, createIdGenerator, stepCountIs, streamText, type UIMessage } from 'ai';
 import { z } from 'zod';
@@ -170,8 +171,7 @@ export const handler = awslambda.streamifyResponse(async (event, responseStream,
 
     // Stream the response
     const result = streamText({
-      model: openai('gpt-5.1-codex-mini'),
-      // model: openai('gpt-4o-mini'),
+      model: openai(models.chat),
       providerOptions: {
         openai: {
           reasoningSummary: 'auto',

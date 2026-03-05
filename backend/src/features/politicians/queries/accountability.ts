@@ -2,6 +2,7 @@
  * Queries for accountability stats (interpellations, written questions)
  */
 
+import { logSql } from '../../../utils/logger';
 import { query } from '../../../utils/motherduck';
 import {
   Tables,
@@ -38,7 +39,7 @@ export async function getAccountabilityStats(intressentId: string): Promise<Acco
     ),
   });
 
-  console.log('[getAccountabilityStats] Executing count SQL:', countSql);
+  logSql('[getAccountabilityStats] Executing count SQL:', countSql);
   const countResult = await query<{ interpellations: number; written_questions: number }>(countSql);
   const counts = countResult.data[0] ?? { interpellations: 0, written_questions: 0 };
 
@@ -62,7 +63,7 @@ export async function getAccountabilityStats(intressentId: string): Promise<Acco
     limit: 5,
   });
 
-  console.log('[getAccountabilityStats] Executing recent SQL:', recentSql);
+  logSql('[getAccountabilityStats] Executing recent SQL:', recentSql);
   const recentResult = await query<{ dok_typ: string; title: string; date: string; dok_id: string }>(recentSql);
 
   const recentQuestions: RecentQuestion[] = recentResult.data.map((row) => ({

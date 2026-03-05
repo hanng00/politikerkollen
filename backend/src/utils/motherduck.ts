@@ -22,7 +22,7 @@ let connection: DuckDBConnection | null = null;
  * Get or create a connection to MotherDuck
  * Connection is cached for reuse across Lambda invocations
  */
-async function getConnection(): Promise<DuckDBConnection> {
+export async function getConnection(): Promise<DuckDBConnection> {
   if (!connection) {
     const token = getMotherDuckToken();
     const connectionString = `md:${DATABASE}?motherduck_token=${token}`;

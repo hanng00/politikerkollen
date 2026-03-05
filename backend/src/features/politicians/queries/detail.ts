@@ -2,6 +2,7 @@
  * Queries for single politician detail view
  */
 
+import { logSql } from '../../../utils/logger';
 import { query } from '../../../utils/motherduck';
 import {
   PersonColumns,
@@ -30,7 +31,7 @@ export async function getPolitician(intressentId: string): Promise<MartPerson | 
     limit: 1,
   });
 
-  console.log('[getPolitician] Executing SQL:', sql);
+  logSql('[getPolitician] Executing SQL:', sql);
   const result = await query<MartPerson>(sql);
   console.log('[getPolitician] Result:', result.data[0] ? 'Found' : 'Not found');
   return result.data[0] ?? null;
@@ -78,7 +79,7 @@ WHERE ${PersonColumns.status} = 'Tjänstgörande riksdagsledamot'
     limit: 1,
   });
 
-  console.log('[getPercentileRankings] Executing SQL:', sql);
+  logSql('[getPercentileRankings] Executing SQL:', sql);
   const result = await query<{
     votes_pct: number;
     speeches_pct: number;
@@ -115,7 +116,7 @@ export async function getVoteBreakdown(intressentId: string): Promise<VoteBreakd
     where: and(eq(TimelineColumns.intressent_id, intressentId), eq(TimelineColumns.action_type, 'vote')),
   });
 
-  console.log('[getVoteBreakdown] Executing SQL:', sql);
+  logSql('[getVoteBreakdown] Executing SQL:', sql);
   const result = await query<VoteBreakdown>(sql);
   const row = result.data[0];
 
@@ -206,7 +207,7 @@ INNER JOIN party_majority_vote pm ON pv.votering_id = pm.votering_id
     from: 'comparison',
   });
 
-  console.log('[getPartyLoyalty] Executing SQL:', sql);
+  logSql('[getPartyLoyalty] Executing SQL:', sql);
   const result = await query<{ total_votes: number; votes_with_party: number; votes_against_party: number }>(sql);
   const row = result.data[0];
 
@@ -274,7 +275,7 @@ export async function getTopTopics(intressentId: string, limit: number = 5): Pro
     limit,
   });
 
-  console.log('[getTopTopics] Executing SQL:', sql);
+  logSql('[getTopTopics] Executing SQL:', sql);
   const result = await query<{ committee: string; vote_count: number; speech_count: number; total_count: number }>(sql);
 
   return result.data.map((row) => ({

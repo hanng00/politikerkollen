@@ -2,6 +2,7 @@
  * Queries for listing politicians with search, filters, and sorting
  */
 
+import { logSql } from '../../../utils/logger';
 import { query } from '../../../utils/motherduck';
 import {
   PersonColumns,
@@ -73,7 +74,7 @@ export async function listPoliticians(options: ListPoliticiansOptions = {}): Pro
     offset,
   });
 
-  console.log('[listPoliticians] Executing SQL:', sql);
+  logSql('[listPoliticians] Executing SQL:', sql);
   const result = await query<MartPerson>(sql);
   console.log('[listPoliticians] Result count:', result.data.length);
   return result.data;
@@ -112,7 +113,7 @@ async function listPoliticiansByEffectiveness(options: ListPoliticiansOptions): 
     offset,
   });
 
-  console.log('[listPoliticiansByEffectiveness] Executing SQL:', sql);
+  logSql('[listPoliticiansByEffectiveness] Executing SQL:', sql);
   const result = await query<MartPerson>(sql);
   console.log('[listPoliticiansByEffectiveness] Result count:', result.data.length);
   return result.data;
@@ -204,7 +205,7 @@ async function listPoliticiansWithDateFilter(options: ListPoliticiansOptions): P
     offset,
   });
 
-  console.log('[listPoliticiansWithDateFilter] Executing SQL:', sql);
+  logSql('[listPoliticiansWithDateFilter] Executing SQL:', sql);
   const result = await query<MartPerson>(sql);
   console.log('[listPoliticiansWithDateFilter] Result count:', result.data.length);
   return result.data;
@@ -332,7 +333,7 @@ FROM motion_stats ms
     offset,
   });
 
-  console.log('[listPoliticiansByEffectivenessWithDateFilter] Executing SQL:', sql);
+  logSql('[listPoliticiansByEffectivenessWithDateFilter] Executing SQL:', sql);
   const result = await query<MartPerson>(sql);
   console.log('[listPoliticiansByEffectivenessWithDateFilter] Result count:', result.data.length);
   return result.data;
