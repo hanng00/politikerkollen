@@ -1,4 +1,4 @@
-"""CLI commands for promise-vote matching."""
+"""CLI commands for promise-source matching."""
 
 import click
 
@@ -24,7 +24,11 @@ def match_promises_cmd(
     dry_run: bool,
     verbose: bool,
 ) -> None:
-    """Match promises to votes using vector similarity."""
+    """Match promises to source documents using vector similarity.
+    
+    Matches manifesto promises against motions and propositions (source documents)
+    which contain substantive policy content.
+    """
     logger = setup_logging(verbose)
     load_env()
 
@@ -38,8 +42,8 @@ def match_promises_cmd(
         logger.error("No promise embeddings found. Run 'embed-promises' first.")
         return
 
-    if counts["vote_embeddings"] == 0:
-        logger.error("No vote embeddings found. Run 'embed-votes' first.")
+    if counts["source_embeddings"] == 0:
+        logger.error("No source embeddings found. Run 'embed-sources' first.")
         return
 
     if clear and not dry_run:
@@ -58,7 +62,7 @@ def match_promises_cmd(
             logger.info("Sample matches:")
             for match in matches[:10]:
                 logger.info(
-                    f"  {match['promise_id'][:8]}... -> {match['votering_id'][:8]}... "
+                    f"  {match['promise_id'][:8]}... -> {match['source_dok_id'][:12]}... "
                     f"(score: {match['similarity_score']:.3f})"
                 )
 

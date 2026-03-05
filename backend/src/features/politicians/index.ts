@@ -6,12 +6,16 @@
 import { handleGetPolitician } from './GetPolitician';
 import { handleListPoliticians, type SortOption } from './GetPoliticians';
 import { handleGetTimeline } from './GetPoliticianTimeline';
+import { handleSearchPoliticians } from './PostSearchPoliticians';
+import type { SearchPoliticiansRequest } from './search/types';
+import { getContradictions, getContradictionFilters } from '../contradictions';
+import type { GetContradictionsRequest } from '../contradictions';
 
 const PORT = process.env.PORT || 8080;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': '*',
 };
 
@@ -78,6 +82,73 @@ const server = Bun.serve({
           actionTypes,
         });
         return json(result);
+      },
+      OPTIONS: () => new Response(null, { status: 204, headers: corsHeaders }),
+    },
+
+    '/search/politicians': {
+      POST: async (req) => {
+        try {
+          const body = await req.json() as SearchPoliticiansRequest;
+
+          if (!body.query || typeof body.query !== 'string' || body.query.trim().length === 0) {
+            return error('query is required', 400);
+          }
+
+          const result = await handleSearchPoliticians({
+            query: body.query.trim(),
+            limit: body.limit,
+            riksmote_year: body.riksmote_year,
+          });
+
+          return json(result);
+        } catch (err) {
+          console.error('[POST /search/politicians] Error:', err);
+          return error(err instanceof Error ? err.message : 'Internal server error', 500);
+        }
+      },
+      OPTIONS: () => new Response(null, { status: 204, headers: corsHeaders }),
+    },
+
+    '/contradictions': {
+      GET: async (req) => {
+        try {
+          const url = new URL(req.url);
+          const request: GetContradictionsRequest = {
+            party: url.searchParams.get('party') || undefined,
+            category: url.searchParams.get('category') || undefined,
+            limit: parseInt(url.searchParams.get('limit') || '20', 10),
+            offset: parseInt(url.searchParams.get('offset') || '0', 10),
+            min_similarity: parseFloat(url.searchParams.get('min_similarity') || '0.75'),
+          };
+
+          const { data, total } = await getContradictions(request);
+
+          return json({
+            data,
+            meta: {
+              total,
+              limit: request.limit,
+              offset: request.offset,
+            },
+          });
+        } catch (err) {
+          console.error('[GET /contradictions] Error:', err);
+          return error(err instanceof Error ? err.message : 'Internal server error', 500);
+        }
+      },
+      OPTIONS: () => new Response(null, { status: 204, headers: corsHeaders }),
+    },
+
+    '/contradictions/filters': {
+      GET: async () => {
+        try {
+          const filters = await getContradictionFilters();
+          return json(filters);
+        } catch (err) {
+          console.error('[GET /contradictions/filters] Error:', err);
+          return error(err instanceof Error ? err.message : 'Internal server error', 500);
+        }
       },
       OPTIONS: () => new Response(null, { status: 204, headers: corsHeaders }),
     },

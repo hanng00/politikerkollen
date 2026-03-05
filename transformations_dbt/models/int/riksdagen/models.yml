@@ -103,3 +103,124 @@ models:
         description: "Total co-signers (undertecknare + huvudman)"
       - name: distinct_parties
         description: "Number of distinct parties among signatories"
+
+  - name: int_vote_party_aggregation
+    description: |
+      Aggregates individual votes to party-level positions per votering_id.
+      Pure SQL transformation with no LLM involvement.
+      
+      Used by cognition module to determine party positions on specific votes.
+      A party's position is determined by majority vote among its members.
+    columns:
+      - name: votering_id
+        description: "Roll-call vote ID (lowercased)"
+        tests:
+          - not_null
+      - name: parti
+        description: "Party abbreviation (e.g., 'S', 'M', 'SD')"
+        tests:
+          - not_null
+      - name: ja
+        description: "Count of Ja (in favor) votes"
+      - name: nej
+        description: "Count of Nej (against) votes"
+      - name: avstar
+        description: "Count of Avstående (abstain) votes"
+      - name: franvarande
+        description: "Count of Frånvarande (absent) members"
+      - name: total_members
+        description: "Total party members in this vote"
+      - name: party_position
+        description: "Derived position: supported | opposed | abstained | split | absent"
+      - name: position_confidence
+        description: "How unified the party was (1.0 = unanimous)"
+    tests:
+      - unique:
+          column_name: "votering_id || '|' || parti"
+
+  - name: int_vote_source_links
+    description: |
+      Links each vote (votering_id) to its source documents (motions and propositions).
+      Enables tracing from a vote back to substantive policy content.
+      
+      Join chain: utskottsforslag → bet → referens (behandlar) → mot/prop
+      
+      Note: A single vote may decide on multiple source documents.
+      A single source document may be decided by multiple votes.
+    columns:
+      - name: votering_id
+        description: "Roll-call vote ID (lowercased)"
+        tests:
+          - not_null
+      - name: bet_dok_id
+        description: "Betänkande document ID"
+        tests:
+          - not_null
+      - name: rm
+        description: "Riksmöte (e.g., '2024/25')"
+      - name: organ
+        description: "Committee organ (e.g., 'FiU', 'KU')"
+      - name: punkt
+        description: "Decision point number within betänkande"
+      - name: punkt_rubrik
+        description: "Decision point heading"
+      - name: vinnare
+        description: "Winner: 'utskottet' or 'motförslaget'"
+      - name: beslutstyp
+        description: "Decision type (e.g., 'votering', 'acklamation')"
+      - name: source_dok_id
+        description: "Source document ID (motion or proposition)"
+        tests:
+          - not_null
+      - name: source_dok_typ
+        description: "'mot' or 'prop'"
+        tests:
+          - not_null
+      - name: source_titel
+        description: "Source document title"
+      - name: vote_outcome
+        description: "Outcome for this source: approved | rejected | acklamation | unknown"
+
+  - name: int_document_content
+    description: |
+      Pre-filtered, deduplicated table of motions and propositions with HTML content.
+      Optimized for cognition's source embedding pipeline.
+      
+      Why this exists:
+        - stg_dokumentstatus is a VIEW to avoid materializing ~10GB of HTML
+        - Cognition needs HTML content but OOMs when deduplicating the full view
+        - This table pre-filters to mot/prop only (~5% of documents) and materializes
+          the result, so cognition reads a clean, smaller table
+      
+      Memory optimization:
+        - Window function operates on minimal columns (dok_id, _dlt_id, _dlt_load_id)
+        - Filter to mot/prop BEFORE deduplication reduces working set
+        - Join back to get HTML only for winning rows
+    columns:
+      - name: dok_id
+        description: "Document identifier (primary key)"
+        tests:
+          - not_null
+          - unique
+      - name: dok_typ
+        description: "Document type: 'mot' (motion) or 'prop' (proposition)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['mot', 'prop']
+      - name: rm
+        description: "Riksmöte (parliamentary session, e.g., '2024/25')"
+      - name: riksmote_year
+        description: "Pre-computed year from rm for efficient filtering (e.g., 2024)"
+      - name: titel
+        description: "Document title"
+      - name: html
+        description: "Full HTML content of the document"
+        tests:
+          - not_null
+      - name: dokument_url
+        description: "URL to the document on riksdagen.se"
+      - name: _dlt_id
+        description: "DLT record identifier - links to stg_dokumentstatus_intressent via _dlt_root_id"
+        tests:
+          - not_null

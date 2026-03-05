@@ -1,4 +1,2 @@
-# Import assets so they're discovered by Dagster
-from . import cognition, ingestion
-
-__all__ = ["cognition", "ingestion"]
+# Assets are auto-discovered by load_from_defs_folder
+# No explicit imports needed here

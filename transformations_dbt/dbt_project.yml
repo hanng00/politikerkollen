@@ -17,12 +17,22 @@ models:
     +materialized: view
 
     # Staging layer - one-to-one with sources. Only views.
+    # Exception: models with expensive deduplication (ROW_NUMBER/QUALIFY) are materialized as tables
     stg:
       +schema: stg
       +materialized: view
       +persist_docs:
         relation: true
         columns: true
+      riksdagen:
+        # stg_dokumentstatus is a VIEW - downstream dbt models skip the ~10GB HTML column
+        # For HTML content, use int_document_content (pre-filtered, materialized)
+        stg_dokumentstatus_intressent:
+          +materialized: table
+        stg_dokumentstatus_utskottsforslag:
+          +materialized: table
+        stg_dokumentstatus_referens:
+          +materialized: table
 
     # Intermediate layer - feature-scoped transformations. Tables
     int:

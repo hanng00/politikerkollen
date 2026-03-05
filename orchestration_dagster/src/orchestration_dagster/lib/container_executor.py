@@ -148,12 +148,12 @@ class ContainerExecutor(dg.ConfigurableResource):
 
             # Get logs from container
             logs_bytes = container.logs(stdout=True, stderr=True)
-            logs = logs_bytes.decode("utf-8").split("\n") if logs_bytes else []
+            logs_text = logs_bytes.decode("utf-8") if logs_bytes else ""
+            logs = logs_text.split("\n") if logs_text else []
 
-            # Stream logs to Dagster context
-            for line in logs:
-                if line.strip():
-                    context.log.info(line)
+            # Log output as a single block for readability in Dagster UI
+            if logs_text.strip():
+                context.log.info(f"Container output:\n{logs_text}")
 
             # Remove container after getting logs
             container.remove()
@@ -163,7 +163,7 @@ class ContainerExecutor(dg.ConfigurableResource):
                 return ExecutionResult(
                     success=False,
                     exit_code=exit_code,
-                    stdout="\n".join(logs),
+                    stdout=logs_text,
                     stderr="",
                     logs=logs,
                 )
@@ -172,7 +172,7 @@ class ContainerExecutor(dg.ConfigurableResource):
             return ExecutionResult(
                 success=True,
                 exit_code=exit_code,
-                stdout="\n".join(logs),
+                stdout=logs_text,
                 stderr="",
                 logs=logs,
             )

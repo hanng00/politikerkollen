@@ -203,6 +203,22 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
+        SearchOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /search/politicians
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
+        Search:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /search/politicians
+            Method: POST
+            Auth:
+              Authorizer: NONE
     Metadata:
       DockerTag: politicians-api
       DockerContext: .

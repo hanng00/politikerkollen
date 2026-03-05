@@ -24,8 +24,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=transformations_dbt/uv.lock,target=uv.lock \
     uv sync --frozen --no-install-project --no-dev
 
-# Copy transformations_dbt directory to /app
-COPY transformations_dbt/ /app/
+# Copy only files needed for project installation (not models)
+COPY transformations_dbt/pyproject.toml transformations_dbt/uv.lock /app/
+COPY transformations_dbt/cli.py /app/
 
 # Install project with dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -36,14 +37,22 @@ FROM python:3.11-slim-bookworm
 
 WORKDIR /app
 
-# Copy the built app from builder
-COPY --from=builder --chown=root:root /app /app
+# Copy the built venv and CLI from builder
+COPY --from=builder --chown=root:root /app/.venv /app/.venv
+COPY --from=builder --chown=root:root /app/cli.py /app/cli.py
 
 # Ensure the virtual environment is used by default
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Make CLI executable
 RUN chmod +x cli.py
+
+# Copy dbt project files last (changes frequently, but doesn't invalidate venv)
+COPY transformations_dbt/dbt_project.yml /app/
+COPY transformations_dbt/profiles.yml /app/
+COPY transformations_dbt/packages.yml /app/
+COPY transformations_dbt/models/ /app/models/
+COPY transformations_dbt/macros/ /app/macros/
 
 # Set entrypoint
 ENTRYPOINT ["python", "cli.py"]

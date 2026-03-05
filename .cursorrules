@@ -22,6 +22,13 @@ When writing user-facing copy, UI text, or marketing concepts, always consult `d
 - Swedish for user-facing text, English for code and comments
 - Prefer editing existing files over creating new ones
 
+## Dagster
+
+- Use helper functions for asset keys: `dbt_asset_key("stg_model")` and `cognition_asset_key("name")`
+- dbt models use schema prefix: `stg_*` → `["stg", "stg_model"]`, `int_*` → `["int", "int_model"]`
+- Cognition assets must declare all dbt models they read from as upstream dependencies
+- Dagster manages the DAG – never require manual dbt runs before cognition assets
+
 ## Design Principles
 
 **Strict adherence to the design system is required.**

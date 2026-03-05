@@ -48,7 +48,7 @@ sources:
         description: "Tracks which documents have been processed for promise extraction"
       - name: promise_embeddings
         description: "Vector embeddings for promises using text-embedding-3-small"
-      - name: vote_embeddings
-        description: "Vector embeddings for vote proposals using text-embedding-3-small"
+      - name: source_embeddings
+        description: "Vector embeddings for source documents (motions/propositions)"
       - name: promise_vote_matches
-        description: "Semantic matches between promises and votes based on cosine similarity"
+        description: "Semantic matches between promises and source documents (motions/propositions)"

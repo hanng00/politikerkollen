@@ -3,17 +3,19 @@ version: 2
 models:
   - name: mart_promise_accountability_cards
     description: |
-      Mart model joining promises with their semantically matched votes and party voting outcomes.
+      Mart model joining promises with their semantically matched source documents
+      and voting outcomes.
       
       Designed for the viral "accountability card" feature showing how parties
       voted on issues related to their election promises.
       
-      Each row represents a promise-vote match with:
-      - The original promise from a party manifesto
-      - The matched vote proposal (based on semantic similarity)
-      - How the promising party voted
-      - The overall vote outcome
-      - An accountability status indicator
+      Join path:
+        promise → stg_promise_vote_matches → source_dok_id
+        source_dok_id → int_vote_source_links → votering_id
+        votering_id → stg_voteringlista → party votes
+      
+      Note: One promise-source match may have multiple votes (different punkter).
+      This is intentional - shows all relevant voting activity.
       
       Use cases:
       - Generate shareable accountability cards
@@ -67,32 +69,54 @@ models:
           - not_null
 
       - name: match_id
-        description: "Unique identifier for this promise-vote match."
+        description: "Unique identifier for this promise-source match."
         tests:
           - not_null
-          - unique
 
       - name: similarity_score
         description: |
-          Cosine similarity between promise and vote embeddings.
+          Cosine similarity between promise and source embeddings.
           Higher scores indicate stronger semantic match.
         tests:
           - not_null
 
+      - name: source_dok_id
+        description: "Document ID of the matched source (motion or proposition)."
+        tests:
+          - not_null
+
+      - name: source_dok_typ
+        description: "Type of source document: 'mot' (motion) or 'prop' (proposition)."
+        tests:
+          - not_null
+
+      - name: source_titel
+        description: "Title of the source document."
+        tests:
+          - not_null
+
+      - name: source_parti
+        description: "Party that authored the source (for motions) or 'Regeringen' (for props)."
+
+      - name: source_url
+        description: "URL to the source document on riksdagen.se."
+
       - name: votering_id
         description: "Riksdagen vote identifier."
-        tests:
-          - not_null
 
-      - name: dok_id
-        description: "Document ID (betänkande) containing the vote."
-        tests:
-          - not_null
+      - name: bet_dok_id
+        description: "Betänkande document ID containing the vote."
 
-      - name: vote_proposal_text
-        description: "The proposal text that was voted on."
-        tests:
-          - not_null
+      - name: punkt
+        description: "Vote punkt number within the betänkande."
+
+      - name: punkt_rubrik
+        description: "Title/description of the vote punkt."
+
+      - name: source_outcome
+        description: |
+          Outcome for this specific source in this vote.
+          Values: approved, rejected, acklamation, unknown.
 
       - name: promise_party_vote
         description: |
@@ -111,7 +135,7 @@ models:
       - name: avstar_count
         description: "Total 'Avstår' votes across all parties."
 
-      - name: vote_outcome
+      - name: riksdag_outcome
         description: |
           Overall vote outcome.
           - Bifall: Proposal passed (more Ja than Nej)

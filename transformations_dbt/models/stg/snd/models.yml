@@ -218,40 +218,50 @@ models:
         tests:
           - not_null
 
-  - name: stg_vote_embeddings
+  - name: stg_source_embeddings
     description: |
-      Staging model for vector embeddings of vote proposals (utskottsförslag).
+      Staging model for vector embeddings of source documents (motions and propositions).
       
       Source: cognition module using OpenAI text-embedding-3-small.
-      Schema derived from cognition.models.embedding.VoteEmbedding Pydantic model.
+      Schema derived from cognition.sources.models.SourceEmbedding Pydantic model.
       
-      Each row contains a 1536-dimensional embedding vector for a vote proposal.
-      Used for semantic matching between promises and votes.
+      Source documents contain the substantive policy content that promises are
+      matched against. Each document links to votes via int_vote_source_links.
     columns:
-      - name: votering_id
-        description: "Unique vote identifier from Riksdagen."
+      - name: dok_id
+        description: "Document ID (e.g., 'HC023440' for motion)."
         tests:
           - not_null
           - unique
 
-      - name: dok_id
-        description: "Document ID (betänkande) containing the vote."
+      - name: dok_typ
+        description: "Document type: 'mot' (motion) or 'prop' (proposition)."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['mot', 'prop']
+
+      - name: rm
+        description: "Riksmöte (e.g., '2024/25')."
         tests:
           - not_null
 
-      - name: forslag_text
-        description: |
-          The proposal text being voted on.
-          Extracted from dokumentstatus__dokutskottsforslag__utskottsforslag.
+      - name: riksmote_year
+        description: "Year extracted from riksmöte (e.g., 2024)."
         tests:
           - not_null
 
-      - name: embedding
-        description: |
-          Vector embedding (1536 dimensions) from text-embedding-3-small.
-          Represents the semantic meaning of the forslag_text.
+      - name: titel
+        description: "Document title."
         tests:
           - not_null
+
+      - name: parti
+        description: |
+          Party attribution: signatory party for motions, 'Regeringen' for propositions.
+
+      - name: dokument_url
+        description: "URL to original document on riksdagen.se."
 
       - name: embedded_at
         description: "Timestamp when the embedding was generated."
@@ -259,22 +269,20 @@ models:
           - not_null
 
       - name: model_version
-        description: |
-          Embedding model used (e.g., 'text-embedding-3-small').
-          Useful for tracking embedding quality across model versions.
+        description: "Embedding model used (e.g., 'text-embedding-3-small')."
         tests:
           - not_null
 
   - name: stg_promise_vote_matches
     description: |
-      Staging model for semantic matches between promises and votes.
+      Staging model for semantic matches between promises and source documents.
       
       Source: cognition module using DuckDB array_cosine_similarity.
-      Schema derived from cognition.models.embedding.PromiseVoteMatch Pydantic model.
+      Schema derived from cognition.matching.models.PromiseVoteMatch Pydantic model.
       
-      Each row represents a match between a promise and a vote based on
-      cosine similarity of their embeddings. Only matches above the
-      similarity threshold (default 0.7) are included.
+      Each row represents a match between a promise and a source document (motion
+      or proposition) based on cosine similarity of their embeddings. To get actual
+      votes, join via int_vote_source_links.
     columns:
       - name: match_id
         description: "Primary key - UUID generated during matching."
@@ -287,14 +295,14 @@ models:
         tests:
           - not_null
 
-      - name: votering_id
-        description: "Foreign key to stg_vote_embeddings.votering_id."
+      - name: source_dok_id
+        description: "Foreign key to stg_source_embeddings.dok_id."
         tests:
           - not_null
 
       - name: similarity_score
         description: |
-          Cosine similarity score between promise and vote embeddings.
+          Cosine similarity score between promise and source embeddings.
           Range: 0-1, where 1 = identical meaning.
           Only matches >= 0.7 are typically stored.
         tests:

@@ -151,7 +151,11 @@ def save_promises(
     model_version: str,
     cost_usd: float | None = None,
 ) -> int:
-    """Save extracted promises to MotherDuck."""
+    """Save extracted promises to MotherDuck using bulk insert."""
+    if not result.promises:
+        _mark_document_processed(conn, result.document_id, model_version, 0, cost_usd)
+        return 0
+
     ensure_tables_exist(conn)
     extracted_at = datetime.now(timezone.utc)
 
@@ -164,18 +168,23 @@ def save_promises(
     placeholders = ", ".join(["?"] * len(columns))
     columns_sql = ", ".join(columns)
 
+    # Prepare rows for bulk insert
+    rows = []
     for promise in result.promises:
         promise_id = str(uuid.uuid4())
         model_values = [getattr(promise, field) for field in model_field_names]
-        values = (
+        values = tuple(
             [promise_id, result.document_id, party_id, year]
             + model_values
             + [extracted_at, model_version]
         )
-        conn.execute(
-            f"INSERT INTO {PROMISES_TABLE} ({columns_sql}) VALUES ({placeholders})",
-            values,
-        )
+        rows.append(values)
+
+    # Bulk insert using executemany (much faster than row-by-row)
+    conn.executemany(
+        f"INSERT INTO {PROMISES_TABLE} ({columns_sql}) VALUES ({placeholders})",
+        rows,
+    )
 
     _mark_document_processed(conn, result.document_id, model_version, len(result.promises), cost_usd)
     return len(result.promises)

@@ -1,4 +1,9 @@
-"""Database operations for promise-vote matching."""
+"""Database operations for promise-source matching.
+
+Matches manifesto promises against source documents (motions and propositions)
+using vector similarity. This replaces the old vote_embeddings approach which
+embedded procedural text instead of substantive policy content.
+"""
 
 import uuid
 from datetime import datetime, timezone
@@ -7,12 +12,12 @@ from typing import Any
 import duckdb
 
 from cognition.core.config import SCHEMA
-from cognition.core.db import ensure_schema_exists, table_exists
+from cognition.core.db import ensure_schema_exists
 from cognition.matching.models import get_match_columns
 
 MATCHES_TABLE = f"{SCHEMA}.promise_vote_matches"
 PROMISE_EMBEDDINGS_TABLE = f"{SCHEMA}.promise_embeddings"
-VOTE_EMBEDDINGS_TABLE = f"{SCHEMA}.vote_embeddings"
+SOURCE_EMBEDDINGS_TABLE = f"{SCHEMA}.source_embeddings"
 PROMISES_TABLE = f"{SCHEMA}.valmanifest_promises"
 
 
@@ -31,20 +36,12 @@ def ensure_tables_exist(conn: duckdb.DuckDBPyConnection) -> None:
     """)
 
 
-def _get_riksmote_filter(year: int, table_alias: str = "v") -> str:
-    """Get SQL filter for riksmöte year.
+def _get_mandate_riksmote_years(election_year: int) -> list[int]:
+    """Get riksmöte years for a mandate period.
     
-    Swedish riksmöte runs from September to June, e.g., 2022/23.
-    For election year 2022, we want votes from the mandate period 2022-2026.
+    Election year 2022 → mandate period 2022-2026 → riksmöte years [2022, 2023, 2024, 2025]
     """
-    next_election = year + 4
-    return f"""
-        AND (
-            (EXTRACT(YEAR FROM {table_alias}.datum) = {year} AND EXTRACT(MONTH FROM {table_alias}.datum) >= 9)
-            OR (EXTRACT(YEAR FROM {table_alias}.datum) > {year} AND EXTRACT(YEAR FROM {table_alias}.datum) < {next_election})
-            OR (EXTRACT(YEAR FROM {table_alias}.datum) = {next_election} AND EXTRACT(MONTH FROM {table_alias}.datum) < 9)
-        )
-    """
+    return list(range(election_year, election_year + 4))
 
 
 def find_matches(
@@ -54,18 +51,22 @@ def find_matches(
     year: int | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Find matches between promises and votes using vector similarity.
+    Find matches between promises and source documents using vector similarity.
 
     Uses DuckDB's array_cosine_similarity for efficient vector comparison.
-    
+    Matches promises against source_embeddings (motions/propositions) which contain
+    substantive policy content.
+
     Args:
         conn: DuckDB connection
         similarity_threshold: Minimum cosine similarity score (0-1)
         top_k: Maximum number of matches per promise
-        year: Filter by election year (matches promises from that year to votes in mandate period)
+        year: Filter by election year (matches promises from that year to sources in mandate period)
     """
     if year:
-        # Filter promises by election year and votes by mandate period
+        riksmote_years = _get_mandate_riksmote_years(year)
+        riksmote_years_sql = ", ".join(str(y) for y in riksmote_years)
+        
         query = f"""
             WITH filtered_promises AS (
                 SELECT pe.promise_id, pe.embedding
@@ -73,26 +74,25 @@ def find_matches(
                 JOIN {PROMISES_TABLE} p ON pe.promise_id = p.promise_id
                 WHERE p.year = {year}
             ),
-            filtered_votes AS (
-                SELECT ve.votering_id, ve.embedding
-                FROM {VOTE_EMBEDDINGS_TABLE} ve
-                JOIN raw_riksdagen.voteringlista v ON ve.votering_id = v.votering_id
-                WHERE 1=1 {_get_riksmote_filter(year, 'v')}
+            filtered_sources AS (
+                SELECT se.dok_id, se.embedding
+                FROM {SOURCE_EMBEDDINGS_TABLE} se
+                WHERE se.riksmote_year IN ({riksmote_years_sql})
             ),
             ranked_matches AS (
                 SELECT
                     p.promise_id,
-                    v.votering_id,
-                    array_cosine_similarity(p.embedding, v.embedding) as similarity_score,
+                    s.dok_id as source_dok_id,
+                    array_cosine_similarity(p.embedding, s.embedding) as similarity_score,
                     ROW_NUMBER() OVER (
                         PARTITION BY p.promise_id
-                        ORDER BY array_cosine_similarity(p.embedding, v.embedding) DESC
+                        ORDER BY array_cosine_similarity(p.embedding, s.embedding) DESC
                     ) as rank
                 FROM filtered_promises p
-                CROSS JOIN filtered_votes v
-                WHERE array_cosine_similarity(p.embedding, v.embedding) >= {similarity_threshold}
+                CROSS JOIN filtered_sources s
+                WHERE array_cosine_similarity(p.embedding, s.embedding) >= {similarity_threshold}
             )
-            SELECT promise_id, votering_id, similarity_score
+            SELECT promise_id, source_dok_id, similarity_score
             FROM ranked_matches
             WHERE rank <= {top_k}
             ORDER BY promise_id, similarity_score DESC
@@ -102,17 +102,17 @@ def find_matches(
             WITH ranked_matches AS (
                 SELECT
                     p.promise_id,
-                    v.votering_id,
-                    array_cosine_similarity(p.embedding, v.embedding) as similarity_score,
+                    s.dok_id as source_dok_id,
+                    array_cosine_similarity(p.embedding, s.embedding) as similarity_score,
                     ROW_NUMBER() OVER (
                         PARTITION BY p.promise_id
-                        ORDER BY array_cosine_similarity(p.embedding, v.embedding) DESC
+                        ORDER BY array_cosine_similarity(p.embedding, s.embedding) DESC
                     ) as rank
                 FROM {PROMISE_EMBEDDINGS_TABLE} p
-                CROSS JOIN {VOTE_EMBEDDINGS_TABLE} v
-                WHERE array_cosine_similarity(p.embedding, v.embedding) >= {similarity_threshold}
+                CROSS JOIN {SOURCE_EMBEDDINGS_TABLE} s
+                WHERE array_cosine_similarity(p.embedding, s.embedding) >= {similarity_threshold}
             )
-            SELECT promise_id, votering_id, similarity_score
+            SELECT promise_id, source_dok_id, similarity_score
             FROM ranked_matches
             WHERE rank <= {top_k}
             ORDER BY promise_id, similarity_score DESC
@@ -120,7 +120,7 @@ def find_matches(
 
     result = conn.execute(query).fetchall()
     return [
-        {"promise_id": row[0], "votering_id": row[1], "similarity_score": row[2]}
+        {"promise_id": row[0], "source_dok_id": row[1], "similarity_score": row[2]}
         for row in result
     ]
 
@@ -129,26 +129,40 @@ def save_matches(
     conn: duckdb.DuckDBPyConnection,
     matches: list[dict[str, Any]],
 ) -> int:
-    """Save promise-vote matches to MotherDuck."""
+    """Save promise-source matches to MotherDuck using bulk insert."""
+    if not matches:
+        return 0
+
     ensure_tables_exist(conn)
     matched_at = datetime.now(timezone.utc)
 
-    for match in matches:
-        match_id = str(uuid.uuid4())
-        conn.execute(
-            f"""
-            INSERT INTO {MATCHES_TABLE}
-            (match_id, promise_id, votering_id, similarity_score, matched_at)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            [match_id, match["promise_id"], match["votering_id"], match["similarity_score"], matched_at],
+    # Prepare rows for bulk insert
+    rows = [
+        (
+            str(uuid.uuid4()),
+            match["promise_id"],
+            match["source_dok_id"],
+            match["similarity_score"],
+            matched_at,
         )
+        for match in matches
+    ]
+
+    # Bulk insert using executemany (much faster than row-by-row)
+    conn.executemany(
+        f"""
+        INSERT INTO {MATCHES_TABLE}
+        (match_id, promise_id, source_dok_id, similarity_score, matched_at)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        rows,
+    )
     return len(matches)
 
 
 def clear_matches(conn: duckdb.DuckDBPyConnection, year: int | None = None) -> int:
     """Clear existing matches (for re-computation).
-    
+
     Args:
         conn: DuckDB connection
         year: If provided, only clear matches for promises from this election year
@@ -178,9 +192,11 @@ def clear_matches(conn: duckdb.DuckDBPyConnection, year: int | None = None) -> i
         return 0
 
 
-def get_counts(conn: duckdb.DuckDBPyConnection, year: int | None = None) -> dict[str, int]:
+def get_counts(
+    conn: duckdb.DuckDBPyConnection, year: int | None = None
+) -> dict[str, int]:
     """Get counts of embeddings and matches.
-    
+
     Args:
         conn: DuckDB connection
         year: Filter by election year
@@ -204,11 +220,18 @@ def get_counts(conn: duckdb.DuckDBPyConnection, year: int | None = None) -> dict
         counts["promise_embeddings"] = 0
 
     try:
-        counts["vote_embeddings"] = conn.execute(
-            f"SELECT COUNT(*) FROM {VOTE_EMBEDDINGS_TABLE}"
-        ).fetchone()[0]
+        if year:
+            riksmote_years = _get_mandate_riksmote_years(year)
+            riksmote_years_sql = ", ".join(str(y) for y in riksmote_years)
+            counts["source_embeddings"] = conn.execute(
+                f"SELECT COUNT(*) FROM {SOURCE_EMBEDDINGS_TABLE} WHERE riksmote_year IN ({riksmote_years_sql})"
+            ).fetchone()[0]
+        else:
+            counts["source_embeddings"] = conn.execute(
+                f"SELECT COUNT(*) FROM {SOURCE_EMBEDDINGS_TABLE}"
+            ).fetchone()[0]
     except duckdb.CatalogException:
-        counts["vote_embeddings"] = 0
+        counts["source_embeddings"] = 0
 
     try:
         if year:

@@ -1,19 +1,4 @@
-"""Ingestion (DLT) assets for Dagster."""
+"""Ingestion (DLT) assets for Dagster.
 
-from .assets import (
-    anforande,
-    dokumentlista,
-    dokumentstatus,
-    personlista,
-    valmanifest,
-    voteringlista,
-)
-
-__all__ = [
-    "anforande",
-    "dokumentlista",
-    "dokumentstatus",
-    "personlista",
-    "valmanifest",
-    "voteringlista",
-]
+Assets are defined in assets.py and auto-discovered by load_from_defs_folder.
+"""

@@ -5,19 +5,19 @@
 --
 -- Deduplication: When the same dok_id appears multiple times (e.g. from incremental loads),
 -- we keep the row with the latest _dlt_load_id to get the most recent version.
-
-with ranked as (
-    select
-        *,
-        row_number() over (partition by dokument__dok_id order by _dlt_load_id desc) as _rn
-    from {{ source('raw_riksdagen', 'dokumentstatus') }}
-    where dokument__dok_id is not null
-)
+--
+-- Materialized as VIEW: Downstream dbt models only use metadata columns (not HTML),
+-- so DuckDB's columnar format skips the ~10GB dokument__html column entirely.
+-- For HTML content access, use int_document_content (pre-filtered, materialized table).
 
 select
     dokument__hangar_id,
     dokument__dok_id,
     dokument__rm,
+    -- Pre-computed riksmote_year for efficient filtering (avoids CAST(split_part(...)) in queries)
+    -- Handles both '2022/23' and '2022-23' formats by replacing hyphen with slash before splitting
+    -- NULLIF handles empty strings that can't be cast to integer
+    TRY_CAST(split_part(replace(NULLIF(dokument__rm, ''), '-', '/'), '/', 1) AS INTEGER) as riksmote_year,
     dokument__beteckning,
     dokument__typ,
     dokument__subtyp,
@@ -111,5 +111,6 @@ select
     dokintressent__intressent__partibet,
     dokintressent__intressent__ordning,
     dokintressent__intressent__roll
-from ranked
-where _rn = 1
+from {{ source('raw_riksdagen', 'dokumentstatus') }}
+where dokument__dok_id is not null
+qualify row_number() over (partition by dokument__dok_id order by _dlt_load_id desc) = 1

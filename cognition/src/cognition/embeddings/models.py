@@ -1,8 +1,8 @@
 """
-Pydantic models for embedding operations.
+Pydantic models for promise embedding operations.
 
 This module is the SINGLE SOURCE OF TRUTH for:
-1. Embedding table schemas (via field names and types)
+1. Promise embedding table schema (via field names and types)
 2. Validation rules (via Pydantic validators)
 3. Documentation (via Field descriptions)
 """
@@ -29,22 +29,6 @@ class PromiseEmbedding(BaseModel):
     )
 
 
-class VoteEmbedding(BaseModel):
-    """Embedding for a vote proposal (utskottsförslag)."""
-
-    votering_id: str = Field(description="Unique vote identifier from Riksdagen")
-    dok_id: str = Field(description="Document ID (betänkande)")
-    forslag_text: str = Field(description="The proposal text being voted on")
-    embedding: list[float] = Field(
-        description=f"Vector embedding ({EMBEDDING_DIMENSIONS} dimensions)"
-    )
-    embedded_at: datetime = Field(description="Timestamp when embedding was created")
-    model_version: str = Field(
-        default=EMBEDDING_MODEL,
-        description="Embedding model used (e.g., 'text-embedding-3-small')",
-    )
-
-
 def get_embedding_columns(model_class: type[BaseModel]) -> list[tuple[str, str]]:
     """Generate SQL column definitions from embedding Pydantic model."""
     columns = []
@@ -56,6 +40,8 @@ def get_embedding_columns(model_class: type[BaseModel]) -> list[tuple[str, str]]
             sql_type = f"FLOAT[{EMBEDDING_DIMENSIONS}] NOT NULL"
         elif annotation is str:
             sql_type = "VARCHAR" + (" NOT NULL" if is_required else "")
+        elif annotation is int:
+            sql_type = "INTEGER" + (" NOT NULL" if is_required else "")
         elif annotation is datetime:
             sql_type = "TIMESTAMP" + (" NOT NULL" if is_required else "")
         elif annotation is float:
