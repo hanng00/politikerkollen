@@ -21,6 +21,7 @@ from cognition.matching.repository import (
 @click.option("--year", type=int, default=None, help="Filter by election year (e.g., 2022)")
 @click.option("--threshold", type=float, default=DEFAULT_SIMILARITY_THRESHOLD, help="Minimum similarity score (0-1)")
 @click.option("--max-per-promise", type=int, default=DEFAULT_MAX_PER_PROMISE, help="Maximum matches per promise")
+@click.option("--enable-keyword", is_flag=True, help="Enable keyword search (disabled by default — needs tuning)")
 @click.option("--clear", is_flag=True, help="Clear existing matches for this year before computing new ones")
 @click.option("--skip-classification", is_flag=True, help="Skip LLM alignment classification")
 @click.option("--realtime", is_flag=True, help="Use realtime API instead of batch (faster but more expensive)")
@@ -31,19 +32,17 @@ def match_promises_cmd(
     year: int | None,
     threshold: float,
     max_per_promise: int,
+    enable_keyword: bool,
     clear: bool,
     skip_classification: bool,
     realtime: bool,
     dry_run: bool,
     verbose: bool,
 ) -> None:
-    """Match promises to source documents using hybrid retrieval + alignment classification.
+    """Match promises to source documents + LLM alignment classification.
     
-    Stage 1: Hybrid recall (vector + keyword search with RRF fusion)
+    Stage 1: Vector recall (+ optional keyword search with --enable-keyword)
     Stage 2: LLM alignment classification (supports/opposes/tangential)
-    
-    Matches manifesto promises against motions and propositions (source documents)
-    which contain substantive policy content.
     """
     logger = setup_logging(verbose)
     load_env()
@@ -66,7 +65,8 @@ def match_promises_cmd(
         deleted = clear_matches(conn, year=year)
         logger.info(f"Cleared {deleted} existing matches" + (f" for year {year}" if year else ""))
 
-    logger.info(f"Stage 1: Hybrid recall (threshold={threshold}, max_per_promise={max_per_promise})...")
+    mode_label = "vector + keyword" if enable_keyword else "vector-only"
+    logger.info(f"Stage 1: Recall ({mode_label}, threshold={threshold}, max_per_promise={max_per_promise})...")
     if year:
         logger.info(f"Filtering to election year {year}")
 
@@ -76,6 +76,7 @@ def match_promises_cmd(
             similarity_threshold=threshold,
             max_per_promise=max_per_promise,
             year=year,
+            enable_keyword=enable_keyword,
         )
         logger.info(f"Found {len(matches)} matches")
 

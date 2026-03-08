@@ -23,7 +23,7 @@ PROMISES_TABLE = f"{SCHEMA}.valmanifest_promises"
 
 RRF_K = 60
 DEFAULT_MAX_PER_PROMISE = 50
-DEFAULT_SIMILARITY_THRESHOLD = 0.7
+DEFAULT_SIMILARITY_THRESHOLD = 0.6
 
 SWEDISH_STOPWORDS = {
     "och", "att", "det", "som", "en", "ett", "av", "för", "med", "till",
@@ -150,8 +150,9 @@ def _keyword_search(
 ) -> list[dict[str, Any]]:
     """Keyword search leg of hybrid retrieval.
     
-    Simplified approach: uses full-text search on title only (much faster than chunk text).
-    This catches exact policy terms that embeddings might miss.
+    Searches both title and chunk text. Uses a two-phase approach:
+    1. Single query to find all sources matching any keyword from any promise
+    2. Python-side association of sources to specific promises
     """
     promises_query = f"""
         SELECT entity_id as promise_id, metadata->>'$.promise_text' as promise_text
@@ -164,7 +165,7 @@ def _keyword_search(
     if not promises:
         return []
     
-    all_keywords = {}
+    all_keywords: dict[str, list[str]] = {}
     for promise_id, promise_text in promises:
         if promise_text:
             keywords = _extract_keywords(promise_text)[:5]
@@ -181,21 +182,32 @@ def _keyword_search(
     if not unique_keywords:
         return []
     
-    keyword_conditions = " OR ".join(
-        f"LOWER(metadata->>'$.titel') LIKE '%{_escape_sql_string(kw)}%'"
-        for kw in list(unique_keywords)[:20]
+    keyword_list = list(unique_keywords)[:30]
+    
+    title_conditions = " OR ".join(
+        f"LOWER(titel) LIKE '%{_escape_sql_string(kw)}%'"
+        for kw in keyword_list
+    )
+    chunk_conditions = " OR ".join(
+        f"LOWER(chunk_text) LIKE '%{_escape_sql_string(kw)}%'"
+        for kw in keyword_list
     )
     
     sources_query = f"""
-        SELECT DISTINCT
-            entity_id as dok_id,
-            metadata->>'$.titel' as titel,
-            FIRST(chunk_text) as chunk_text
-        FROM {EMBEDDINGS_TABLE}
-        WHERE entity_type = 'source'
-        {year_filter_source}
-        AND ({keyword_conditions})
-        GROUP BY entity_id, metadata->>'$.titel'
+        WITH source_chunks AS (
+            SELECT 
+                entity_id as dok_id,
+                metadata->>'$.titel' as titel,
+                chunk_text,
+                ROW_NUMBER() OVER (PARTITION BY entity_id ORDER BY chunk_index) as rn
+            FROM {EMBEDDINGS_TABLE}
+            WHERE entity_type = 'source'
+            {year_filter_source}
+            AND (({title_conditions}) OR ({chunk_conditions}))
+        )
+        SELECT dok_id, titel, chunk_text
+        FROM source_chunks
+        WHERE rn = 1
     """
     
     try:
@@ -206,8 +218,11 @@ def _keyword_search(
     all_matches = []
     for dok_id, titel, chunk_text in sources:
         titel_lower = (titel or "").lower()
+        chunk_lower = (chunk_text or "").lower()
+        combined = titel_lower + " " + chunk_lower
+        
         for promise_id, keywords in all_keywords.items():
-            if any(kw in titel_lower for kw in keywords):
+            if any(kw in combined for kw in keywords):
                 all_matches.append({
                     "promise_id": promise_id,
                     "source_dok_id": dok_id,
@@ -286,18 +301,21 @@ def find_matches(
     similarity_threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
     max_per_promise: int = DEFAULT_MAX_PER_PROMISE,
     year: int | None = None,
+    enable_keyword: bool = False,
 ) -> list[dict[str, Any]]:
     """
-    Find matches between promises and source documents using hybrid retrieval.
+    Find matches between promises and source documents.
 
-    Combines vector similarity search with keyword search using RRF fusion.
-    For sources with multiple chunks, uses the MAX similarity across chunks.
+    Uses vector similarity search by default. Optionally adds keyword search
+    with RRF fusion (disabled by default — keyword search is too noisy without
+    TF-IDF or min-match-count filtering).
 
     Args:
         conn: DuckDB connection
         similarity_threshold: Minimum cosine similarity score for vector search (0-1)
         max_per_promise: Maximum number of matches per promise (safety cap)
         year: Filter by election year (matches promises from that year to sources in mandate period)
+        enable_keyword: Enable keyword search leg (default False — adds noise without tuning)
     
     Returns:
         List of match dicts with promise_id, source_dok_id, similarity_score, best_chunk_text
@@ -317,6 +335,9 @@ def find_matches(
     vector_results = _vector_search(
         conn, similarity_threshold, max_per_promise, year_filter_promise, year_filter_source
     )
+    
+    if not enable_keyword:
+        return vector_results
     
     keyword_results = _keyword_search(
         conn, max_per_promise, year_filter_promise, year_filter_source
