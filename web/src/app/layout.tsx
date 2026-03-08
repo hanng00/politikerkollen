@@ -25,7 +25,7 @@ const sourceSerif = Source_Serif_4({
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || "https://politikerkollen.se",
+    process.env.NEXT_PUBLIC_SITE_URL || "https://politikerkollen.org",
   ),
   title: {
     default: "Politikerkollen",
@@ -33,7 +33,14 @@ export const metadata: Metadata = {
   },
   description:
     "Röstningar, anföranden och dokument från riksdagen. Strukturerat och sökbart.",
-  keywords: ["riksdagen", "politiker", "röstningar", "anföranden", "motioner", "Sverige"],
+  keywords: [
+    "riksdagen",
+    "politiker",
+    "röstningar",
+    "anföranden",
+    "motioner",
+    "Sverige",
+  ],
   openGraph: {
     title: "Politikerkollen",
     description:

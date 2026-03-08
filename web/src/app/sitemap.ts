@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 const BASE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://politikerkollen.se";
+  process.env.NEXT_PUBLIC_SITE_URL || "https://politikerkollen.org";
 const API_ENDPOINT = process.env.NEXT_PUBLIC_API_ENDPOINT;
 
 interface PoliticianSitemapEntry {

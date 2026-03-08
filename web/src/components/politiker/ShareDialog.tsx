@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { Twitter, Facebook, Link2, Download, Check } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -10,8 +9,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { Contradiction, Politician } from "@/types";
+import { Check, Download, Facebook, Link2, Twitter } from "lucide-react";
+import { useState } from "react";
 
 interface ShareDialogProps {
   open: boolean;
@@ -63,7 +63,9 @@ export function ShareDialog({
                 </Avatar>
                 <div>
                   <p className="text-xs font-medium">{fullName}</p>
-                  <p className="text-[10px] text-white/60">{politician.party.name}</p>
+                  <p className="text-[10px] text-white/60">
+                    {politician.party.name}
+                  </p>
                 </div>
               </div>
               <div className="space-y-2">
@@ -75,10 +77,14 @@ export function ShareDialog({
                 </div>
                 <div className="bg-destructive/20 rounded p-2">
                   <p className="text-[10px] text-destructive mb-0.5">GJORDE:</p>
-                  <p className="text-xs line-clamp-2">{contradiction.done.content}</p>
+                  <p className="text-xs line-clamp-2">
+                    {contradiction.done.content}
+                  </p>
                 </div>
               </div>
-              <p className="text-[10px] text-white/40 text-center">politikerkollen.se</p>
+              <p className="text-[10px] text-white/40 text-center">
+                politikerkollen.org
+              </p>
             </CardContent>
           </Card>
 

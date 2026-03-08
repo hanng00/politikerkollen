@@ -25,11 +25,7 @@ import {
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePromise } from "@/hooks/useAccountability";
-import {
-  CATEGORY_NAMES,
-  getPartyColor,
-  getPartyName,
-} from "@/lib/parties";
+import { CATEGORY_NAMES, getPartyColor, getPartyName } from "@/lib/parties";
 import type { AccountabilityCard, PromiseMotion } from "@/types";
 
 function sndUrl(documentId: string): string | null {
@@ -40,7 +36,6 @@ function sndUrl(documentId: string): string | null {
   const typeId = parts.slice(2).join("_");
   return `https://snd.se/sv/vivill/party/${partyId}/${typeId}/${year}`;
 }
-
 
 function SharePreviewContent({
   promise,
@@ -71,12 +66,17 @@ function SharePreviewContent({
       <div className="rounded-md border bg-background overflow-hidden">
         <div className="px-3 py-2.5 space-y-1">
           <p className="text-[10px] text-muted-foreground">
-            politikerkollen.se
+            politikerkollen.org
           </p>
           <p className="font-semibold text-xs leading-snug">{title}</p>
           <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
             Sa: &ldquo;{promise.promise_text}&rdquo;
-            {voteLabel && <> Gjorde: {partyName} {voteLabel}.</>}
+            {voteLabel && (
+              <>
+                {" "}
+                Gjorde: {partyName} {voteLabel}.
+              </>
+            )}
             {bestMotion && <> Bevis: {bestMotion.source_titel}</>}
           </p>
         </div>
@@ -147,8 +147,8 @@ function VerdictSummary({
       <div className="flex items-center gap-4 text-xs text-muted-foreground">
         {aligned > 0 && (
           <span className="flex items-center gap-1.5">
-            <span className="size-2 rounded-full bg-green-500" />
-            I linje ({aligned})
+            <span className="size-2 rounded-full bg-green-500" />I linje (
+            {aligned})
           </span>
         )}
         {contradictions.length > 0 && (
@@ -326,21 +326,13 @@ function LoadingSkeleton() {
   );
 }
 
-export default function PromiseDetailClient({
-  id,
-}: {
-  id: string;
-}) {
+export default function PromiseDetailClient({ id }: { id: string }) {
   const { data: promise, isLoading, error } = usePromise(id);
   const [shareOpen, setShareOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const partyColor = promise
-    ? getPartyColor(promise.promise_party)
-    : "#6366f1";
-  const partyName = promise
-    ? getPartyName(promise.promise_party)
-    : "";
+  const partyColor = promise ? getPartyColor(promise.promise_party) : "#6366f1";
+  const partyName = promise ? getPartyName(promise.promise_party) : "";
   const categoryName = promise
     ? (CATEGORY_NAMES[promise.category] ?? promise.category)
     : "";
@@ -384,7 +376,12 @@ export default function PromiseDetailClient({
                     {copied ? "Kopierad!" : "Dela"}
                   </PopoverTrigger>
                   {promise && (
-                    <PopoverContent align="end" side="bottom" sideOffset={8} className="w-80">
+                    <PopoverContent
+                      align="end"
+                      side="bottom"
+                      sideOffset={8}
+                      className="w-80"
+                    >
                       <SharePreviewContent
                         promise={promise}
                         partyName={partyName}
@@ -398,7 +395,10 @@ export default function PromiseDetailClient({
               {isLoading ? (
                 <LoadingSkeleton />
               ) : error ? (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
                   <Card className="border-destructive/50">
                     <CardContent className="text-center py-12">
                       <p className="text-destructive font-medium">
@@ -419,7 +419,10 @@ export default function PromiseDetailClient({
                 </motion.div>
               ) : promise ? (
                 <>
-                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
                     <Card className="overflow-hidden">
                       <div
                         className="h-2"
@@ -464,7 +467,14 @@ export default function PromiseDetailClient({
                             </div>
                           </CardContent>
                         )}
-                      <CardContent className={promise.source_quote && promise.source_quote !== promise.promise_text ? "pt-0" : ""}>
+                      <CardContent
+                        className={
+                          promise.source_quote &&
+                          promise.source_quote !== promise.promise_text
+                            ? "pt-0"
+                            : ""
+                        }
+                      >
                         {(() => {
                           const url = sndUrl(promise.document_id);
                           if (!url) return null;
@@ -484,7 +494,12 @@ export default function PromiseDetailClient({
                     </Card>
                   </motion.div>
 
-                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="space-y-4">
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="space-y-4"
+                  >
                     <div className="flex items-center justify-between">
                       <h2 className="text-lg font-medium">
                         Relaterade motioner & röstningar

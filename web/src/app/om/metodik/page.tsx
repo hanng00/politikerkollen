@@ -42,7 +42,7 @@ export default function MethodologyPage() {
         <p>
           Har du frågor om vår metodik?{" "}
           <a
-            href="mailto:kontakt@politikerkollen.se"
+            href="mailto:kontakt@politikerkollen.org"
             className="underline hover:text-foreground"
           >
             Kontakta oss
