@@ -4,19 +4,22 @@ Dagster assets for ingestion (DLT) that execute via ContainerExecutor.
 Each asset represents a raw data ingestion task that runs the ingestion container.
 Execution is abstracted via ContainerExecutor - works locally (Docker) and production (ECS).
 """
+
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 
 import dagster as dg
-from dagster import AssetExecutionContext, AssetKey, MonthlyPartitionsDefinition
+from dagster import AssetExecutionContext, AssetKey
 
 from orchestration_dagster.lib.container_executor import ContainerExecutor
+from orchestration_dagster.lib.partitions import (
+    month_partition,
+)
 from orchestration_dagster.lib.secrets_resource import SecretsResource
 
 GROUP_NAME = "raw_riksdagen"
 # Monthly partitions for efficient batching (1 container per month vs 30+ with daily)
 # end_offset=1 includes the current incomplete month so we can ingest recent data
-month_partition = MonthlyPartitionsDefinition(start_date="1990-01-01", end_offset=1)
 
 
 def _get_partition_suffix(context: AssetExecutionContext) -> str:
@@ -33,7 +36,7 @@ def _build_ingestion_command(
     database_name: str = None,
 ) -> Tuple[List[str], Dict[str, str]]:
     """Build command and env vars for ingestion container.
-    
+
     Args:
         resource_name: Name of the ingestion resource (e.g., "anforandelista")
         context: Dagster asset execution context
@@ -41,11 +44,11 @@ def _build_ingestion_command(
         database_name: Optional database name override
     """
     database_name = database_name or secrets_resource.get_database_name()
-    
+
     # Get partition date range if partitioned
     start_date = None
     end_date = None
-    
+
     # Check if we have a partition with a time window (daily, weekly, monthly partitions)
     # partition_time_window is available on AssetExecutionContext when using time-based partitions
     if context.has_partition_key:
@@ -53,13 +56,17 @@ def _build_ingestion_command(
         if partition_time_window:
             # Use the time window directly - end is exclusive, so subtract 1 day for inclusive end
             start_date = partition_time_window.start.date().strftime("%Y-%m-%d")
-            end_date = (partition_time_window.end - timedelta(days=1)).date().strftime("%Y-%m-%d")
+            end_date = (
+                (partition_time_window.end - timedelta(days=1))
+                .date()
+                .strftime("%Y-%m-%d")
+            )
         else:
             # Fallback for non-time-window partitions (shouldn't happen with our partition defs)
             partition_date = datetime.strptime(context.partition_key, "%Y-%m-%d").date()
             start_date = partition_date.strftime("%Y-%m-%d")
             end_date = partition_date.strftime("%Y-%m-%d")
-    
+
     # Build command
     command = ["run", resource_name]
     if start_date:
@@ -68,60 +75,14 @@ def _build_ingestion_command(
         command.extend(["--end-date", end_date])
     if database_name:
         command.extend(["--database", database_name])
-    
+
     # Build environment variables from secrets resource
     env_vars = {
         "MOTHERDUCK_ACCESS_TOKEN": secrets_resource.get_motherduck_token(),
         "DATABASE_NAME": database_name,
     }
-    
+
     return command, env_vars
-
-
-# Create assets for each ingestion resource
-
-# DEPRECATED: anforandelista is redundant - anforande fetches the same data with full text.
-# The anforande resource uses anforandelista as a parent (selected=False) internally,
-# so we don't need to ingest anforandelista separately. stg_anforandelista has zero
-# downstream consumers. Keeping commented for reference.
-#
-# @dg.asset(
-#     key=AssetKey(["raw_riksdagen", "anforandelista"]),
-#     group_name=GROUP_NAME,
-#     partitions_def=month_partition,
-#     description="Ingest anforandelista (speeches) data from Riksdagen API. Monthly partitions for efficient batching.",
-# )
-# def anforandelista(
-#     context: AssetExecutionContext,
-#     container_executor: ContainerExecutor,
-#     secrets_resource: SecretsResource,
-# ):
-#     """Ingest anforandelista data via ContainerExecutor."""
-#     command, env_vars = _build_ingestion_command("anforandelista", context, secrets_resource)
-#
-#     result = container_executor.execute(
-#         context=context,
-#         image="politikerkollen/ingestion:latest",
-#         command=command,
-#         env_vars=env_vars,
-#         name=f"ingest_anforandelista_{_get_partition_suffix(context)}",
-#     )
-#
-#     if not result.success:
-#         raise dg.Failure(
-#             f"Ingestion failed with exit code {result.exit_code}",
-#             metadata={
-#                 "stdout": result.stdout,
-#                 "stderr": result.stderr,
-#                 "resource": "anforandelista",
-#             },
-#         )
-#
-#     return {
-#         "status": "success",
-#         "resource": "anforandelista",
-#         "exit_code": result.exit_code,
-#     }
 
 
 @dg.asset(
@@ -180,8 +141,10 @@ def dokumentlista(
     secrets_resource: SecretsResource,
 ):
     """Ingest dokumentlista data via ContainerExecutor."""
-    command, env_vars = _build_ingestion_command("dokumentlista", context, secrets_resource)
-    
+    command, env_vars = _build_ingestion_command(
+        "dokumentlista", context, secrets_resource
+    )
+
     result = container_executor.execute(
         context=context,
         image="politikerkollen/ingestion:latest",
@@ -189,7 +152,7 @@ def dokumentlista(
         env_vars=env_vars,
         name=f"ingest_dokumentlista_{_get_partition_suffix(context)}",
     )
-    
+
     if not result.success:
         raise dg.Failure(
             f"Ingestion failed with exit code {result.exit_code}",
@@ -199,7 +162,7 @@ def dokumentlista(
                 "resource": "dokumentlista",
             },
         )
-    
+
     return {
         "status": "success",
         "resource": "dokumentlista",
@@ -218,8 +181,10 @@ def personlista(
     secrets_resource: SecretsResource,
 ):
     """Ingest personlista data (not partitioned - full refresh) via ContainerExecutor."""
-    command, env_vars = _build_ingestion_command("personlista", context, secrets_resource)
-    
+    command, env_vars = _build_ingestion_command(
+        "personlista", context, secrets_resource
+    )
+
     result = container_executor.execute(
         context=context,
         image="politikerkollen/ingestion:latest",
@@ -227,7 +192,7 @@ def personlista(
         env_vars=env_vars,
         name="ingest_personlista",
     )
-    
+
     if not result.success:
         raise dg.Failure(
             f"Ingestion failed with exit code {result.exit_code}",
@@ -237,7 +202,7 @@ def personlista(
                 "resource": "personlista",
             },
         )
-    
+
     return {
         "status": "success",
         "resource": "personlista",
@@ -257,8 +222,10 @@ def voteringlista(
     secrets_resource: SecretsResource,
 ):
     """Ingest voteringlista data via ContainerExecutor."""
-    command, env_vars = _build_ingestion_command("voteringlista", context, secrets_resource)
-    
+    command, env_vars = _build_ingestion_command(
+        "voteringlista", context, secrets_resource
+    )
+
     result = container_executor.execute(
         context=context,
         image="politikerkollen/ingestion:latest",
@@ -266,7 +233,7 @@ def voteringlista(
         env_vars=env_vars,
         name=f"ingest_voteringlista_{_get_partition_suffix(context)}",
     )
-    
+
     if not result.success:
         raise dg.Failure(
             f"Ingestion failed with exit code {result.exit_code}",
@@ -276,7 +243,7 @@ def voteringlista(
                 "resource": "voteringlista",
             },
         )
-    
+
     return {
         "status": "success",
         "resource": "voteringlista",
@@ -296,12 +263,14 @@ def dokumentstatus(
     secrets_resource: SecretsResource,
 ):
     """Ingest dokumentstatus data via ContainerExecutor.
-    
+
     This is a child resource of dokumentlista - it fetches detailed status
     for each document including full history, activities, proposals, and decisions.
     """
-    command, env_vars = _build_ingestion_command("dokumentstatus", context, secrets_resource)
-    
+    command, env_vars = _build_ingestion_command(
+        "dokumentstatus", context, secrets_resource
+    )
+
     result = container_executor.execute(
         context=context,
         image="politikerkollen/ingestion:latest",
@@ -309,7 +278,7 @@ def dokumentstatus(
         env_vars=env_vars,
         name=f"ingest_dokumentstatus_{_get_partition_suffix(context)}",
     )
-    
+
     if not result.success:
         raise dg.Failure(
             f"Ingestion failed with exit code {result.exit_code}",
@@ -319,7 +288,7 @@ def dokumentstatus(
                 "resource": "dokumentstatus",
             },
         )
-    
+
     return {
         "status": "success",
         "resource": "dokumentstatus",
@@ -338,21 +307,21 @@ def _build_snd_ingestion_command(
     database_name: str = None,
 ) -> Tuple[List[str], Dict[str, str]]:
     """Build command and env vars for SND ingestion container.
-    
+
     SND resources are not partitioned - they are static datasets that are
     fully replaced on each run.
     """
     database_name = database_name or secrets_resource.get_database_name()
-    
+
     command = ["run", resource_name]
     if database_name:
         command.extend(["--database", database_name])
-    
+
     env_vars = {
         "MOTHERDUCK_ACCESS_TOKEN": secrets_resource.get_motherduck_token(),
         "DATABASE_NAME": database_name,
     }
-    
+
     return command, env_vars
 
 
@@ -367,7 +336,7 @@ def valmanifest(
     secrets_resource: SecretsResource,
 ):
     """Ingest valmanifest data via ContainerExecutor.
-    
+
     This is a static dataset from SND containing ~370 party programs and
     election manifestos from 1897 to present. Full refresh on each run.
     """

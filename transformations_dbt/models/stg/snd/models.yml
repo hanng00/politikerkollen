@@ -183,96 +183,6 @@ models:
         tests:
           - not_null
 
-  - name: stg_promise_embeddings
-    description: |
-      Staging model for vector embeddings of political promises.
-      
-      Source: cognition module using OpenAI text-embedding-3-small.
-      Schema derived from cognition.models.embedding.PromiseEmbedding Pydantic model.
-      
-      Each row contains a 1536-dimensional embedding vector for a promise.
-      Used for semantic matching between promises and votes.
-    columns:
-      - name: promise_id
-        description: "Foreign key to stg_valmanifest_promises.promise_id."
-        tests:
-          - not_null
-          - unique
-
-      - name: embedding
-        description: |
-          Vector embedding (1536 dimensions) from text-embedding-3-small.
-          Represents the semantic meaning of the promise_text.
-        tests:
-          - not_null
-
-      - name: embedded_at
-        description: "Timestamp when the embedding was generated."
-        tests:
-          - not_null
-
-      - name: model_version
-        description: |
-          Embedding model used (e.g., 'text-embedding-3-small').
-          Useful for tracking embedding quality across model versions.
-        tests:
-          - not_null
-
-  - name: stg_source_embeddings
-    description: |
-      Staging model for vector embeddings of source documents (motions and propositions).
-      
-      Source: cognition module using OpenAI text-embedding-3-small.
-      Schema derived from cognition.sources.models.SourceEmbedding Pydantic model.
-      
-      Source documents contain the substantive policy content that promises are
-      matched against. Each document links to votes via int_vote_source_links.
-    columns:
-      - name: dok_id
-        description: "Document ID (e.g., 'HC023440' for motion)."
-        tests:
-          - not_null
-          - unique
-
-      - name: dok_typ
-        description: "Document type: 'mot' (motion) or 'prop' (proposition)."
-        tests:
-          - not_null
-          - accepted_values:
-              values: ['mot', 'prop']
-
-      - name: rm
-        description: "Riksmöte (e.g., '2024/25')."
-        tests:
-          - not_null
-
-      - name: riksmote_year
-        description: "Year extracted from riksmöte (e.g., 2024)."
-        tests:
-          - not_null
-
-      - name: titel
-        description: "Document title."
-        tests:
-          - not_null
-
-      - name: parti
-        description: |
-          Party attribution: signatory party for motions, 'Regeringen' for propositions.
-
-      - name: dokument_url
-        description: "URL to original document on riksdagen.se."
-
-      - name: embedded_at
-        description: "Timestamp when the embedding was generated."
-        tests:
-          - not_null
-
-      - name: model_version
-        description: "Embedding model used (e.g., 'text-embedding-3-small')."
-        tests:
-          - not_null
-
   - name: stg_promise_vote_matches
     description: |
       Staging model for semantic matches between promises and source documents.
@@ -291,12 +201,12 @@ models:
           - unique
 
       - name: promise_id
-        description: "Foreign key to stg_promise_embeddings.promise_id."
+        description: "Foreign key to stg_valmanifest_promises.promise_id."
         tests:
           - not_null
 
       - name: source_dok_id
-        description: "Foreign key to stg_source_embeddings.dok_id."
+        description: "Foreign key to int_source_documents.dok_id."
         tests:
           - not_null
 

@@ -1,13 +1,13 @@
 """Promise embeddings feature module."""
 
-from cognition.embeddings.models import (
+from cognition.core.models import (
     EMBEDDING_DIMENSIONS,
     EMBEDDING_MODEL,
-    PromiseEmbedding,
+    EmbeddingRecord,
 )
 
 __all__ = [
     "EMBEDDING_DIMENSIONS",
     "EMBEDDING_MODEL",
-    "PromiseEmbedding",
+    "EmbeddingRecord",
 ]

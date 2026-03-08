@@ -1,146 +1,53 @@
 """Database operations for source document embeddings.
 
-Reads from int_document_content (pre-filtered mot/prop with HTML) and
-stg_dokumentstatus_intressent for signatory information.
+Reads from int_source_documents (pre-filtered mot/prop with party attribution).
+
+Uses the unified embeddings table via core.repository.EmbeddingRepository.
 """
 
-from datetime import datetime, timezone
 from typing import Any
 
 import duckdb
 
-from cognition.core.config import (
-    DOKUMENTSTATUS_INTRESSENT_SOURCE,
-    INT_DOCUMENT_CONTENT,
-    SCHEMA,
-)
-from cognition.core.db import ensure_schema_exists, table_exists
-from cognition.sources.models import (
-    EMBEDDING_MODEL,
-    get_source_embedding_columns,
-)
+from cognition.core.config import INT_SOURCE_DOCUMENTS
+from cognition.core.models import EmbeddingRecord
+from cognition.core.repository import EmbeddingRepository
 from cognition.sources.parser import extract_text_from_html
 
-SOURCE_EMBEDDINGS_TABLE = f"{SCHEMA}.source_embeddings"
 
-
-def ensure_tables_exist(conn: duckdb.DuckDBPyConnection) -> None:
-    """Create the source embeddings table if it doesn't exist."""
-    ensure_schema_exists(conn, SCHEMA)
-
-    columns = get_source_embedding_columns()
-    columns_sql = ",\n            ".join(
-        f"{name} {sql_type}" for name, sql_type in columns
-    )
-    conn.execute(f"""
-        CREATE TABLE IF NOT EXISTS {SOURCE_EMBEDDINGS_TABLE} (
-            {columns_sql}
-        )
-    """)
-
-
-def _build_source_query(
+def get_all_source_ids(
+    conn: duckdb.DuckDBPyConnection,
     riksmote_year: int | None = None,
     dok_typ: str | None = None,
-    exclude_embedded: bool = True,
-    limit: int | None = None,
-) -> str:
-    """Build SQL query to fetch source documents from int_document_content.
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> list[str]:
+    """Get all source document IDs from int_source_documents.
 
-    Reads from pre-filtered, deduplicated int_document_content table and joins
-    signatory info from stg_dokumentstatus_intressent.
-    HTML parsing happens in Python after fetch.
-    
-    Optimizations:
-    - int_document_content is pre-filtered to mot/prop with HTML (much smaller)
-    - Single scan of intressent table with conditional aggregation
-    - LEFT JOIN ... IS NULL pattern instead of NOT IN for exclusion
+    Args:
+        conn: DuckDB connection
+        riksmote_year: Filter by riksmöte year
+        dok_typ: Filter by document type
+        start_date: Filter sources from this date (YYYY-MM-DD)
+        end_date: Filter sources until this date (YYYY-MM-DD)
     """
     filters = []
-
     if riksmote_year:
-        filters.append(f"d.riksmote_year = {riksmote_year}")
+        filters.append(f"riksmote_year = {riksmote_year}")
     if dok_typ:
-        filters.append(f"d.dok_typ = '{dok_typ}'")
+        filters.append(f"dok_typ = '{dok_typ}'")
+    if start_date:
+        filters.append(f"datum >= '{start_date}'")
+    if end_date:
+        filters.append(f"datum <= '{end_date}'")
 
     where_clause = " AND ".join(filters) if filters else "1=1"
 
-    # Single scan of intressent table - compute both first signatory and all signatories
-    query = f"""
-        WITH signatory_agg AS (
-            SELECT
-                _dlt_root_id AS dlt_id,
-                -- First signatory's party (for motions)
-                arg_min(partibet, (ordning, _dlt_id)) AS first_parti,
-                -- All signatory IDs as list
-                LIST(intressent_id ORDER BY ordning NULLS LAST) AS intressent_ids
-            FROM {DOKUMENTSTATUS_INTRESSENT_SOURCE}
-            WHERE roll IN ('undertecknare', 'huvudman')
-            GROUP BY _dlt_root_id
-        )
-        SELECT
-            d.dok_id,
-            d.dok_typ,
-            d.rm,
-            d.riksmote_year,
-            d.titel,
-            d.html,
-            d.dokument_url,
-            CASE 
-                WHEN d.dok_typ = 'prop' THEN 'Regeringen'
-                ELSE sa.first_parti
-            END AS parti,
-            CASE 
-                WHEN d.dok_typ = 'mot' THEN sa.intressent_ids
-                ELSE NULL
-            END AS intressent_ids,
-            d._dlt_id
-        FROM {INT_DOCUMENT_CONTENT} d
-        LEFT JOIN signatory_agg sa ON sa.dlt_id = d._dlt_id
-    """
+    result = conn.execute(
+        f"SELECT dok_id FROM {INT_SOURCE_DOCUMENTS} WHERE {where_clause}"
+    ).fetchall()
 
-    if exclude_embedded:
-        # Use LEFT JOIN ... IS NULL pattern (more efficient than NOT IN)
-        query = f"""
-        WITH signatory_agg AS (
-            SELECT
-                _dlt_root_id AS dlt_id,
-                arg_min(partibet, (ordning, _dlt_id)) AS first_parti,
-                LIST(intressent_id ORDER BY ordning NULLS LAST) AS intressent_ids
-            FROM {DOKUMENTSTATUS_INTRESSENT_SOURCE}
-            WHERE roll IN ('undertecknare', 'huvudman')
-            GROUP BY _dlt_root_id
-        )
-        SELECT
-            d.dok_id,
-            d.dok_typ,
-            d.rm,
-            d.riksmote_year,
-            d.titel,
-            d.html,
-            d.dokument_url,
-            CASE 
-                WHEN d.dok_typ = 'prop' THEN 'Regeringen'
-                ELSE sa.first_parti
-            END AS parti,
-            CASE 
-                WHEN d.dok_typ = 'mot' THEN sa.intressent_ids
-                ELSE NULL
-            END AS intressent_ids,
-            d._dlt_id
-        FROM {INT_DOCUMENT_CONTENT} d
-        LEFT JOIN signatory_agg sa ON sa.dlt_id = d._dlt_id
-        LEFT JOIN {SOURCE_EMBEDDINGS_TABLE} e ON e.dok_id = d.dok_id
-        WHERE {where_clause}
-          AND e.dok_id IS NULL
-        """
-    else:
-        query += f"\n        WHERE {where_clause}"
-
-    if limit:
-        query += f"\n        LIMIT {limit}"
-
-    return query
+    return [row[0] for row in result]
 
 
 def get_unembedded_sources(
@@ -148,26 +55,53 @@ def get_unembedded_sources(
     limit: int | None = None,
     riksmote_year: int | None = None,
     dok_typ: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> list[dict[str, Any]]:
     """Get source documents that haven't been embedded yet.
-
-    Reads from int_document_content (pre-filtered mot/prop with HTML) and
-    parses HTML in Python using BeautifulSoup for better text extraction.
 
     Args:
         conn: DuckDB connection
         limit: Maximum number of sources to return
         riksmote_year: Filter by riksmöte year (e.g., 2024 for riksmöte 2024/25)
         dok_typ: Filter by document type ('mot' or 'prop')
+        start_date: Filter sources from this date (YYYY-MM-DD)
+        end_date: Filter sources until this date (YYYY-MM-DD)
     """
-    embeddings_exist = table_exists(conn, SOURCE_EMBEDDINGS_TABLE)
+    repo = EmbeddingRepository(conn)
 
-    query = _build_source_query(
+    all_ids = get_all_source_ids(
+        conn,
         riksmote_year=riksmote_year,
         dok_typ=dok_typ,
-        exclude_embedded=embeddings_exist,
-        limit=limit,
+        start_date=start_date,
+        end_date=end_date,
     )
+    unembedded_ids = repo.get_unembedded_entity_ids("source", all_ids)
+
+    if not unembedded_ids:
+        return []
+
+    ids_str = ", ".join(f"'{id}'" for id in unembedded_ids)
+
+    query = f"""
+        SELECT
+            s.dok_id,
+            s.dok_typ,
+            s.rm,
+            s.riksmote_year,
+            s.titel,
+            c.html,
+            s.dokument_url,
+            s.parti,
+            s.intressent_ids
+        FROM {INT_SOURCE_DOCUMENTS} s
+        JOIN main_int.int_document_content c ON c.dok_id = s.dok_id
+        WHERE s.dok_id IN ({ids_str})
+    """
+
+    if limit:
+        query += f"\n        LIMIT {limit}"
 
     result = conn.execute(query).fetchall()
 
@@ -176,7 +110,6 @@ def get_unembedded_sources(
         html = row[5]
         content_text = extract_text_from_html(html)
 
-        # Skip documents with no extractable content
         if not content_text or len(content_text) < 100:
             continue
 
@@ -197,54 +130,19 @@ def get_unembedded_sources(
 
 def save_source_embeddings(
     conn: duckdb.DuckDBPyConnection,
-    sources: list[dict[str, Any]],
-    embeddings: list[list[float]],
-    model_version: str = EMBEDDING_MODEL,
+    records: list[EmbeddingRecord],
 ) -> int:
-    """Save source embeddings to MotherDuck using bulk insert.
+    """Save source embeddings to the unified embeddings table.
 
     Args:
         conn: DuckDB connection
-        sources: List of source document dicts (from get_unembedded_sources)
-        embeddings: List of embeddings in same order as sources
-        model_version: Embedding model version string
+        records: List of EmbeddingRecord from embed_sources()
+
+    Returns:
+        Number of records saved
     """
-    if not sources:
-        return 0
-
-    ensure_tables_exist(conn)
-    embedded_at = datetime.now(timezone.utc)
-
-    # Prepare data for bulk insert
-    rows = [
-        (
-            source["dok_id"],
-            source["dok_typ"],
-            source["rm"],
-            source["riksmote_year"],
-            source["titel"],
-            source["content_text"],
-            embedding,
-            source.get("dokument_url"),
-            source.get("parti"),
-            source.get("intressent_ids"),
-            embedded_at,
-            model_version,
-        )
-        for source, embedding in zip(sources, embeddings)
-    ]
-
-    # Bulk insert using executemany (much faster than row-by-row)
-    conn.executemany(
-        f"""
-        INSERT INTO {SOURCE_EMBEDDINGS_TABLE}
-        (dok_id, dok_typ, rm, riksmote_year, titel, content_text, embedding,
-         dokument_url, parti, intressent_ids, embedded_at, model_version)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        rows,
-    )
-    return len(sources)
+    repo = EmbeddingRepository(conn)
+    return repo.save(records)
 
 
 def get_counts(
@@ -254,41 +152,31 @@ def get_counts(
 ) -> dict[str, int]:
     """Get counts of source embeddings and available documents.
 
-    Uses a single aggregation query to minimize memory usage on MotherDuck.
-
     Args:
         conn: DuckDB connection
         riksmote_year: Filter by riksmöte year
         dok_typ: Filter by document type ('mot' or 'prop')
     """
-    counts = {}
+    repo = EmbeddingRepository(conn)
 
-    # Embedding counts - single query with conditional aggregation
-    emb_filters = []
+    metadata_filter = {}
     if riksmote_year:
-        emb_filters.append(f"riksmote_year = {riksmote_year}")
-    emb_where = " AND ".join(emb_filters) if emb_filters else "1=1"
+        metadata_filter["riksmote_year"] = riksmote_year
+    if dok_typ:
+        metadata_filter["dok_typ"] = dok_typ
 
-    try:
-        result = conn.execute(f"""
-            SELECT
-                COUNT(*) FILTER (WHERE {emb_where}) AS total,
-                COUNT(*) FILTER (WHERE dok_typ = 'mot'{f" AND riksmote_year = {riksmote_year}" if riksmote_year else ""}) AS mot,
-                COUNT(*) FILTER (WHERE dok_typ = 'prop'{f" AND riksmote_year = {riksmote_year}" if riksmote_year else ""}) AS prop
-            FROM {SOURCE_EMBEDDINGS_TABLE}
-        """).fetchone()
-        counts["source_embeddings"] = result[0]
-        counts["source_embeddings_mot"] = result[1]
-        counts["source_embeddings_prop"] = result[2]
-    except duckdb.CatalogException:
-        counts["source_embeddings"] = 0
-        counts["source_embeddings_mot"] = 0
-        counts["source_embeddings_prop"] = 0
+    embedding_counts = repo.get_counts(
+        entity_type="source",
+        metadata_filter=metadata_filter if metadata_filter else None,
+    )
 
-    # Source document counts from int_document_content (pre-filtered table)
-    year_filter = ""
+    filters = []
     if riksmote_year:
-        year_filter = f"AND riksmote_year = {riksmote_year}"
+        filters.append(f"riksmote_year = {riksmote_year}")
+    if dok_typ:
+        filters.append(f"dok_typ = '{dok_typ}'")
+
+    where_clause = " AND ".join(filters) if filters else "1=1"
 
     try:
         result = conn.execute(f"""
@@ -296,16 +184,21 @@ def get_counts(
                 COUNT(*) AS total,
                 COUNT(*) FILTER (WHERE dok_typ = 'mot') AS mot,
                 COUNT(*) FILTER (WHERE dok_typ = 'prop') AS prop
-            FROM {INT_DOCUMENT_CONTENT}
-            WHERE 1=1
-              {year_filter}
+            FROM {INT_SOURCE_DOCUMENTS}
+            WHERE {where_clause}
         """).fetchone()
-        counts["sources_total"] = result[0]
-        counts["sources_mot_total"] = result[1]
-        counts["sources_prop_total"] = result[2]
-    except duckdb.CatalogException:
-        counts["sources_total"] = 0
-        counts["sources_mot_total"] = 0
-        counts["sources_prop_total"] = 0
+        sources_total = result[0]
+        sources_mot = result[1]
+        sources_prop = result[2]
+    except Exception:
+        sources_total = 0
+        sources_mot = 0
+        sources_prop = 0
 
-    return counts
+    return {
+        "source_embeddings": embedding_counts["embeddings"],
+        "source_entities": embedding_counts["entities"],
+        "sources_total": sources_total,
+        "sources_mot_total": sources_mot,
+        "sources_prop_total": sources_prop,
+    }

@@ -4,7 +4,7 @@
 
 import { query } from '../../utils/motherduck';
 import type { AccountabilityCard, GetContradictionsRequest } from './types';
-import { DEFAULT_LIMIT, DEFAULT_MIN_SIMILARITY } from './types';
+import { DEFAULT_LIMIT } from './types';
 
 const MART_SCHEMA = 'main_mart';
 
@@ -14,11 +14,9 @@ const MART_SCHEMA = 'main_mart';
 export async function getContradictions(
   request: GetContradictionsRequest,
 ): Promise<{ data: AccountabilityCard[]; total: number }> {
-  const { party, category, limit = DEFAULT_LIMIT, offset = 0, min_similarity = DEFAULT_MIN_SIMILARITY } = request;
+  const { party, category, limit = DEFAULT_LIMIT, offset = 0 } = request;
 
-  const conditions: string[] = [
-    `best_similarity_score >= ${min_similarity}`,
-  ];
+  const conditions: string[] = [];
 
   if (party) {
     conditions.push(`promise_party = '${party}'`);
@@ -44,6 +42,7 @@ export async function getContradictions(
   const dataSql = `
     SELECT 
       promise_id,
+      document_id,
       promise_party,
       promise_year,
       promise_text,
@@ -102,4 +101,31 @@ export async function getContradictionFilters(): Promise<{
     parties: partyResult.data.map((r) => r.party),
     categories: categoryResult.data.map((r) => r.category),
   };
+}
+
+/**
+ * Get a single promise by ID with all related motions
+ */
+export async function getPromiseById(promiseId: string): Promise<AccountabilityCard | null> {
+  const sql = `
+    SELECT 
+      promise_id,
+      document_id,
+      promise_party,
+      promise_year,
+      promise_text,
+      source_quote,
+      category,
+      motions,
+      motion_count,
+      best_similarity_score,
+      best_accountability_status,
+      has_contradiction
+    FROM ${MART_SCHEMA}.mart_promise_accountability_cards
+    WHERE promise_id = '${promiseId}'
+    LIMIT 1
+  `;
+
+  const result = await query<AccountabilityCard>(sql);
+  return result.data[0] ?? null;
 }

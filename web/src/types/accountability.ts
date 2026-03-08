@@ -27,6 +27,7 @@ export interface PromiseMotion {
 export interface AccountabilityCard {
   // Promise info
   promise_id: string;
+  document_id: string;
   promise_party: string;
   promise_year: number;
   promise_text: string;
@@ -53,7 +54,6 @@ export interface FetchAccountabilityCardsOptions {
   category?: string;
   limit?: number;
   offset?: number;
-  min_similarity?: number;
 }
 
 export interface AccountabilityCardsResponse {

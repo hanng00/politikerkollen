@@ -26,6 +26,7 @@ export interface PromiseMotion {
 export interface AccountabilityCard {
   // Promise info
   promise_id: string;
+  document_id: string;
   promise_party: string;
   promise_year: number;
   promise_text: string;
@@ -87,7 +88,6 @@ export interface GetContradictionsRequest {
   category?: string;
   limit?: number;
   offset?: number;
-  min_similarity?: number;
 }
 
 export interface GetContradictionsResponse {
@@ -100,4 +100,3 @@ export interface GetContradictionsResponse {
 }
 
 export const DEFAULT_LIMIT = 20;
-export const DEFAULT_MIN_SIMILARITY = 0.6;

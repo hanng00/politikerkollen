@@ -4,8 +4,9 @@ import click
 
 from cognition.core.config import load_env, setup_logging
 from cognition.core.db import get_connection
+from cognition.core.embedding import EmbeddingService
+from cognition.core.models import EMBEDDING_MODEL
 from cognition.embeddings.embedder import embed_promises, estimate_cost
-from cognition.embeddings.models import EMBEDDING_MODEL
 from cognition.embeddings.repository import (
     get_counts,
     get_unembedded_promises,
@@ -30,7 +31,10 @@ def embed_promises_cmd(
     dry_run: bool,
     verbose: bool,
 ) -> None:
-    """Generate embeddings for extracted promises."""
+    """Generate embeddings for extracted promises.
+
+    Uses the unified embedding system with NoChunking (promises are short).
+    """
     logger = setup_logging(verbose)
     load_env()
 
@@ -52,8 +56,8 @@ def embed_promises_cmd(
 
     if dry_run:
         logger.info("DRY RUN - Estimating costs without calling API")
-        cost_info = estimate_cost(len(promises))
-        logger.info(f"  Promises: {cost_info['text_count']}")
+        cost_info = estimate_cost(promises)
+        logger.info(f"  Promises: {cost_info['promise_count']}")
         logger.info(f"  Estimated tokens: {cost_info['total_tokens']:,}")
         logger.info(f"  Estimated cost: ${cost_info['total_cost_usd']:.4f}")
         logger.info(f"  Model: {cost_info['model']}")
@@ -62,11 +66,11 @@ def embed_promises_cmd(
     logger.info(f"Model: {EMBEDDING_MODEL}")
 
     try:
-        results = embed_promises(promises)
-        logger.info(f"Generated {len(results)} embeddings")
+        service = EmbeddingService()
+        records = embed_promises(promises, service=service)
+        logger.info(f"Generated {len(records)} embeddings")
 
-        embedding_pairs = [(pid, emb) for pid, emb in results.items()]
-        saved = save_promise_embeddings(conn, embedding_pairs)
+        saved = save_promise_embeddings(conn, records)
         logger.info(f"Saved {saved} promise embeddings to database")
 
     except Exception as e:

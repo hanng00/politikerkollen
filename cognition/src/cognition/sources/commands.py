@@ -4,8 +4,9 @@ import click
 
 from cognition.core.config import load_env, setup_logging
 from cognition.core.db import get_connection
+from cognition.core.embedding import EmbeddingService
+from cognition.core.models import EMBEDDING_MODEL
 from cognition.sources.embedder import embed_sources, estimate_cost
-from cognition.sources.models import EMBEDDING_MODEL
 from cognition.sources.repository import (
     get_counts,
     get_unembedded_sources,
@@ -22,6 +23,18 @@ from cognition.sources.repository import (
     help="Filter by riksmöte year (e.g., 2024 for riksmöte 2024/25)",
 )
 @click.option(
+    "--start-date",
+    type=str,
+    default=None,
+    help="Filter sources from this date (YYYY-MM-DD). For backfills.",
+)
+@click.option(
+    "--end-date",
+    type=str,
+    default=None,
+    help="Filter sources until this date (YYYY-MM-DD). For backfills.",
+)
+@click.option(
     "--dok-typ",
     type=click.Choice(["mot", "prop"]),
     default=None,
@@ -35,6 +48,8 @@ from cognition.sources.repository import (
 def embed_sources_cmd(
     database: str,
     riksmote_year: int | None,
+    start_date: str | None,
+    end_date: str | None,
     dok_typ: str | None,
     limit: int | None,
     dry_run: bool,
@@ -45,8 +60,11 @@ def embed_sources_cmd(
     Source documents contain the substantive policy content that should be
     embedded for semantic matching against manifesto promises.
 
-    Partitioned by riksmöte year (Sept-Aug cycle). Each riksmöte like 2024/25
-    is identified by its starting year (2024).
+    Uses paragraph-based chunking to preserve full document content instead
+    of truncating. Each document may produce multiple embedding chunks.
+
+    Incremental: only embeds documents not yet in the embeddings table.
+    Use --start-date/--end-date for backfills.
     """
     logger = setup_logging(verbose)
     load_env()
@@ -58,17 +76,15 @@ def embed_sources_cmd(
     logger.info(f"Source embedding counts: {counts}")
 
     sources = get_unembedded_sources(
-        conn, limit=limit, riksmote_year=riksmote_year, dok_typ=dok_typ
+        conn,
+        limit=limit,
+        riksmote_year=riksmote_year,
+        dok_typ=dok_typ,
+        start_date=start_date,
+        end_date=end_date,
     )
 
-    filter_desc = []
-    if riksmote_year:
-        filter_desc.append(f"riksmöte {riksmote_year}/{riksmote_year + 1 - 2000}")
-    if dok_typ:
-        filter_desc.append(f"type={dok_typ}")
-    filter_str = f" ({', '.join(filter_desc)})" if filter_desc else ""
-
-    logger.info(f"Found {len(sources)} sources to embed{filter_str}")
+    logger.info(f"Found {len(sources)} sources to embed")
 
     if not sources:
         logger.info("No sources to embed")
@@ -78,8 +94,11 @@ def embed_sources_cmd(
         logger.info("DRY RUN - Estimating costs without calling API")
         cost_info = estimate_cost(sources)
         logger.info(f"  Sources: {cost_info['source_count']}")
+        logger.info(f"  Total chunks: {cost_info['total_chunks']}")
+        logger.info(
+            f"  Avg chunks per source: {cost_info['avg_chunks_per_source']:.1f}"
+        )
         logger.info(f"  Total characters: {cost_info['total_chars']:,}")
-        logger.info(f"  Avg tokens per source: {cost_info['avg_tokens_per_source']:,}")
         logger.info(f"  Estimated total tokens: {cost_info['total_tokens']:,}")
         logger.info(f"  Estimated cost: ${cost_info['total_cost_usd']:.4f}")
         logger.info(f"  Model: {cost_info['model']}")
@@ -92,19 +111,14 @@ def embed_sources_cmd(
     logger.info(f"Model: {EMBEDDING_MODEL}")
 
     try:
-        results = embed_sources(sources)
-        logger.info(f"Generated {len(results)} embeddings")
+        service = EmbeddingService()
+        records = embed_sources(sources, service=service)
+        logger.info(
+            f"Generated {len(records)} embedding chunks from {len(sources)} sources"
+        )
 
-        source_lookup = {s["dok_id"]: s for s in sources}
-        matched_sources = []
-        matched_embeddings = []
-        for dok_id, emb in results.items():
-            if dok_id in source_lookup:
-                matched_sources.append(source_lookup[dok_id])
-                matched_embeddings.append(emb)
-
-        saved = save_source_embeddings(conn, matched_sources, matched_embeddings)
-        logger.info(f"Saved {saved} source embeddings to database")
+        saved = save_source_embeddings(conn, records)
+        logger.info(f"Saved {saved} embedding records to database")
 
     except Exception as e:
         logger.error(f"Error embedding sources: {e}")

@@ -1,5 +1,5 @@
 """Matching feature module."""
 
-from cognition.matching.models import PromiseVoteMatch
+from cognition.matching.models import AlignmentResult, PromiseVoteMatch
 
-__all__ = ["PromiseVoteMatch"]
+__all__ = ["AlignmentResult", "PromiseVoteMatch"]

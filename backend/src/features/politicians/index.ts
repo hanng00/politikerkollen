@@ -8,7 +8,7 @@ import { handleListPoliticians, type SortOption } from './GetPoliticians';
 import { handleGetTimeline } from './GetPoliticianTimeline';
 import { handleSearchPoliticians } from './PostSearchPoliticians';
 import type { SearchPoliticiansRequest } from './search/types';
-import { getContradictions, getContradictionFilters } from '../contradictions';
+import { getContradictions, getContradictionFilters, getPromiseById } from '../contradictions';
 import type { GetContradictionsRequest } from '../contradictions';
 
 const PORT = process.env.PORT || 8080;
@@ -119,7 +119,6 @@ const server = Bun.serve({
             category: url.searchParams.get('category') || undefined,
             limit: parseInt(url.searchParams.get('limit') || '20', 10),
             offset: parseInt(url.searchParams.get('offset') || '0', 10),
-            min_similarity: parseFloat(url.searchParams.get('min_similarity') || '0.75'),
           };
 
           const { data, total } = await getContradictions(request);
@@ -147,6 +146,22 @@ const server = Bun.serve({
           return json(filters);
         } catch (err) {
           console.error('[GET /contradictions/filters] Error:', err);
+          return error(err instanceof Error ? err.message : 'Internal server error', 500);
+        }
+      },
+      OPTIONS: () => new Response(null, { status: 204, headers: corsHeaders }),
+    },
+
+    '/contradictions/:promiseId': {
+      GET: async (req) => {
+        try {
+          const promise = await getPromiseById(req.params.promiseId);
+          if (!promise) {
+            return error('Promise not found', 404);
+          }
+          return json({ data: promise });
+        } catch (err) {
+          console.error('[GET /contradictions/:promiseId] Error:', err);
           return error(err instanceof Error ? err.message : 'Internal server error', 500);
         }
       },

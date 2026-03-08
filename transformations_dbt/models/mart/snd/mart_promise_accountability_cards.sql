@@ -31,7 +31,10 @@ matches as (
         match_id,
         promise_id,
         source_dok_id,
-        similarity_score
+        similarity_score,
+        alignment,
+        alignment_confidence,
+        alignment_rationale
     from {{ ref('stg_promise_vote_matches') }}
 ),
 
@@ -42,7 +45,7 @@ source_docs as (
         titel,
         parti as source_parti,
         dokument_url
-    from {{ ref('stg_source_embeddings') }}
+    from {{ ref('int_source_documents') }}
 ),
 
 -- Link sources to votes
@@ -127,6 +130,9 @@ ranked_matches as (
         -- Match info
         m.match_id,
         m.similarity_score,
+        m.alignment,
+        m.alignment_confidence,
+        m.alignment_rationale,
 
         -- Source document info
         m.source_dok_id,
@@ -152,13 +158,22 @@ ranked_matches as (
         vt.avstar_count,
         vt.riksdag_outcome,
 
-        -- Accountability indicator
+        -- Accountability indicator (combines alignment classification with vote direction)
         case
-            when pmv.party_vote = 'Ja' and vt.riksdag_outcome = 'Bifall' then 'supported_passed'
-            when pmv.party_vote = 'Ja' and vt.riksdag_outcome = 'Avslag' then 'supported_failed'
-            when pmv.party_vote = 'Nej' and vt.riksdag_outcome = 'Bifall' then 'opposed_passed'
-            when pmv.party_vote = 'Nej' and vt.riksdag_outcome = 'Avslag' then 'opposed_failed'
+            -- Document supports the promise
+            when m.alignment = 'supports' and pmv.party_vote = 'Ja' then 'kept_promise'
+            when m.alignment = 'supports' and pmv.party_vote = 'Nej' then 'broke_promise'
+            -- Document opposes the promise
+            when m.alignment = 'opposes' and pmv.party_vote = 'Ja' then 'contradicted_promise'
+            when m.alignment = 'opposes' and pmv.party_vote = 'Nej' then 'defended_promise'
+            -- Tangential or abstained
+            when m.alignment = 'tangential' then 'tangential'
             when pmv.party_vote = 'Avstår' then 'abstained'
+            -- Fallback for unclassified matches (legacy behavior)
+            when m.alignment is null and pmv.party_vote = 'Ja' and vt.riksdag_outcome = 'Bifall' then 'supported_passed'
+            when m.alignment is null and pmv.party_vote = 'Ja' and vt.riksdag_outcome = 'Avslag' then 'supported_failed'
+            when m.alignment is null and pmv.party_vote = 'Nej' and vt.riksdag_outcome = 'Bifall' then 'opposed_passed'
+            when m.alignment is null and pmv.party_vote = 'Nej' and vt.riksdag_outcome = 'Avslag' then 'opposed_failed'
             else 'unknown'
         end as accountability_status,
 
@@ -196,6 +211,9 @@ promise_motions as (
         list({
             'match_id': match_id,
             'similarity_score': similarity_score,
+            'alignment': alignment,
+            'alignment_confidence': alignment_confidence,
+            'alignment_rationale': alignment_rationale,
             'source_dok_id': source_dok_id,
             'source_dok_typ': source_dok_typ,
             'source_titel': source_titel,
@@ -237,13 +255,13 @@ select
     pm.motions[1].similarity_score as best_similarity_score,
     pm.motions[1].accountability_status as best_accountability_status,
     
-    -- Has any contradiction?
+    -- Has any contradiction? (broke_promise or contradicted_promise)
     list_contains(
         list_transform(pm.motions, x -> x.accountability_status),
-        'opposed_passed'
+        'broke_promise'
     ) or list_contains(
         list_transform(pm.motions, x -> x.accountability_status),
-        'opposed_failed'
+        'contradicted_promise'
     ) as has_contradiction
 
 from promises p

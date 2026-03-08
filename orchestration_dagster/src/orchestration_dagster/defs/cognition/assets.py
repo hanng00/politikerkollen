@@ -6,7 +6,7 @@ Execution is abstracted via ContainerExecutor - works locally (Docker) and produ
 
 Partitioning:
 - Promises: partitioned by election year (2018, 2022, 2026, ...)
-- Sources: partitioned by riksmöte year (2018, 2019, 2020, ...) - embeds motions/propositions
+- Sources: partitioned by riksmöte year (incremental - only embeds new documents within partition)
 - Matches: partitioned by election year (matches promises to sources in the 4-year mandate period)
 
 Run Configuration:
@@ -16,29 +16,24 @@ Run Configuration:
 """
 
 import dagster as dg
-from dagster import AssetExecutionContext, AssetKey, Config, TimeWindowPartitionsDefinition
+from dagster import AssetExecutionContext, AssetKey, Config
 
 from orchestration_dagster.lib.container_executor import ContainerExecutor
+from orchestration_dagster.lib.partitions import (
+    election_year_partitions,
+    yearly_partitions,
+)
 from orchestration_dagster.lib.secrets_resource import SecretsResource
 
 GROUP_NAME = "cognition"
 
-# Yearly partitions starting from 2018
-# end_offset=1 includes the current year
-yearly_partitions = TimeWindowPartitionsDefinition(
-    start="2018-01-01",
-    cron_schedule="0 0 1 1 *",  # Yearly: at midnight on January 1st
-    fmt="%Y-%m-%d",
-    end_offset=1,
-)
-
 
 class LLMConfig(Config):
     """Configuration for LLM-based assets.
-    
+
     Configure via Dagster UI launchpad when materializing assets.
     """
-    
+
     realtime: bool = False
     """Use real-time API instead of Batch API.
     
@@ -51,7 +46,7 @@ class LLMConfig(Config):
 
 def dbt_asset_key(model: str) -> AssetKey:
     """Create AssetKey for a dbt model.
-    
+
     dbt models use schema prefix as first key component:
     - stg_* models -> ["stg", "stg_model_name"]
     - int_* models -> ["int", "int_model_name"]
@@ -73,7 +68,10 @@ def cognition_asset_key(name: str) -> AssetKey:
 
 
 def _get_year_from_partition(context: AssetExecutionContext) -> str | None:
-    """Extract year from partition key (format: YYYY-MM-DD -> YYYY)."""
+    """Extract year from partition key.
+
+    Handles both static ("2022") and time window ("2022-01-01") partition keys.
+    """
     if context.has_partition_key:
         return context.partition_key[:4]
     return None
@@ -90,11 +88,12 @@ def _get_partition_suffix(context: AssetExecutionContext) -> str:
 # PROMISE EXTRACTION
 # =============================================================================
 
+
 @dg.asset(
     key=cognition_asset_key("valmanifest_promises"),
     deps=[dbt_asset_key("stg_valmanifest")],
     group_name=GROUP_NAME,
-    partitions_def=yearly_partitions,
+    partitions_def=election_year_partitions,
     description="Extract promises from party manifestos using LLM. Partitioned by election year.",
 )
 def valmanifest_promises(
@@ -107,7 +106,7 @@ def valmanifest_promises(
 
     Reads from: main_stg.stg_valmanifest
     Writes to: cognition.valmanifest_promises, cognition.extraction_state
-    
+
     Configure `realtime` in the launchpad:
     - False (default): Batch API - 50% cheaper, async
     - True: Real-time API - immediate results
@@ -164,11 +163,12 @@ def valmanifest_promises(
 # PROMISE EMBEDDINGS
 # =============================================================================
 
+
 @dg.asset(
     key=cognition_asset_key("promise_embeddings"),
     deps=[cognition_asset_key("valmanifest_promises")],
     group_name=GROUP_NAME,
-    partitions_def=yearly_partitions,
+    partitions_def=election_year_partitions,
     description="Generate embeddings for extracted promises. Partitioned by election year.",
 )
 def promise_embeddings(
@@ -178,7 +178,7 @@ def promise_embeddings(
     secrets_resource: SecretsResource,
 ):
     """Generate embeddings for promises via ContainerExecutor.
-    
+
     Configure `realtime` in the launchpad:
     - False (default): Batch API - 50% cheaper, async
     - True: Real-time API - immediate results
@@ -235,27 +235,23 @@ def promise_embeddings(
 # SOURCE EMBEDDINGS
 # =============================================================================
 
+
 @dg.asset(
     key=cognition_asset_key("source_embeddings"),
-    deps=[
-        dbt_asset_key("int_document_content"),
-        dbt_asset_key("stg_dokumentstatus_intressent"),
-    ],
+    deps=[dbt_asset_key("int_source_documents")],
     group_name=GROUP_NAME,
     partitions_def=yearly_partitions,
-    description="Generate embeddings for source documents (motions/propositions). Reads from int_document_content (pre-filtered HTML) and parses with BeautifulSoup. Partitioned by riksmöte year.",
+    description="Generate embeddings for source documents. Incremental - only embeds new documents within partition.",
 )
 def source_embeddings(
     context: AssetExecutionContext,
-    config: LLMConfig,
     container_executor: ContainerExecutor,
     secrets_resource: SecretsResource,
 ):
     """Generate embeddings for source documents via ContainerExecutor.
-    
-    Configure `realtime` in the launchpad:
-    - False (default): Batch API - 50% cheaper, async
-    - True: Real-time API - immediate results
+
+    Incremental: only embeds documents not yet in the embeddings table.
+    Partitioned by riksmöte year for scoped backfills.
     """
     command = ["embed-sources"]
 
@@ -265,12 +261,6 @@ def source_embeddings(
         context.log.info(
             f"Embedding sources for riksmöte {riksmote_year}/{int(riksmote_year) + 1 - 2000}"
         )
-
-    if config.realtime:
-        command.append("--realtime")
-        context.log.info("Using REALTIME mode (immediate, full price)")
-    else:
-        context.log.info("Using BATCH mode (50% savings, up to 24h)")
 
     env_vars = {
         "MOTHERDUCK_ACCESS_TOKEN": secrets_resource.get_motherduck_token(),
@@ -294,7 +284,6 @@ def source_embeddings(
                 "stderr": result.stderr,
                 "task": "embed-sources",
                 "riksmote_year": riksmote_year or "all",
-                "mode": "realtime" if config.realtime else "batch",
             },
         )
 
@@ -302,7 +291,6 @@ def source_embeddings(
         "status": "success",
         "task": "embed-sources",
         "riksmote_year": riksmote_year or "all",
-        "mode": "realtime" if config.realtime else "batch",
         "exit_code": result.exit_code,
     }
 
@@ -310,6 +298,7 @@ def source_embeddings(
 # =============================================================================
 # PROMISE-SOURCE MATCHING
 # =============================================================================
+
 
 @dg.asset(
     key=cognition_asset_key("promise_vote_matches"),
@@ -319,18 +308,24 @@ def source_embeddings(
         cognition_asset_key("valmanifest_promises"),
     ],
     group_name=GROUP_NAME,
-    partitions_def=yearly_partitions,
-    description="Match promises to source documents using vector similarity. Partitioned by election year.",
+    partitions_def=election_year_partitions,
+    description="Match promises to source documents using hybrid retrieval + LLM alignment classification. Partitioned by election year.",
 )
 def promise_vote_matches(
     context: AssetExecutionContext,
+    config: LLMConfig,
     container_executor: ContainerExecutor,
     secrets_resource: SecretsResource,
 ):
     """Match promises to source documents via ContainerExecutor.
-    
-    Note: This asset does not use LLM - it's pure vector similarity matching.
-    No realtime/batch config needed.
+
+    Two-stage pipeline:
+    1. Hybrid recall (vector + keyword search with RRF fusion)
+    2. LLM alignment classification (supports/opposes/tangential)
+
+    Configure `realtime` in the launchpad:
+    - False (default): Batch API - 50% cheaper, async
+    - True: Real-time API - immediate results
     """
     command = ["match-promises"]
 
@@ -339,8 +334,15 @@ def promise_vote_matches(
         command.extend(["--year", year])
         context.log.info(f"Matching promises to sources for election year {year}")
 
+    if config.realtime:
+        command.append("--realtime")
+        context.log.info("Using REALTIME mode (immediate, full price)")
+    else:
+        context.log.info("Using BATCH mode (50% savings, up to 24h)")
+
     env_vars = {
         "MOTHERDUCK_ACCESS_TOKEN": secrets_resource.get_motherduck_token(),
+        "OPENAI_API_KEY": secrets_resource.get_openai_api_key(),
         "DATABASE_NAME": secrets_resource.get_database_name(),
     }
 
@@ -360,6 +362,7 @@ def promise_vote_matches(
                 "stderr": result.stderr,
                 "task": "match-promises",
                 "year": year or "all",
+                "mode": "realtime" if config.realtime else "batch",
             },
         )
 
@@ -367,5 +370,6 @@ def promise_vote_matches(
         "status": "success",
         "task": "match-promises",
         "year": year or "all",
+        "mode": "realtime" if config.realtime else "batch",
         "exit_code": result.exit_code,
     }

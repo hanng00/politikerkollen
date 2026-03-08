@@ -251,6 +251,22 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
+        ContradictionByIdOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /contradictions/{promiseId}
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
+        ContradictionById:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /contradictions/{promiseId}
+            Method: GET
+            Auth:
+              Authorizer: NONE
     Metadata:
       DockerTag: politicians-api
       DockerContext: .

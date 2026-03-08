@@ -5,14 +5,53 @@ This module is the SINGLE SOURCE OF TRUTH for:
 1. Match table schema (via field names and types)
 2. Validation rules (via Pydantic validators)
 3. Documentation (via Field descriptions)
+4. Alignment classification schema and instructions
 
 Matches promises against source documents (motions/propositions) which contain
 substantive policy content, rather than procedural vote text.
 """
 
 from datetime import datetime
+from typing import Literal, get_args, get_origin
 
 from pydantic import BaseModel, Field
+
+
+ALIGNMENT_VALUES = Literal["supports", "opposes", "tangential"]
+
+ALIGNMENT_DESCRIPTIONS = {
+    "supports": "The document advocates for the same policy direction as the promise",
+    "opposes": "The document advocates against the policy direction of the promise",
+    "tangential": "The document is related but does not clearly support or oppose the promise",
+}
+
+
+class AlignmentResult(BaseModel):
+    """
+    Classification of how a source document aligns with a political promise.
+    
+    Used to determine whether voting for/against a motion is consistent
+    with a party's stated promise.
+    """
+    
+    alignment: ALIGNMENT_VALUES = Field(
+        description="Whether the document supports, opposes, or is tangential to the promise"
+    )
+    confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Confidence in the classification (0-1, higher = more certain)"
+    )
+    rationale: str = Field(
+        description="One sentence in Swedish explaining the classification"
+    )
+
+
+class AlignmentClassificationResult(BaseModel):
+    """Result of classifying a single promise-source pair."""
+    
+    match_id: str = Field(description="The match ID being classified")
+    result: AlignmentResult = Field(description="The alignment classification")
 
 
 class PromiseVoteMatch(BaseModel):
@@ -25,13 +64,27 @@ class PromiseVoteMatch(BaseModel):
 
     match_id: str = Field(description="Unique match identifier (UUID)")
     promise_id: str = Field(description="FK to promise_embeddings.promise_id")
-    source_dok_id: str = Field(description="FK to source_embeddings.dok_id (motion or proposition)")
+    source_dok_id: str = Field(
+        description="FK to source_embeddings.dok_id (motion or proposition)"
+    )
     similarity_score: float = Field(
         description="Cosine similarity score (0-1, higher = more similar)",
         ge=0.0,
         le=1.0,
     )
     matched_at: datetime = Field(description="Timestamp when match was computed")
+    alignment: str | None = Field(
+        default=None,
+        description="Alignment classification: supports, opposes, or tangential"
+    )
+    alignment_confidence: float | None = Field(
+        default=None,
+        description="Confidence in alignment classification (0-1)"
+    )
+    alignment_rationale: str | None = Field(
+        default=None,
+        description="One sentence rationale for the alignment classification"
+    )
 
 
 def get_match_columns() -> list[tuple[str, str]]:
@@ -40,6 +93,13 @@ def get_match_columns() -> list[tuple[str, str]]:
     for field_name, field_info in PromiseVoteMatch.model_fields.items():
         annotation = field_info.annotation
         is_required = field_info.is_required()
+        
+        origin = get_origin(annotation)
+        if origin is not None:
+            args = get_args(annotation)
+            if type(None) in args:
+                is_required = False
+                annotation = args[0] if args[0] is not type(None) else args[1]
 
         if annotation is str:
             sql_type = "VARCHAR" + (" NOT NULL" if is_required else "")
@@ -52,3 +112,43 @@ def get_match_columns() -> list[tuple[str, str]]:
 
         columns.append((field_name, sql_type))
     return columns
+
+
+def get_classification_instructions() -> str:
+    """
+    Generate LLM classification instructions dynamically from the Pydantic models.
+    
+    This ensures the instructions always match the schema definition.
+    """
+    alignment_list = "\n".join(
+        f"   - {val}: {desc}" for val, desc in ALIGNMENT_DESCRIPTIONS.items()
+    )
+    
+    result_fields = []
+    for field_name, field_info in AlignmentResult.model_fields.items():
+        desc = field_info.description or ""
+        result_fields.append(f"- {field_name}: {desc}")
+    fields_list = "\n".join(result_fields)
+    
+    return f"""You are an expert at analyzing Swedish political documents and determining their alignment with political promises.
+
+## Task
+
+Given a political promise and a parliamentary document (motion or proposition), classify whether the document SUPPORTS, OPPOSES, or is TANGENTIAL to the promise.
+
+## Output Schema
+
+{fields_list}
+
+## Alignment Values
+
+{alignment_list}
+
+## Guidelines
+
+- Focus on POLICY INTENT, not surface wording. A document may use different terminology but advocate for the same policy.
+- Consider the direction of change: if a promise says "increase X" and a document proposes "decrease X", that's opposition.
+- If the document addresses a related topic but doesn't clearly take a position on the specific promise, classify as tangential.
+- The rationale should be a single sentence in Swedish explaining your reasoning.
+- Be conservative with confidence: use high confidence (>0.8) only when the alignment is unambiguous.
+"""

@@ -16,19 +16,65 @@ Usage:
 """
 
 import json
+import logging
 import time
 from dataclasses import dataclass
 from enum import Enum
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 from cognition.core.llm import get_client
 
 if TYPE_CHECKING:
     from openai import OpenAI
 
+logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
 EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIMENSIONS = 1536
+
+
+def _retry_on_network_error(
+    fn: Callable[[], T],
+    max_retries: int = 5,
+    base_delay: float = 5.0,
+    max_delay: float = 60.0,
+) -> T:
+    """Retry a function on transient network errors with exponential backoff.
+    
+    Args:
+        fn: Function to call
+        max_retries: Maximum number of retry attempts
+        base_delay: Initial delay between retries in seconds
+        max_delay: Maximum delay between retries in seconds
+    
+    Returns:
+        Result of the function call
+    
+    Raises:
+        The last exception if all retries fail
+    """
+    import openai
+    
+    last_error: Exception | None = None
+    
+    for attempt in range(max_retries + 1):
+        try:
+            return fn()
+        except (openai.APIConnectionError, openai.APITimeoutError) as e:
+            last_error = e
+            if attempt == max_retries:
+                break
+            delay = min(base_delay * (2 ** attempt), max_delay)
+            logger.warning(
+                f"Network error (attempt {attempt + 1}/{max_retries + 1}), "
+                f"retrying in {delay:.1f}s: {e}"
+            )
+            time.sleep(delay)
+    
+    raise last_error  # type: ignore
 
 
 class ExecutionMode(Enum):
@@ -67,7 +113,9 @@ class BatchStatus:
     error_file_id: str | None
 
 
-def _validate_unique_ids(requests: list[EmbeddingRequest] | list[ExtractionRequest]) -> None:
+def _validate_unique_ids(
+    requests: list[EmbeddingRequest] | list[ExtractionRequest],
+) -> None:
     """Validate that all request IDs are unique.
 
     Raises:
@@ -83,7 +131,9 @@ def _validate_unique_ids(requests: list[EmbeddingRequest] | list[ExtractionReque
             seen[req.id] = 1
 
     if duplicates:
-        dup_details = ", ".join(f"'{k}' ({v + 1}x)" for k, v in list(duplicates.items())[:10])
+        dup_details = ", ".join(
+            f"'{k}' ({v + 1}x)" for k, v in list(duplicates.items())[:10]
+        )
         total_dups = len(duplicates)
         msg = f"Found {total_dups} duplicate ID(s) in batch request: {dup_details}"
         if total_dups > 10:
@@ -177,8 +227,8 @@ def _submit_extraction_batch(
 
 
 def _get_batch_status(batch_id: str, client: "OpenAI") -> BatchStatus:
-    """Get current status of a batch."""
-    batch = client.batches.retrieve(batch_id)
+    """Get current status of a batch with retry on network errors."""
+    batch = _retry_on_network_error(lambda: client.batches.retrieve(batch_id))
 
     return BatchStatus(
         id=batch.id,
@@ -239,7 +289,7 @@ def _parse_embedding_results(
     output_file_id: str, client: "OpenAI"
 ) -> dict[str, list[float]]:
     """Download and parse embedding batch results."""
-    content = client.files.content(output_file_id)
+    content = _retry_on_network_error(lambda: client.files.content(output_file_id))
     lines = content.text.strip().split("\n")
 
     results = {}
@@ -258,7 +308,7 @@ def _parse_extraction_results(
     output_file_id: str, client: "OpenAI"
 ) -> dict[str, dict[str, Any]]:
     """Download and parse extraction batch results."""
-    content = client.files.content(output_file_id)
+    content = _retry_on_network_error(lambda: client.files.content(output_file_id))
     lines = content.text.strip().split("\n")
 
     results = {}

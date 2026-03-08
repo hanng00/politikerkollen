@@ -16,7 +16,6 @@ async function fetchAccountabilityCards(
   if (options.category) params.set("category", options.category);
   if (options.limit) params.set("limit", options.limit.toString());
   if (options.offset) params.set("offset", options.offset.toString());
-  if (options.min_similarity) params.set("min_similarity", options.min_similarity.toString());
 
   const url = `${API_ENDPOINT}/contradictions${params.toString() ? `?${params}` : ""}`;
   const res = await fetch(url);
@@ -38,6 +37,20 @@ async function fetchAccountabilityFilters(): Promise<AccountabilityFilters> {
   return res.json();
 }
 
+async function fetchPromiseById(id: string): Promise<AccountabilityCard> {
+  const res = await fetch(`${API_ENDPOINT}/contradictions/${id}`);
+
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error("Löftet hittades inte");
+    }
+    throw new Error(`Failed to fetch promise: ${res.status}`);
+  }
+
+  const json = await res.json();
+  return json.data;
+}
+
 export function useAccountabilityCards(options: FetchAccountabilityCardsOptions = {}) {
   return useQuery({
     queryKey: ["accountability", "cards", options],
@@ -50,5 +63,13 @@ export function useAccountabilityFilters() {
     queryKey: ["accountability", "filters"],
     queryFn: fetchAccountabilityFilters,
     staleTime: 5 * 60 * 1000, // Filters rarely change
+  });
+}
+
+export function usePromise(id: string) {
+  return useQuery({
+    queryKey: ["accountability", "promise", id],
+    queryFn: () => fetchPromiseById(id),
+    enabled: !!id,
   });
 }

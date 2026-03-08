@@ -1,6 +1,7 @@
 /**
  * Hybrid search: semantic similarity + keyword matching, fused with RRF.
  *
+ * Uses the unified embeddings table with chunk aggregation.
  * Vector search stores the query embedding in a local temp table to avoid
  * issues with large inline array literals over the MotherDuck wire protocol.
  */
@@ -21,6 +22,10 @@ export interface HybridSearchOptions {
   riksmote_year?: number;
 }
 
+/**
+ * Vector search with chunk aggregation.
+ * Searches the unified embeddings table and aggregates chunk scores by entity.
+ */
 async function vectorSearch(
   embedding: number[],
   threshold: number,
@@ -33,24 +38,75 @@ async function vectorSearch(
   await conn.run(`CREATE OR REPLACE TEMP TABLE _query_embedding AS SELECT ${embeddingLiteral} AS emb`);
 
   const sql = `
-    SELECT 
-      s.dok_id,
-      s.titel,
-      s.dok_typ,
-      s.parti,
-      s.intressent_ids,
-      array_cosine_similarity(s.embedding, q.emb) as similarity
-    FROM ${COGNITION_SCHEMA}.source_embeddings s, _query_embedding q
-    WHERE s.riksmote_year = ${riksmote_year}
-      AND array_cosine_similarity(s.embedding, q.emb) >= ${threshold}
+    WITH candidates AS (
+      SELECT e.entity_id, e.chunk_text, e.metadata, e.embedding
+      FROM ${COGNITION_SCHEMA}.embeddings e
+      WHERE e.entity_type = 'source'
+        AND CAST(json_extract_string(e.metadata, '$.riksmote_year') AS INTEGER) = ${riksmote_year}
+    ),
+    scored AS (
+      SELECT
+        c.entity_id as dok_id,
+        c.chunk_text,
+        c.metadata,
+        array_cosine_similarity(c.embedding, q.emb) as similarity
+      FROM candidates c, _query_embedding q
+      WHERE array_cosine_similarity(c.embedding, q.emb) >= ${threshold}
+    ),
+    ranked AS (
+      SELECT
+        dok_id,
+        chunk_text,
+        metadata,
+        similarity,
+        ROW_NUMBER() OVER (PARTITION BY dok_id ORDER BY similarity DESC) as rn
+      FROM scored
+    )
+    SELECT
+      dok_id,
+      json_extract_string(metadata, '$.titel') as titel,
+      json_extract_string(metadata, '$.dok_typ') as dok_typ,
+      json_extract_string(metadata, '$.parti') as parti,
+      CASE
+        WHEN json_extract(metadata, '$.intressent_ids') IS NOT NULL
+          AND json_extract_string(metadata, '$.intressent_ids') != 'null'
+        THEN json_extract(metadata, '$.intressent_ids')
+        ELSE NULL
+      END as intressent_ids,
+      similarity,
+      chunk_text as best_chunk_text
+    FROM ranked
+    WHERE rn = 1
     ORDER BY similarity DESC
     LIMIT ${limit}
   `;
 
   const reader = await conn.runAndReadAll(sql);
-  return reader.getRowObjectsJson() as SourceMatch[];
+  const rows = reader.getRowObjectsJson() as Array<{
+    dok_id: string;
+    titel: string;
+    dok_typ: string;
+    parti: string | null;
+    intressent_ids: string | null;
+    similarity: number;
+    best_chunk_text: string;
+  }>;
+
+  return rows.map(row => ({
+    dok_id: row.dok_id,
+    titel: row.titel,
+    dok_typ: row.dok_typ as 'mot' | 'prop',
+    parti: row.parti,
+    intressent_ids: row.intressent_ids ? JSON.parse(row.intressent_ids) : null,
+    similarity: row.similarity,
+    best_chunk_text: row.best_chunk_text,
+  }));
 }
 
+/**
+ * Keyword search on chunk text.
+ * Searches across all chunks and aggregates by entity.
+ */
 async function keywordSearch(
   queryText: string,
   limit: number,
@@ -65,25 +121,60 @@ async function keywordSearch(
 
   const conditions = keywords.map(kw => {
     const escaped = escapeString(kw);
-    return `(LOWER(s.titel) LIKE '%${escaped}%' OR LOWER(s.content_text) LIKE '%${escaped}%')`;
+    return `(LOWER(json_extract_string(e.metadata, '$.titel')) LIKE '%${escaped}%' OR LOWER(e.chunk_text) LIKE '%${escaped}%')`;
   });
 
   const sql = `
-    SELECT 
-      s.dok_id,
-      s.titel,
-      s.dok_typ,
-      s.parti,
-      s.intressent_ids,
-      0.0 as similarity
-    FROM ${COGNITION_SCHEMA}.source_embeddings s
-    WHERE s.riksmote_year = ${riksmote_year}
-      AND (${conditions.join(' OR ')})
+    WITH matching_chunks AS (
+      SELECT
+        e.entity_id as dok_id,
+        json_extract_string(e.metadata, '$.titel') as titel,
+        json_extract_string(e.metadata, '$.dok_typ') as dok_typ,
+        json_extract_string(e.metadata, '$.parti') as parti,
+        json_extract(e.metadata, '$.intressent_ids') as intressent_ids_json,
+        e.chunk_text,
+        ROW_NUMBER() OVER (PARTITION BY e.entity_id ORDER BY e.chunk_index) as rn
+      FROM ${COGNITION_SCHEMA}.embeddings e
+      WHERE e.entity_type = 'source'
+        AND CAST(json_extract_string(e.metadata, '$.riksmote_year') AS INTEGER) = ${riksmote_year}
+        AND (${conditions.join(' OR ')})
+    )
+    SELECT DISTINCT ON (dok_id)
+      dok_id,
+      titel,
+      dok_typ,
+      parti,
+      CASE 
+        WHEN intressent_ids_json IS NOT NULL AND CAST(intressent_ids_json AS VARCHAR) != 'null'
+        THEN intressent_ids_json
+        ELSE NULL
+      END as intressent_ids,
+      0.0 as similarity,
+      chunk_text as best_chunk_text
+    FROM matching_chunks
+    WHERE rn = 1
     LIMIT ${limit}
   `;
 
-  const result = await query<SourceMatch>(sql);
-  return result.data;
+  const result = await query<{
+    dok_id: string;
+    titel: string;
+    dok_typ: string;
+    parti: string | null;
+    intressent_ids: string | null;
+    similarity: number;
+    best_chunk_text: string;
+  }>(sql);
+
+  return result.data.map(row => ({
+    dok_id: row.dok_id,
+    titel: row.titel,
+    dok_typ: row.dok_typ as 'mot' | 'prop',
+    parti: row.parti,
+    intressent_ids: row.intressent_ids ? JSON.parse(row.intressent_ids) : null,
+    similarity: row.similarity,
+    best_chunk_text: row.best_chunk_text,
+  }));
 }
 
 /**
@@ -130,8 +221,6 @@ export async function searchSources(options: HybridSearchOptions): Promise<Sourc
     riksmote_year = DEFAULT_RIKSMOTE_YEAR,
   } = options;
 
-  // Run sequentially: both use the shared MotherDuck connection,
-  // and vectorSearch must create the temp table before its query runs.
   const vectorResults = await vectorSearch(embedding, threshold, limit, riksmote_year);
   const keywordResults = await keywordSearch(queryText, limit, riksmote_year);
 
@@ -142,5 +231,4 @@ export async function searchSources(options: HybridSearchOptions): Promise<Sourc
   return fused;
 }
 
-// Backwards-compatible alias
 export { searchSources as searchSourcesByEmbedding };

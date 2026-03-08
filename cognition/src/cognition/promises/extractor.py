@@ -10,6 +10,7 @@ batch handling and cost optimization.
 
 from typing import Any, Callable
 
+from cognition.core.config import MODELS
 from cognition.core.operations import (
     BatchStatus,
     ExecutionMode,
@@ -23,7 +24,7 @@ from cognition.promises.models import (
     get_extraction_instructions,
 )
 
-MODEL_NAME = "gpt-5.1-codex-mini"
+MODEL_NAME = MODELS["fast"]
 MAX_TEXT_LENGTH = 200000
 
 

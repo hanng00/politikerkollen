@@ -15,6 +15,7 @@ export interface SourceMatch {
   similarity: number;
   parti: string | null;
   intressent_ids: string[] | null;
+  best_chunk_text?: string;
 }
 
 export interface PoliticianAction {

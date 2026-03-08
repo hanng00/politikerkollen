@@ -210,7 +210,7 @@ function AccountabilityCardComponent({
           </div>
 
           <div className="flex items-center justify-end pt-2">
-            <Button variant="ghost" size="sm" className="text-xs" nativeButton={false} render={<Link href={`/lofte/${card.promise_id}`} />}>
+            <Button variant="ghost" size="sm" className="text-xs" nativeButton={false} render={<Link href={`/loften/${card.promise_id}`} />}>
               Visa alla detaljer
               <ChevronRight className="size-3 ml-1" />
             </Button>

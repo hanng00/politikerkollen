@@ -4,6 +4,14 @@ This module handles embedding of source documents (motions and propositions)
 for semantic matching against manifesto promises.
 """
 
-from cognition.sources.models import SourceEmbedding
+from cognition.core.models import (
+    EMBEDDING_DIMENSIONS,
+    EMBEDDING_MODEL,
+    EmbeddingRecord,
+)
 
-__all__ = ["SourceEmbedding"]
+__all__ = [
+    "EMBEDDING_DIMENSIONS",
+    "EMBEDDING_MODEL",
+    "EmbeddingRecord",
+]

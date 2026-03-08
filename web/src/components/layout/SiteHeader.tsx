@@ -12,16 +12,18 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { FileText, FlaskConical, LogOut, Menu } from "lucide-react";
+import { FileText, FlaskConical, LogOut, Menu, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const navItems = [
-  { href: "/politiker", label: "Politiker" },
+const navItems: { href: string; label: string; icon?: LucideIcon }[] = [
+  // v1: focused nav — only the core loop + credibility
   { href: "/loften", label: "Löften" },
-  { href: "/manifesto", label: "Manifest", icon: FileText, secondary: true },
-  { href: "/c", label: "Chat", secondary: true },
-  { href: "/om/metodik", label: "Metodik", icon: FlaskConical, secondary: true },
+  { href: "/manifesto", label: "Om" },
+  // v1: commented out — revisit after core loop is proven
+  // { href: "/politiker", label: "Politiker" },
+  // { href: "/c", label: "Chat", secondary: true },
+  // { href: "/om/metodik", label: "Metodik", icon: FlaskConical, secondary: true },
 ];
 
 export function LogoMark({ className }: { className?: string }) {
@@ -110,6 +112,7 @@ export function SiteHeader() {
 
         {/* Mobile navigation */}
         <div className="flex md:hidden items-center gap-1 ml-auto">
+          {/* v1: mobile quick-link to Löften instead of Politiker
           <Link href="/politiker">
             <Button
               variant="ghost"
@@ -120,6 +123,19 @@ export function SiteHeader() {
               )}
             >
               Politiker
+            </Button>
+          </Link>
+          */}
+          <Link href="/loften">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "h-8",
+                isActive("/loften") ? "font-medium" : "text-muted-foreground",
+              )}
+            >
+              Löften
             </Button>
           </Link>
 

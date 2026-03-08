@@ -33,6 +33,15 @@ const EXAMPLE_QUERIES = [
   "Stoppa vindkraftsutbyggnaden",
 ];
 
+function StatBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="space-y-0.5">
+      <div className="text-lg font-bold tabular-nums">{value}</div>
+      <div className="text-xs text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
 function PoliticianCard({
   politician,
   index,
@@ -380,6 +389,14 @@ function SearchInputView() {
                 </button>
               ))}
             </div>
+          </motion.div>
+
+          <motion.div variants={fadeIn} className="pt-8 flex flex-wrap justify-center gap-x-8 gap-y-3 text-center">
+            <StatBlock label="Ledamöter" value="349" />
+            <StatBlock label="Röstningar" value="2,1M+" />
+            <StatBlock label="Anföranden" value="380k+" />
+            <StatBlock label="Valmanifest" value="370" />
+            <StatBlock label="Data från" value="1990–nu" />
           </motion.div>
         </motion.div>
       </motion.div>

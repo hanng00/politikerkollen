@@ -1,14 +1,19 @@
-"""Promise embedding - text preparation and embedding operations."""
+"""Promise embedding using the unified embedding system.
 
-from typing import TYPE_CHECKING, Any
+Promises are short texts that fit within token limits, so we use
+NoChunking (single chunk per promise).
+"""
 
-from cognition.core.llm import get_client
-from cognition.embeddings.models import EMBEDDING_MODEL
+import logging
+from typing import Any
 
-if TYPE_CHECKING:
-    from openai import OpenAI
+from cognition.core.chunking import NoChunking
+from cognition.core.embedding import EmbeddingService, estimate_cost as core_estimate_cost
+from cognition.core.models import EMBEDDING_MODEL, EmbeddingRecord
 
-EMBEDDING_DIMENSIONS = 1536
+logger = logging.getLogger(__name__)
+
+DEFAULT_CHUNKING = NoChunking()
 
 
 def prepare_promise_text(promise: dict[str, Any]) -> str:
@@ -16,63 +21,89 @@ def prepare_promise_text(promise: dict[str, Any]) -> str:
     return promise.get("promise_text", "") or ""
 
 
-def embed_promises(
-    promises: list[dict[str, Any]],
-    client: "OpenAI | None" = None,
-) -> dict[str, list[float]]:
-    """Embed promises.
+def embed_promise(
+    promise: dict[str, Any],
+    service: EmbeddingService | None = None,
+) -> list[EmbeddingRecord]:
+    """Embed a single promise.
 
     Args:
-        promises: List of dicts with promise_id and promise_text
-        client: OpenAI client (uses default if not provided)
+        promise: Promise dict with promise_id and promise_text
+        service: EmbeddingService instance (creates default if not provided)
 
     Returns:
-        Dict mapping promise_id -> embedding vector
+        List with single EmbeddingRecord (promises are single-chunk)
+    """
+    if service is None:
+        service = EmbeddingService()
+
+    text = prepare_promise_text(promise)
+    if not text:
+        logger.warning(f"Empty text for promise {promise.get('promise_id')}")
+        return []
+
+    chunks = DEFAULT_CHUNKING.chunk(text)
+    if not chunks:
+        return []
+
+    metadata = {
+        "party": promise.get("party"),
+        "year": promise.get("year"),
+        "category": promise.get("category"),
+        "promise_text": text,
+    }
+
+    return service.embed_chunks(
+        entity_type="promise",
+        entity_id=promise["promise_id"],
+        chunks=chunks,
+        metadata=metadata,
+    )
+
+
+def embed_promises(
+    promises: list[dict[str, Any]],
+    service: EmbeddingService | None = None,
+) -> list[EmbeddingRecord]:
+    """Embed multiple promises.
+
+    Args:
+        promises: List of promise dicts with promise_id and promise_text
+        service: EmbeddingService instance (creates default if not provided)
+
+    Returns:
+        List of EmbeddingRecord (one per promise)
     """
     if not promises:
-        return {}
+        return []
 
-    if client is None:
-        client = get_client()
+    if service is None:
+        service = EmbeddingService()
 
-    texts = [prepare_promise_text(p) for p in promises]
-    ids = [p["promise_id"] for p in promises]
+    all_records: list[EmbeddingRecord] = []
 
-    results = {}
-    batch_size = 2048  # OpenAI's max per request
-    for i in range(0, len(texts), batch_size):
-        batch_texts = texts[i : i + batch_size]
-        batch_ids = ids[i : i + batch_size]
-        response = client.embeddings.create(
-            model=EMBEDDING_MODEL,
-            input=batch_texts,
-            dimensions=EMBEDDING_DIMENSIONS,
-        )
-        for id_, data in zip(batch_ids, response.data):
-            results[id_] = data.embedding
+    for promise in promises:
+        records = embed_promise(promise, service=service)
+        all_records.extend(records)
 
-    return results
+    return all_records
 
 
-def estimate_cost(text_count: int, avg_tokens_per_text: int = 100) -> dict[str, Any]:
+def estimate_cost(
+    promises: list[dict[str, Any]],
+) -> dict[str, Any]:
     """Estimate the API cost for embedding promises.
 
     Args:
-        text_count: Number of promises to embed
-        avg_tokens_per_text: Average tokens per promise text
+        promises: List of promise dicts
 
     Returns:
         Cost estimate dictionary
     """
-    total_tokens = text_count * avg_tokens_per_text
-    cost_per_million = 0.02
-    total_cost = (total_tokens / 1_000_000) * cost_per_million
+    texts = [prepare_promise_text(p) for p in promises]
+    base_estimate = core_estimate_cost(texts)
 
     return {
-        "text_count": text_count,
-        "avg_tokens_per_text": avg_tokens_per_text,
-        "total_tokens": total_tokens,
-        "cost_per_million": cost_per_million,
-        "total_cost_usd": total_cost,
-        "model": EMBEDDING_MODEL,
+        "promise_count": len(promises),
+        **base_estimate,
     }

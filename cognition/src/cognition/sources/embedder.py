@@ -1,23 +1,25 @@
-"""Source document embedding - text preparation and embedding operations.
+"""Source document embedding with chunking support.
 
 Source documents (motions and propositions) can be large (avg 26KB for motions,
-792KB for propositions). This module handles:
-1. Text truncation to fit within token limits
-2. HTML cleaning for better embedding quality
+792KB for propositions). This module uses paragraph-based chunking to preserve
+full document content instead of truncating.
 """
 
+import logging
 import re
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from cognition.core.llm import get_client
-from cognition.sources.models import EMBEDDING_MODEL
+from cognition.core.chunking import ParagraphChunking
+from cognition.core.embedding import EmbeddingService, estimate_cost as core_estimate_cost
+from cognition.core.models import EMBEDDING_MODEL, EmbeddingRecord
 
-if TYPE_CHECKING:
-    from openai import OpenAI
+logger = logging.getLogger(__name__)
 
-EMBEDDING_DIMENSIONS = 1536
-MAX_TOKENS = 8191
-CHARS_PER_TOKEN = 4
+DEFAULT_CHUNKING = ParagraphChunking(
+    target_tokens=1024,
+    max_tokens=2048,
+    overlap_tokens=128,
+)
 
 
 def clean_text(text: str) -> str:
@@ -28,52 +30,86 @@ def clean_text(text: str) -> str:
     return text
 
 
-def truncate_text(text: str, max_chars: int | None = None) -> str:
-    """Truncate text to fit within token limits."""
-    if max_chars is None:
-        max_chars = MAX_TOKENS * CHARS_PER_TOKEN
-
-    if len(text) <= max_chars:
-        return text
-
-    return text[:max_chars]
-
-
 def prepare_source_text(source: dict[str, Any]) -> str:
     """Prepare source document text for embedding.
 
-    Combines title and content, cleans, and truncates.
+    Combines title and content, cleans the text.
     """
     title = source.get("titel", "")
     content = source.get("content_text", "")
 
     combined = f"{title}\n\n{content}" if title else content
-    cleaned = clean_text(combined)
-    truncated = truncate_text(cleaned)
+    return clean_text(combined)
 
-    return truncated
+
+def embed_source(
+    source: dict[str, Any],
+    service: EmbeddingService | None = None,
+    chunking: ParagraphChunking | None = None,
+) -> list[EmbeddingRecord]:
+    """Embed a single source document with chunking.
+
+    Args:
+        source: Source document dict with dok_id, titel, content_text, etc.
+        service: EmbeddingService instance (creates default if not provided)
+        chunking: Chunking strategy (uses ParagraphChunking by default)
+
+    Returns:
+        List of EmbeddingRecord (one per chunk)
+    """
+    if service is None:
+        service = EmbeddingService()
+    if chunking is None:
+        chunking = DEFAULT_CHUNKING
+
+    text = prepare_source_text(source)
+    chunks = chunking.chunk(text)
+
+    if not chunks:
+        logger.warning(f"No chunks generated for source {source.get('dok_id')}")
+        return []
+
+    metadata = {
+        "dok_typ": source.get("dok_typ"),
+        "rm": source.get("rm"),
+        "riksmote_year": source.get("riksmote_year"),
+        "titel": source.get("titel"),
+        "dokument_url": source.get("dokument_url"),
+        "parti": source.get("parti"),
+        "intressent_ids": source.get("intressent_ids"),
+    }
+
+    return service.embed_chunks(
+        entity_type="source",
+        entity_id=source["dok_id"],
+        chunks=chunks,
+        metadata=metadata,
+    )
 
 
 def embed_sources(
     sources: list[dict[str, Any]],
-    client: "OpenAI | None" = None,
-) -> dict[str, list[float]]:
-    """Embed source documents.
+    service: EmbeddingService | None = None,
+    chunking: ParagraphChunking | None = None,
+) -> list[EmbeddingRecord]:
+    """Embed multiple source documents with chunking.
 
     Args:
-        sources: List of source document dicts with dok_id, titel, content_text
-        client: OpenAI client (uses default if not provided)
+        sources: List of source document dicts
+        service: EmbeddingService instance (creates default if not provided)
+        chunking: Chunking strategy (uses ParagraphChunking by default)
 
     Returns:
-        Dict mapping dok_id -> embedding vector
+        List of all EmbeddingRecord across all sources
     """
     if not sources:
-        return {}
+        return []
 
-    if client is None:
-        client = get_client()
+    if service is None:
+        service = EmbeddingService()
+    if chunking is None:
+        chunking = DEFAULT_CHUNKING
 
-    # Deduplicate by dok_id
     seen_ids: set[str] = set()
     unique_sources = []
     for s in sources:
@@ -82,47 +118,45 @@ def embed_sources(
             seen_ids.add(dok_id)
             unique_sources.append(s)
 
-    texts = [prepare_source_text(s) for s in unique_sources]
-    ids = [s["dok_id"] for s in unique_sources]
+    all_records: list[EmbeddingRecord] = []
 
-    results = {}
-    batch_size = 2048  # OpenAI's max per request
-    for i in range(0, len(texts), batch_size):
-        batch_texts = texts[i : i + batch_size]
-        batch_ids = ids[i : i + batch_size]
-        response = client.embeddings.create(
-            model=EMBEDDING_MODEL,
-            input=batch_texts,
-            dimensions=EMBEDDING_DIMENSIONS,
-        )
-        for id_, data in zip(batch_ids, response.data):
-            results[id_] = data.embedding
+    for source in unique_sources:
+        records = embed_source(source, service=service, chunking=chunking)
+        all_records.extend(records)
 
-    return results
+    return all_records
 
 
-def estimate_cost(sources: list[dict[str, Any]]) -> dict[str, Any]:
-    """Estimate the API cost for embedding source documents.
+def estimate_cost(
+    sources: list[dict[str, Any]],
+    chunking: ParagraphChunking | None = None,
+) -> dict[str, Any]:
+    """Estimate the API cost for embedding source documents with chunking.
 
     Args:
         sources: List of source document dicts
+        chunking: Chunking strategy to use for estimation
 
     Returns:
         Cost estimate dictionary
     """
-    total_chars = sum(len(prepare_source_text(s)) for s in sources)
-    total_tokens = total_chars // CHARS_PER_TOKEN
-    avg_tokens = total_tokens // len(sources) if sources else 0
+    if chunking is None:
+        chunking = DEFAULT_CHUNKING
 
-    cost_per_million = 0.02
-    total_cost = (total_tokens / 1_000_000) * cost_per_million
+    all_chunk_texts: list[str] = []
+    total_chunks = 0
+
+    for source in sources:
+        text = prepare_source_text(source)
+        chunks = chunking.chunk(text)
+        all_chunk_texts.extend(chunk.text for chunk in chunks)
+        total_chunks += len(chunks)
+
+    base_estimate = core_estimate_cost(all_chunk_texts)
 
     return {
         "source_count": len(sources),
-        "total_chars": total_chars,
-        "avg_tokens_per_source": avg_tokens,
-        "total_tokens": total_tokens,
-        "cost_per_million": cost_per_million,
-        "total_cost_usd": total_cost,
-        "model": EMBEDDING_MODEL,
+        "total_chunks": total_chunks,
+        "avg_chunks_per_source": total_chunks / len(sources) if sources else 0,
+        **base_estimate,
     }

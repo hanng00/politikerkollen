@@ -27,6 +27,7 @@ select
     dokument__typ as dok_typ,
     dokument__rm as rm,
     TRY_CAST(split_part(replace(NULLIF(dokument__rm, ''), '-', '/'), '/', 1) AS INTEGER) as riksmote_year,
+    dokument__datum as datum,
     dokument__titel as titel,
     dokument__html as html,
     dokument__dokument_url_html as dokument_url,
