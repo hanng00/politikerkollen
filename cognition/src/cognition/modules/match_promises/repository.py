@@ -289,11 +289,27 @@ def _fetch_promises(
     conn: duckdb.DuckDBPyConnection,
     pool: "CandidatePool",
     limit: int | None = None,
+    exclude_matched: bool = True,
 ) -> list[dict[str, Any]]:
-    """Fetch promises with metadata for on-the-fly embedding."""
+    """Fetch promises with metadata for on-the-fly embedding.
+    
+    Args:
+        conn: DuckDB connection
+        pool: CandidatePool for filtering
+        limit: Max promises to fetch
+        exclude_matched: If True, skip promises that already have matches in the database
+    """
     year_filter = ""
     if pool.year:
         year_filter = f"AND year = {pool.year}"
+    
+    exclude_clause = ""
+    if exclude_matched:
+        exclude_clause = f"""
+            AND promise_id NOT IN (
+                SELECT DISTINCT promise_id FROM {MATCHES_TABLE}
+            )
+        """
     
     limit_clause = f"LIMIT {limit}" if limit else ""
     
@@ -306,6 +322,7 @@ def _fetch_promises(
         FROM {PROMISES_TABLE}
         WHERE promise_text IS NOT NULL
         {year_filter}
+        {exclude_clause}
         {limit_clause}
     """
     rows = conn.execute(query).fetchall()
@@ -337,6 +354,11 @@ def _vector_search_onthefly(
     
     This allows experimenting with different promise representations without
     re-running the embedding pipeline.
+    
+    Processes one promise at a time to avoid OOM on MotherDuck's memory limits.
+    Without HNSW indexes (not supported on MotherDuck), brute-force similarity
+    requires O(n) comparisons per promise, but doing them sequentially avoids
+    materializing the full cross-product in memory.
     """
     if not promises:
         return []
@@ -350,90 +372,67 @@ def _vector_search_onthefly(
     embedding_results = embedding_service.embed_texts(expanded_texts)
     
     # Build promise_id -> embedding mapping
-    promise_embeddings = {
-        p["promise_id"]: result.embedding
+    promise_embeddings = [
+        (p["promise_id"], result.embedding)
         for p, result in zip(promises, embedding_results)
-    }
+    ]
     
     logger.info(f"Embedded {len(promise_embeddings)} promises, searching against sources...")
     
-    # Register promise embeddings as a temp table for SQL join
-    promise_data = [
-        (pid, emb) for pid, emb in promise_embeddings.items()
-    ]
+    # Process one promise at a time to avoid OOM
+    # This runs N queries instead of one massive cross join
+    all_results = []
     
-    conn.execute("""
-        CREATE OR REPLACE TEMP TABLE _promise_embeddings (
-            promise_id VARCHAR,
-            embedding FLOAT[1536]
-        )
-    """)
-    conn.executemany(
-        "INSERT INTO _promise_embeddings VALUES (?, ?::FLOAT[1536])",
-        promise_data
-    )
+    for i, (promise_id, embedding) in enumerate(promise_embeddings):
+        if (i + 1) % 10 == 0 or i == len(promise_embeddings) - 1:
+            logger.info(f"Processing promise {i + 1}/{len(promise_embeddings)}...")
+        
+        # Query for this single promise against all source chunks
+        query = f"""
+            WITH source_chunks AS (
+                SELECT 
+                    entity_id as dok_id,
+                    embedding,
+                    chunk_text
+                FROM {EMBEDDINGS_TABLE}
+                WHERE entity_type = 'source'
+                {year_filter_source}
+            ),
+            chunk_similarities AS (
+                SELECT
+                    dok_id as source_dok_id,
+                    chunk_text,
+                    array_cosine_similarity($1::FLOAT[1536], embedding) as chunk_similarity
+                FROM source_chunks
+                WHERE array_cosine_similarity($1::FLOAT[1536], embedding) >= {similarity_threshold}
+            ),
+            aggregated AS (
+                SELECT
+                    source_dok_id,
+                    MAX(chunk_similarity) as similarity_score,
+                    FIRST(chunk_text ORDER BY chunk_similarity DESC) as best_chunk_text
+                FROM chunk_similarities
+                GROUP BY source_dok_id
+            )
+            SELECT source_dok_id, similarity_score, best_chunk_text
+            FROM aggregated
+            ORDER BY similarity_score DESC
+            LIMIT {max_per_promise}
+        """
+        
+        result = conn.execute(query, [embedding]).fetchall()
+        
+        all_results.extend([
+            {
+                "promise_id": promise_id,
+                "source_dok_id": row[0],
+                "similarity_score": row[1],
+                "best_chunk_text": row[2],
+            }
+            for row in result
+        ])
     
-    # Run similarity search
-    query = f"""
-        WITH source_chunks AS (
-            SELECT 
-                entity_id as dok_id,
-                embedding,
-                chunk_text
-            FROM {EMBEDDINGS_TABLE}
-            WHERE entity_type = 'source'
-            {year_filter_source}
-        ),
-        chunk_similarities AS (
-            SELECT
-                p.promise_id,
-                s.dok_id as source_dok_id,
-                s.chunk_text,
-                array_cosine_similarity(p.embedding, s.embedding) as chunk_similarity
-            FROM _promise_embeddings p
-            CROSS JOIN source_chunks s
-            WHERE array_cosine_similarity(p.embedding, s.embedding) >= {similarity_threshold}
-        ),
-        aggregated_similarities AS (
-            SELECT
-                promise_id,
-                source_dok_id,
-                MAX(chunk_similarity) as similarity_score,
-                FIRST(chunk_text ORDER BY chunk_similarity DESC) as best_chunk_text
-            FROM chunk_similarities
-            GROUP BY promise_id, source_dok_id
-        ),
-        ranked_matches AS (
-            SELECT
-                promise_id,
-                source_dok_id,
-                similarity_score,
-                best_chunk_text,
-                ROW_NUMBER() OVER (
-                    PARTITION BY promise_id
-                    ORDER BY similarity_score DESC
-                ) as rank
-            FROM aggregated_similarities
-        )
-        SELECT promise_id, source_dok_id, similarity_score, best_chunk_text
-        FROM ranked_matches
-        WHERE rank <= {max_per_promise}
-        ORDER BY promise_id, similarity_score DESC
-    """
-    result = conn.execute(query).fetchall()
-    
-    # Cleanup temp table
-    conn.execute("DROP TABLE IF EXISTS _promise_embeddings")
-    
-    return [
-        {
-            "promise_id": row[0],
-            "source_dok_id": row[1],
-            "similarity_score": row[2],
-            "best_chunk_text": row[3],
-        }
-        for row in result
-    ]
+    return all_results
 
 
 def _build_bm25_query(
@@ -646,6 +645,7 @@ def find_matches(
     enable_keyword: bool = False,
     limit: int | None = None,
     min_bm25_score: float = DEFAULT_MIN_BM25_SCORE,
+    full_refresh: bool = False,
 ) -> list[dict[str, Any]]:
     """
     Find matches between promises and source documents.
@@ -662,6 +662,7 @@ def find_matches(
         enable_keyword: Enable BM25 keyword search leg with RRF fusion
         limit: Limit number of promises to process (for testing)
         min_bm25_score: Minimum BM25 score threshold for keyword search (0 = no threshold)
+        full_refresh: If True, process all promises. If False, skip already-matched promises.
 
     Returns:
         List of match dicts with promise_id, source_dok_id, similarity_score, best_chunk_text
@@ -676,10 +677,10 @@ def find_matches(
 
     # Fetch and embed promises on-the-fly with context expansion
     logger.info("Fetching promises for on-the-fly embedding...")
-    promises = _fetch_promises(conn, pool, limit=limit)
+    promises = _fetch_promises(conn, pool, limit=limit, exclude_matched=not full_refresh)
     
     if not promises:
-        logger.warning("No promises found to match")
+        logger.warning("No promises found to match (all may already be processed)")
         return []
     
     logger.info("Running vector similarity search...")

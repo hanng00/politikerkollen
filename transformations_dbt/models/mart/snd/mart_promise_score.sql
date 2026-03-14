@@ -66,7 +66,7 @@ promise_aggregates as (
         
         -- Evidence counts by type
         count(*) as total_evidence_count,
-        countif(signal_type = 'proposition_passed') as proposition_count,
+        countif(signal_type like 'proposition%') as proposition_count,
         countif(signal_type like 'motion_bifall%') as motion_bifall_count,
         countif(signal_type = 'motion_supported') as motion_supported_count,
         countif(signal_type = 'motion_opposed') as motion_opposed_count,
@@ -151,7 +151,7 @@ select
     tangential_count,
     
     -- Top evidence items (limit to 10 for API response size)
-    evidence_items[:10] as top_evidence,
+    coalesce(evidence_items[:10], []) as top_evidence,
     
     -- Has any strong positive signal?
     (proposition_count > 0 or motion_bifall_count > 0) as has_strong_positive,

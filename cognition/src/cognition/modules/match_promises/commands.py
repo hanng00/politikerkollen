@@ -56,7 +56,7 @@ from cognition.modules.match_promises.repository import (
 @click.option(
     "--limit",
     type=int,
-    default=10,
+    default=50,
     help="Limit number of promises to process (for testing)",
 )
 @click.option(
@@ -73,6 +73,11 @@ from cognition.modules.match_promises.repository import (
     "--clear",
     is_flag=True,
     help="Clear existing matches for this year before computing new ones",
+)
+@click.option(
+    "--full-refresh",
+    is_flag=True,
+    help="Re-process all promises, including already-matched ones (default: skip matched)",
 )
 @click.option(
     "--skip-classification", is_flag=True, help="Skip LLM alignment classification"
@@ -97,6 +102,7 @@ def match_promises_cmd(
     vote_linked: bool,
     party_filter: bool,
     clear: bool,
+    full_refresh: bool,
     skip_classification: bool,
     realtime: bool,
     dry_run: bool,
@@ -168,6 +174,7 @@ def match_promises_cmd(
             enable_keyword=enable_keyword,
             limit=limit,
             min_bm25_score=min_bm25_score,
+            full_refresh=full_refresh,
         )
         logger.info(f"Found {len(matches)} raw matches")
 

@@ -15,7 +15,7 @@ select
     arg_max(namn, _dlt_load_id) as namn,
     arg_max(fornamn, _dlt_load_id) as fornamn,
     arg_max(efternamn, _dlt_load_id) as efternamn,
-    arg_max(parti, _dlt_load_id) as parti,
+    lower(arg_max(parti, _dlt_load_id)) as parti,
     arg_max(valkrets, _dlt_load_id) as valkrets,
     arg_max(iort, _dlt_load_id) as iort,
     arg_max(kon, _dlt_load_id) as kon,

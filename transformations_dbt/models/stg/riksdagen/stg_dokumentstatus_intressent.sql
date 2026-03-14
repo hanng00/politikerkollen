@@ -8,7 +8,7 @@
 select
     intressent_id,
     namn,
-    partibet,
+    lower(partibet) as partibet,
     ordning,
     roll,
     _dlt_root_id,

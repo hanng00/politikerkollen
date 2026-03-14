@@ -144,6 +144,10 @@ export function PromiseFeed({
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const scores = data?.pages.flatMap((p) => p.data) ?? [];
+  const uniqueScores = scores.filter(
+    (score, index, self) =>
+      index === self.findIndex((s) => s.promise_id === score.promise_id)
+  );
   const total = data?.pages[0]?.meta.total ?? 0;
 
   return (
@@ -195,7 +199,7 @@ export function PromiseFeed({
                 </CardContent>
               </Card>
             </motion.div>
-          ) : scores.length === 0 ? (
+          ) : uniqueScores.length === 0 ? (
             <motion.div
               key="empty"
               initial={{ opacity: 0 }}
@@ -218,7 +222,7 @@ export function PromiseFeed({
               exit={{ opacity: 0 }}
               className="grid gap-4 sm:grid-cols-2"
             >
-              {scores.map((score, index) => (
+              {uniqueScores.map((score, index) => (
                 <PromiseScoreCardCompact
                   key={score.promise_id}
                   score={score}
