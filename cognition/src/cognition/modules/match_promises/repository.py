@@ -48,7 +48,6 @@ def expand_promise_for_retrieval(promise: dict[str, Any]) -> str:
     """
     text = promise.get("promise_text", "")
     category = promise.get("category", "")
-    party = promise.get("party", "")
     
     # Get category description for context
     category_desc = CATEGORY_DESCRIPTIONS.get(category, "")
@@ -366,11 +365,11 @@ def _vector_search_onthefly(
     conn.execute("""
         CREATE OR REPLACE TEMP TABLE _promise_embeddings (
             promise_id VARCHAR,
-            embedding DOUBLE[]
+            embedding FLOAT[1536]
         )
     """)
     conn.executemany(
-        "INSERT INTO _promise_embeddings VALUES (?, ?)",
+        "INSERT INTO _promise_embeddings VALUES (?, ?::FLOAT[1536])",
         promise_data
     )
     
@@ -683,7 +682,7 @@ def find_matches(
         logger.warning("No promises found to match")
         return []
     
-    logger.info(f"Running vector similarity search...")
+    logger.info("Running vector similarity search...")
     vector_results = _vector_search_onthefly(
         conn,
         promises,
