@@ -1,4 +1,13 @@
-export const PARTY_ABBREVS = ["s", "m", "sd", "c", "v", "kd", "l", "mp"] as const;
+export const PARTY_ABBREVS = [
+  "s",
+  "m",
+  "sd",
+  "c",
+  "v",
+  "kd",
+  "l",
+  "mp",
+] as const;
 export type PartyAbbrev = (typeof PARTY_ABBREVS)[number];
 
 const PARTY_COLORS_LOWER: Record<string, string> = {
@@ -7,7 +16,7 @@ const PARTY_COLORS_LOWER: Record<string, string> = {
   sd: "#DDDD00",
   c: "#009933",
   v: "#DA291C",
-  kd: "#000077",
+  kd: "#6366f1",
   l: "#006AB3",
   mp: "#83CF39",
 };
@@ -30,7 +39,7 @@ export const PARTY_COLORS: Record<string, string> = {
   SD: "#DDDD00",
   C: "#009933",
   V: "#DA291C",
-  KD: "#000077",
+  KD: "#6366f1",
   L: "#006AB3",
   MP: "#83CF39",
 };
@@ -67,4 +76,10 @@ export function getPartyColor(party: string): string {
 
 export function getPartyName(party: string): string {
   return PARTY_NAMES[party] ?? party.toUpperCase();
+}
+
+const DARK_TEXT_PARTIES = new Set(["sd", "SD", "mp", "MP"]);
+
+export function needsDarkText(party: string): boolean {
+  return DARK_TEXT_PARTIES.has(party);
 }

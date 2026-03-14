@@ -19,19 +19,20 @@ interface PromiseForMeta {
   promise_year: number;
   promise_text: string;
   has_contradiction: boolean;
-  motions: Array<{
-    promise_party_vote: "Ja" | "Nej" | "Avstår" | null;
+  assessment_label: string;
+  top_evidence: Array<{
     source_titel: string;
+    signal_description: string;
   }>;
 }
 
 async function fetchPromiseForMetadata(
-  id: string
+  id: string,
 ): Promise<PromiseForMeta | null> {
   if (!API_ENDPOINT) return null;
 
   try {
-    const res = await fetch(`${API_ENDPOINT}/contradictions/${id}`, {
+    const res = await fetch(`${API_ENDPOINT}/promises/scores/${id}`, {
       next: { revalidate: 3600 },
     });
     if (!res.ok) return null;
@@ -55,27 +56,17 @@ export async function generateMetadata({
   }
 
   const partyName =
-    PARTY_NAMES[promise.promise_party] ??
-    promise.promise_party.toUpperCase();
+    PARTY_NAMES[promise.promise_party] ?? promise.promise_party.toUpperCase();
 
-  const bestMotion = promise.motions[0];
-  const voteLabel =
-    bestMotion?.promise_party_vote === "Ja"
-      ? "röstade för"
-      : bestMotion?.promise_party_vote === "Nej"
-        ? "röstade emot"
-        : null;
+  const bestEvidence = promise.top_evidence[0];
 
   const title = promise.has_contradiction
     ? `${partyName}: Motsägelse`
-    : `${partyName}: Löfte ${promise.promise_year}`;
+    : `${partyName}: ${promise.assessment_label}`;
 
-  const descParts = [`Sa: "${promise.promise_text}"`];
-  if (voteLabel) {
-    descParts.push(`Gjorde: ${partyName} ${voteLabel}.`);
-  }
-  if (bestMotion) {
-    descParts.push(`Bevis: ${bestMotion.source_titel}`);
+  const descParts = [`Lovade: "${promise.promise_text}"`];
+  if (bestEvidence) {
+    descParts.push(`Bevis: ${bestEvidence.source_titel} (${bestEvidence.signal_description})`);
   }
 
   const description = descParts.join(" ");

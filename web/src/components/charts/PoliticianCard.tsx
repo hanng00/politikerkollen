@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { UserIcon, MapPinIcon, CalendarIcon, TrendingUpIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { getPartyColor, needsDarkText } from "@/lib/parties";
 
 export interface PoliticianCardProps {
   intressent_id: string;
@@ -24,22 +24,6 @@ export interface PoliticianCardProps {
     total_votes?: number;
     years_in_parliament?: number;
   };
-}
-
-// Party colors for badges
-const PARTY_COLORS: Record<string, { bg: string; text: string }> = {
-  S: { bg: "bg-red-500", text: "text-white" },
-  M: { bg: "bg-blue-500", text: "text-white" },
-  SD: { bg: "bg-yellow-500", text: "text-black" },
-  C: { bg: "bg-green-500", text: "text-white" },
-  V: { bg: "bg-red-600", text: "text-white" },
-  KD: { bg: "bg-blue-600", text: "text-white" },
-  L: { bg: "bg-blue-400", text: "text-white" },
-  MP: { bg: "bg-green-600", text: "text-white" },
-};
-
-function getPartyColor(parti: string): { bg: string; text: string } {
-  return PARTY_COLORS[parti] || { bg: "bg-muted", text: "text-foreground" };
 }
 
 function calculateAge(birthYear?: string): number | null {
@@ -68,6 +52,7 @@ export function PoliticianCard({
   const fullName = `${tilltalsnamn} ${efternamn}`;
   const age = calculateAge(fodd_ar);
   const partyColor = getPartyColor(parti);
+  const darkText = needsDarkText(parti);
 
   return (
     <Card className="overflow-hidden">
@@ -101,11 +86,8 @@ export function PoliticianCard({
                   {fullName}
                 </h3>
                 <Badge
-                  className={cn(
-                    "text-xs font-medium",
-                    partyColor.bg,
-                    partyColor.text
-                  )}
+                  className={`text-xs font-medium ${darkText ? "text-black" : ""}`}
+                  style={{ backgroundColor: partyColor }}
                 >
                   {parti}
                 </Badge>

@@ -1,6 +1,77 @@
 version: 2
 
 models:
+  - name: int_motion_party_stance
+    description: |
+      Derives the EFFECTIVE party stance on each motion by combining:
+        1. The party's vote (Ja/Nej) from int_vote_party_aggregation
+        2. The committee's recommendation from int_punkt_motion_decisions
+      
+      This fixes the Ja/Nej inversion problem:
+        - Ja = "agree with committee" (NOT "support the motion")
+        - Nej = "disagree with committee" (NOT "oppose the motion")
+      
+      The effective_stance tells us whether the party actually supported or
+      opposed the motion's policy direction, regardless of procedural vote.
+    columns:
+      - name: mot_dok_id
+        description: "Motion document ID"
+        tests:
+          - not_null
+      - name: bet_dok_id
+        description: "Betänkande where the motion was decided"
+        tests:
+          - not_null
+      - name: parti
+        description: "Party abbreviation (e.g., 'S', 'M', 'SD')"
+        tests:
+          - not_null
+      - name: effective_stance
+        description: "Effective stance on motion: supported_motion | opposed_motion | abstained | split | unknown"
+      - name: stance_outcome
+        description: "Did party's stance align with outcome: won | lost | neutral | unknown"
+    tests:
+      - unique:
+          column_name: "mot_dok_id || '|' || bet_dok_id || '|' || punkt || '|' || parti"
+
+  - name: int_punkt_motion_decisions
+    description: |
+      Links each motion to the specific punkt(er) where it was decided.
+      This is the CORRECT lineage for motion → vote tracing.
+      
+      The forslag text on each utskottsforslag explicitly names which motions
+      that punkt decides on (e.g., "avslår motion 2024/25:3440 yrkandena 1-4").
+      We parse these references to create a proper junction table.
+      
+      This replaces the broken cross-join approach in int_vote_source_links
+      which linked every motion to ALL punkter in a betänkande.
+    columns:
+      - name: mot_dok_id
+        description: "Motion document ID"
+        tests:
+          - not_null
+      - name: bet_dok_id
+        description: "Betänkande where the motion was decided"
+        tests:
+          - not_null
+      - name: punkt
+        description: "Decision point number within betänkande"
+        tests:
+          - not_null
+      - name: votering_id
+        description: "Roll-call vote ID (lowercased); null for acklamation"
+      - name: committee_recommendation
+        description: "What the committee recommended: bifaller | avslar | unknown"
+      - name: motion_outcome
+        description: "Actual outcome for this motion: bifall | avslag | unknown"
+      - name: outcome_score
+        description: "1.0 for bifall, 0.7 for delvis bifall, 0.0 for avslag"
+      - name: vinnare
+        description: "Who won: utskottet | motförslaget | reservation X"
+    tests:
+      - unique:
+          column_name: "mot_dok_id || '|' || bet_dok_id || '|' || punkt"
+
   - name: int_motion_bifall
     description: |
       Extracts explicit motion approvals from utskottsforslag decision text.
@@ -137,49 +208,6 @@ models:
     tests:
       - unique:
           column_name: "votering_id || '|' || parti"
-
-  - name: int_vote_source_links
-    description: |
-      Links each vote (votering_id) to its source documents (motions and propositions).
-      Enables tracing from a vote back to substantive policy content.
-      
-      Join chain: utskottsforslag → bet → referens (behandlar) → mot/prop
-      
-      Note: A single vote may decide on multiple source documents.
-      A single source document may be decided by multiple votes.
-    columns:
-      - name: votering_id
-        description: "Roll-call vote ID (lowercased)"
-        tests:
-          - not_null
-      - name: bet_dok_id
-        description: "Betänkande document ID"
-        tests:
-          - not_null
-      - name: rm
-        description: "Riksmöte (e.g., '2024/25')"
-      - name: organ
-        description: "Committee organ (e.g., 'FiU', 'KU')"
-      - name: punkt
-        description: "Decision point number within betänkande"
-      - name: punkt_rubrik
-        description: "Decision point heading"
-      - name: vinnare
-        description: "Winner: 'utskottet' or 'motförslaget'"
-      - name: beslutstyp
-        description: "Decision type (e.g., 'votering', 'acklamation')"
-      - name: source_dok_id
-        description: "Source document ID (motion or proposition)"
-        tests:
-          - not_null
-      - name: source_dok_typ
-        description: "'mot' or 'prop'"
-        tests:
-          - not_null
-      - name: source_titel
-        description: "Source document title"
-      - name: vote_outcome
-        description: "Outcome for this source: approved | rejected | acklamation | unknown"
 
   - name: int_document_content
     description: |

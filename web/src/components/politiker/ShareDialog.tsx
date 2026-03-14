@@ -70,7 +70,7 @@ export function ShareDialog({
               </div>
               <div className="space-y-2">
                 <div className="bg-warning/20 rounded p-2">
-                  <p className="text-[10px] text-warning mb-0.5">SA:</p>
+                  <p className="text-[10px] text-warning mb-0.5">LOVADE:</p>
                   <p className="text-xs italic line-clamp-2">
                     &quot;{contradiction.said.content}&quot;
                   </p>

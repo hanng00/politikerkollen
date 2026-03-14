@@ -9,15 +9,17 @@ import logging
 from typing import Any, Literal
 
 import duckdb
+import pyarrow as pa
 
 from cognition.core.config import SCHEMA
-from cognition.core.db import ensure_schema_exists, table_exists
+from cognition.core.db import ensure_columns_exist, ensure_schema_exists, table_exists
 from cognition.core.models import (
     EMBEDDING_DIMENSIONS,
     AggregatedSearchResult,
     EmbeddingRecord,
     EntityType,
     SearchResult,
+    get_embeddings_columns,
     get_embeddings_table_ddl,
 )
 
@@ -34,17 +36,21 @@ class EmbeddingRepository:
         self._table_ensured = False
 
     def ensure_table_exists(self) -> None:
-        """Create the embeddings table if it doesn't exist."""
+        """Create the embeddings table if it doesn't exist, and add any missing columns."""
         if self._table_ensured:
             return
 
         ensure_schema_exists(self.conn, SCHEMA)
         ddl = get_embeddings_table_ddl(SCHEMA)
         self.conn.execute(ddl)
+        ensure_columns_exist(self.conn, EMBEDDINGS_TABLE, get_embeddings_columns())
         self._table_ensured = True
 
     def save(self, records: list[EmbeddingRecord]) -> int:
         """Save embedding records to the database.
+
+        Uses pyarrow for efficient bulk insert, which handles FLOAT[] arrays
+        correctly over MotherDuck connections.
 
         Args:
             records: List of EmbeddingRecord to save
@@ -57,17 +63,31 @@ class EmbeddingRepository:
 
         self.ensure_table_exists()
 
-        rows = [record.to_row() for record in records]
+        table = pa.table(
+            {
+                "id": [r.id for r in records],
+                "entity_type": [r.entity_type for r in records],
+                "entity_id": [r.entity_id for r in records],
+                "chunk_index": [r.chunk_index for r in records],
+                "chunk_text": [r.chunk_text for r in records],
+                "embedding": [r.embedding for r in records],
+                "metadata": [json.dumps(r.metadata) for r in records],
+                "embedded_at": [r.embedded_at for r in records],
+                "model_version": [r.model_version for r in records],
+            }
+        )
 
-        self.conn.executemany(
-            f"""
+        self.conn.register("_embedding_batch", table)
+        self.conn.execute(f"""
             INSERT INTO {EMBEDDINGS_TABLE}
             (id, entity_type, entity_id, chunk_index, chunk_text, embedding,
              metadata, embedded_at, model_version)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            rows,
-        )
+            SELECT id, entity_type, entity_id, chunk_index, chunk_text,
+                   embedding::FLOAT[{EMBEDDING_DIMENSIONS}],
+                   metadata::JSON, embedded_at, model_version
+            FROM _embedding_batch
+        """)
+        self.conn.unregister("_embedding_batch")
 
         return len(records)
 
@@ -153,7 +173,9 @@ class EmbeddingRepository:
 
         embedding_literal = f"[{','.join(str(x) for x in query_embedding)}]::FLOAT[{EMBEDDING_DIMENSIONS}]"
 
-        where_clauses = [f"array_cosine_similarity(embedding, {embedding_literal}) >= {threshold}"]
+        where_clauses = [
+            f"array_cosine_similarity(embedding, {embedding_literal}) >= {threshold}"
+        ]
 
         if entity_type:
             where_clauses.append(f"entity_type = '{entity_type}'")
@@ -163,10 +185,14 @@ class EmbeddingRepository:
                 if isinstance(value, str):
                     where_clauses.append(f"metadata->>'$.{key}' = '{value}'")
                 elif isinstance(value, (int, float)):
-                    where_clauses.append(f"CAST(metadata->>'$.{key}' AS INTEGER) = {value}")
+                    where_clauses.append(
+                        f"CAST(metadata->>'$.{key}' AS INTEGER) = {value}"
+                    )
                 elif isinstance(value, list):
                     values_str = ", ".join(str(v) for v in value)
-                    where_clauses.append(f"CAST(metadata->>'$.{key}' AS INTEGER) IN ({values_str})")
+                    where_clauses.append(
+                        f"CAST(metadata->>'$.{key}' AS INTEGER) IN ({values_str})"
+                    )
 
         where_sql = " AND ".join(where_clauses)
 
@@ -237,10 +263,14 @@ class EmbeddingRepository:
                 if isinstance(value, str):
                     where_clauses.append(f"metadata->>'$.{key}' = '{value}'")
                 elif isinstance(value, (int, float)):
-                    where_clauses.append(f"CAST(metadata->>'$.{key}' AS INTEGER) = {value}")
+                    where_clauses.append(
+                        f"CAST(metadata->>'$.{key}' AS INTEGER) = {value}"
+                    )
                 elif isinstance(value, list):
                     values_str = ", ".join(str(v) for v in value)
-                    where_clauses.append(f"CAST(metadata->>'$.{key}' AS INTEGER) IN ({values_str})")
+                    where_clauses.append(
+                        f"CAST(metadata->>'$.{key}' AS INTEGER) IN ({values_str})"
+                    )
 
         where_sql = " AND ".join(where_clauses)
 
@@ -322,10 +352,14 @@ class EmbeddingRepository:
                 if isinstance(value, str):
                     where_clauses.append(f"metadata->>'$.{key}' = '{value}'")
                 elif isinstance(value, (int, float)):
-                    where_clauses.append(f"CAST(metadata->>'$.{key}' AS INTEGER) = {value}")
+                    where_clauses.append(
+                        f"CAST(metadata->>'$.{key}' AS INTEGER) = {value}"
+                    )
                 elif isinstance(value, list):
                     values_str = ", ".join(str(v) for v in value)
-                    where_clauses.append(f"CAST(metadata->>'$.{key}' AS INTEGER) IN ({values_str})")
+                    where_clauses.append(
+                        f"CAST(metadata->>'$.{key}' AS INTEGER) IN ({values_str})"
+                    )
 
         where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
 

@@ -14,7 +14,7 @@ SCHEMA = "cognition"
 # Keep in sync with backend/src/utils/models.ts
 MODELS = {
     "chat": "gpt-5.1-codex-mini",  # Primary chat model
-    "fast": "gpt-5.1-mini",  # Fast/cheap model for batch extraction
+    "fast": "gpt-5-mini",  # Fast/cheap model for batch extraction
     "embedding": "text-embedding-3-small",
 }
 
@@ -29,9 +29,10 @@ DOKUMENTSTATUS_INTRESSENT_SOURCE = "main_stg.stg_dokumentstatus_intressent"
 # Intermediate tables - from dbt int layer (main_int schema)
 # These are derived tables built by dbt transformations
 INT_VOTE_PARTY_AGGREGATION = "main_int.int_vote_party_aggregation"
-INT_VOTE_SOURCE_LINKS = "main_int.int_vote_source_links"
 INT_DOCUMENT_CONTENT = "main_int.int_document_content"
 INT_SOURCE_DOCUMENTS = "main_int.int_source_documents"
+INT_PUNKT_MOTION_DECISIONS = "main_int.int_punkt_motion_decisions"
+INT_MOTION_PARTY_STANCE = "main_int.int_motion_party_stance"
 
 
 def get_root_path() -> Path:

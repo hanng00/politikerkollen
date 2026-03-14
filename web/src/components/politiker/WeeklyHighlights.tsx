@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import type { PoliticianSummary } from "@/hooks/useFetchPoliticians";
+import { getPartyColor, needsDarkText } from "@/lib/parties";
 import { AlertTriangle, CheckCircle, HelpCircle, Target, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
@@ -11,16 +12,16 @@ interface WeeklyHighlightsProps {
   politicians: PoliticianSummary[];
 }
 
-const partyColors: Record<string, string> = {
-  S: "bg-[#E8112d]",
-  M: "bg-[#52BDEC]",
-  SD: "bg-[#DDDD00] text-black",
-  C: "bg-[#009933]",
-  V: "bg-[#DA291C]",
-  KD: "bg-[#000077]",
-  L: "bg-[#006AB3]",
-  MP: "bg-[#83CF39] text-black",
-};
+function PartyBadge({ party }: { party: string }) {
+  return (
+    <Badge 
+      className={`text-[10px] h-4 px-1 shrink-0 ${needsDarkText(party) ? "text-black" : ""}`}
+      style={{ backgroundColor: getPartyColor(party) }}
+    >
+      {party}
+    </Badge>
+  );
+}
 
 export function WeeklyHighlights({ politicians }: WeeklyHighlightsProps) {
   const highlights = useMemo(() => {
@@ -91,9 +92,7 @@ export function WeeklyHighlights({ politicians }: WeeklyHighlightsProps) {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-medium truncate">{politician.name}</span>
-                    <Badge className={`text-[10px] h-4 px-1 shrink-0 ${partyColors[politician.party] ?? "bg-muted"}`}>
-                      {politician.party}
-                    </Badge>
+                    <PartyBadge party={politician.party} />
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
                     {politician.motionStats?.passRate}% av motionerna bifallna
@@ -115,9 +114,7 @@ export function WeeklyHighlights({ politicians }: WeeklyHighlightsProps) {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-medium truncate">{politician.name}</span>
-                    <Badge className={`text-[10px] h-4 px-1 shrink-0 ${partyColors[politician.party] ?? "bg-muted"}`}>
-                      {politician.party}
-                    </Badge>
+                    <PartyBadge party={politician.party} />
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
                     {politician.accountabilityStats?.totalQuestions} frågor till regeringen
@@ -139,9 +136,7 @@ export function WeeklyHighlights({ politicians }: WeeklyHighlightsProps) {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-medium truncate">{politician.name}</span>
-                    <Badge className={`text-[10px] h-4 px-1 shrink-0 ${partyColors[politician.party] ?? "bg-muted"}`}>
-                      {politician.party}
-                    </Badge>
+                    <PartyBadge party={politician.party} />
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
                     {politician.scrutinizedStats?.totalQuestionsReceived} frågor från riksdagen
@@ -163,9 +158,7 @@ export function WeeklyHighlights({ politicians }: WeeklyHighlightsProps) {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-medium truncate">{politician.name}</span>
-                    <Badge className={`text-[10px] h-4 px-1 shrink-0 ${partyColors[politician.party] ?? "bg-muted"}`}>
-                      {politician.party}
-                    </Badge>
+                    <PartyBadge party={politician.party} />
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
                     {politician.motionStats?.passed} motioner har bifallits
@@ -187,9 +180,7 @@ export function WeeklyHighlights({ politicians }: WeeklyHighlightsProps) {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-medium truncate">{politician.name}</span>
-                    <Badge className={`text-[10px] h-4 px-1 shrink-0 ${partyColors[politician.party] ?? "bg-muted"}`}>
-                      {politician.party}
-                    </Badge>
+                    <PartyBadge party={politician.party} />
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
                     Avviker ofta i {politician.topRebelTopic?.topic.toLowerCase()}

@@ -312,4 +312,8 @@
     animation: fade-in-stagger 0.4s linear 0.15s forwards;
     opacity: 0;
   }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }

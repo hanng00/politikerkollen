@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { PoliticianSummary } from "@/hooks/useFetchPoliticians";
+import { getPartyColor, needsDarkText } from "@/lib/parties";
 import {
   AlertTriangle,
   CheckCircle,
@@ -12,17 +13,6 @@ import {
   FileText,
 } from "lucide-react";
 import Link from "next/link";
-
-const partyColors: Record<string, string> = {
-  S: "bg-[#E8112d]",
-  M: "bg-[#52BDEC]",
-  SD: "bg-[#DDDD00] text-black",
-  C: "bg-[#009933]",
-  V: "bg-[#DA291C]",
-  KD: "bg-[#000077]",
-  L: "bg-[#006AB3]",
-  MP: "bg-[#83CF39] text-black",
-};
 
 export interface PoliticianCardSimpleProps {
   politician: PoliticianSummary;
@@ -32,7 +22,8 @@ export function PoliticianCardSimple({
   politician,
 }: PoliticianCardSimpleProps) {
   const initials = `${politician.firstName[0]}${politician.lastName[0]}`;
-  const partyColor = partyColors[politician.party] ?? "bg-muted";
+  const partyColor = getPartyColor(politician.party);
+  const darkText = needsDarkText(politician.party);
 
   const hasMotions = politician.motionStats && politician.motionStats.total > 0;
   const hasGoodPassRate = hasMotions && politician.motionStats!.passRate >= 10;
@@ -57,7 +48,8 @@ export function PoliticianCardSimple({
                   {politician.name}
                 </h3>
                 <Badge
-                  className={`text-[10px] h-4 px-1 shrink-0 ${partyColor}`}
+                  className={`text-[10px] h-4 px-1 shrink-0 ${darkText ? "text-black" : ""}`}
+                  style={{ backgroundColor: partyColor }}
                 >
                   {politician.party}
                 </Badge>

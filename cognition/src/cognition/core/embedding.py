@@ -25,7 +25,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-MAX_TOKENS_PER_REQUEST = 250_000
+MAX_TOKENS_PER_REQUEST = 150_000
+MAX_INPUTS_PER_REQUEST = 2048
 
 
 class EmbeddingService:
@@ -40,11 +41,13 @@ class EmbeddingService:
         model: str = EMBEDDING_MODEL,
         dimensions: int = EMBEDDING_DIMENSIONS,
         max_tokens_per_request: int = MAX_TOKENS_PER_REQUEST,
+        max_inputs_per_request: int = MAX_INPUTS_PER_REQUEST,
         client: "OpenAI | None" = None,
     ):
         self.model = model
         self.dimensions = dimensions
         self.max_tokens_per_request = max_tokens_per_request
+        self.max_inputs_per_request = max_inputs_per_request
         self._client = client
 
     @property
@@ -74,7 +77,9 @@ class EmbeddingService:
             if not batch_texts:
                 return
 
-            logger.debug(f"Embedding batch of {len(batch_texts)} texts (~{batch_tokens} tokens)")
+            logger.info(
+                f"Embedding batch of {len(batch_texts)} texts (~{batch_tokens} tokens)"
+            )
             response = self.client.embeddings.create(
                 model=self.model,
                 input=batch_texts,
@@ -96,7 +101,13 @@ class EmbeddingService:
         for text in texts:
             text_tokens = len(text) // CHARS_PER_TOKEN
 
-            if batch_tokens + text_tokens > self.max_tokens_per_request and batch_texts:
+            if (
+                batch_texts
+                and (
+                    batch_tokens + text_tokens > self.max_tokens_per_request
+                    or len(batch_texts) >= self.max_inputs_per_request
+                )
+            ):
                 flush_batch()
 
             batch_texts.append(text)

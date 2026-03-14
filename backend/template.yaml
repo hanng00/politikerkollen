@@ -267,6 +267,71 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
+        ContradictionsScorecardOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /contradictions/scorecard
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
+        ContradictionsScorecard:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /contradictions/scorecard
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        # New evidence-based promise API
+        PromiseScoresOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /promises/scores
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
+        PromiseScores:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /promises/scores
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        PromiseScoreByIdOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /promises/scores/{promiseId}
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
+        PromiseScoreById:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /promises/scores/{promiseId}
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        PromiseScorecardOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /promises/scorecard
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
+        PromiseScorecard:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /promises/scorecard
+            Method: GET
+            Auth:
+              Authorizer: NONE
     Metadata:
       DockerTag: politicians-api
       DockerContext: .

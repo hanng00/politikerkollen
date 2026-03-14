@@ -26,7 +26,7 @@ const partyColors: Record<string, string> = {
   SD: "#DDDD00",
   C: "#009933",
   V: "#DA291C",
-  KD: "#000077",
+  KD: "#6366f1",
   L: "#006AB3",
   MP: "#83CF39",
 };

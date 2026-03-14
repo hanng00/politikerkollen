@@ -8,8 +8,16 @@ import { handleListPoliticians, type SortOption } from './GetPoliticians';
 import { handleGetTimeline } from './GetPoliticianTimeline';
 import { handleSearchPoliticians } from './PostSearchPoliticians';
 import type { SearchPoliticiansRequest } from './search/types';
-import { getContradictions, getContradictionFilters, getPromiseById } from '../contradictions';
-import type { GetContradictionsRequest } from '../contradictions';
+import { 
+  getContradictions, 
+  getContradictionFilters, 
+  getPromiseById, 
+  getPartyScorecard,
+  getPromiseScores,
+  getPromiseScoreById,
+  getPartyEvidenceScorecard,
+} from '../contradictions';
+import type { GetContradictionsRequest, GetPromiseScoresRequest } from '../contradictions';
 
 const PORT = process.env.PORT || 8080;
 
@@ -152,6 +160,19 @@ const server = Bun.serve({
       OPTIONS: () => new Response(null, { status: 204, headers: corsHeaders }),
     },
 
+    '/contradictions/scorecard': {
+      GET: async () => {
+        try {
+          const data = await getPartyScorecard();
+          return json({ data });
+        } catch (err) {
+          console.error('[GET /contradictions/scorecard] Error:', err);
+          return error(err instanceof Error ? err.message : 'Internal server error', 500);
+        }
+      },
+      OPTIONS: () => new Response(null, { status: 204, headers: corsHeaders }),
+    },
+
     '/contradictions/:promiseId': {
       GET: async (req) => {
         try {
@@ -162,6 +183,68 @@ const server = Bun.serve({
           return json({ data: promise });
         } catch (err) {
           console.error('[GET /contradictions/:promiseId] Error:', err);
+          return error(err instanceof Error ? err.message : 'Internal server error', 500);
+        }
+      },
+      OPTIONS: () => new Response(null, { status: 204, headers: corsHeaders }),
+    },
+
+    // New evidence-based promise API
+    '/promises/scores': {
+      GET: async (req) => {
+        try {
+          const url = new URL(req.url);
+          const request: GetPromiseScoresRequest = {
+            party: url.searchParams.get('party') || undefined,
+            category: url.searchParams.get('category') || undefined,
+            evidence_direction: url.searchParams.get('evidence_direction') || undefined,
+            limit: parseInt(url.searchParams.get('limit') || '20', 10),
+            offset: parseInt(url.searchParams.get('offset') || '0', 10),
+          };
+
+          const { data, total } = await getPromiseScores(request);
+
+          return json({
+            data,
+            meta: {
+              total,
+              limit: request.limit,
+              offset: request.offset,
+            },
+          });
+        } catch (err) {
+          console.error('[GET /promises/scores] Error:', err);
+          return error(err instanceof Error ? err.message : 'Internal server error', 500);
+        }
+      },
+      OPTIONS: () => new Response(null, { status: 204, headers: corsHeaders }),
+    },
+
+    '/promises/scores/:promiseId': {
+      GET: async (req) => {
+        try {
+          const promise = await getPromiseScoreById(req.params.promiseId);
+          if (!promise) {
+            return error('Promise not found', 404);
+          }
+          return json({ data: promise });
+        } catch (err) {
+          console.error('[GET /promises/scores/:promiseId] Error:', err);
+          return error(err instanceof Error ? err.message : 'Internal server error', 500);
+        }
+      },
+      OPTIONS: () => new Response(null, { status: 204, headers: corsHeaders }),
+    },
+
+    '/promises/scorecard': {
+      GET: async (req) => {
+        try {
+          const url = new URL(req.url);
+          const category = url.searchParams.get('category') || undefined;
+          const data = await getPartyEvidenceScorecard(category);
+          return json({ data });
+        } catch (err) {
+          console.error('[GET /promises/scorecard] Error:', err);
           return error(err instanceof Error ? err.message : 'Internal server error', 500);
         }
       },

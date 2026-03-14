@@ -1,107 +1,93 @@
 version: 2
 
 models:
-  - name: mart_promise_accountability_cards
+  - name: mart_promise_evidence
     description: |
-      Mart model grouping promises with their semantically matched source documents
-      and voting outcomes.
+      One row per (promise, source document) with evidence signals.
+      This is the foundation for promise accountability assessment.
       
-      Designed for the viral "accountability card" feature showing how parties
-      voted on issues related to their election promises.
+      Each row represents a piece of evidence about whether a party
+      acted on their promise, with correct Ja/Nej inversion handling
+      and proper motion-to-punkt lineage.
       
-      Output: One row per promise, with an array of related motions and their votes.
-      This enables the UI to show one card per promise with multiple motions listed.
+      Signal types (ordered by strength):
+        - proposition_passed: Government proposition passed that aligns with promise
+        - motion_bifall_supported: Motion approved, party supported it
+        - motion_bifall_opposed: Motion approved, party opposed it
+        - motion_supported: Party supported an aligned motion (even if rejected)
+        - motion_opposed: Party opposed an aligned motion
+        - motion_abstained: Party abstained on the vote
       
-      Join path:
-        promise → stg_promise_vote_matches → source_dok_id
-        source_dok_id → int_vote_source_links → votering_id
-        votering_id → stg_voteringlista → party votes
-      
-      Use cases:
-      - Generate shareable accountability cards
-      - Analyze party voting consistency with promises
-      - Find contradictions between promises and votes
+      The effective_stance correctly handles the Ja/Nej inversion:
+        - Ja = agree with committee (NOT support motion)
+        - Nej = disagree with committee (NOT oppose motion)
     columns:
-      - name: promise_id
-        description: "Primary key - unique identifier for the promise."
+      - name: match_id
+        description: "Unique identifier for the promise-source match"
         tests:
           - not_null
           - unique
-
-      - name: document_id
-        description: "Source document ID from valmanifest."
+      - name: promise_id
+        description: "FK to promise"
         tests:
           - not_null
-
-      - name: promise_party
-        description: "Party that made the promise (e.g., 's', 'm', 'c')."
+      - name: source_dok_id
+        description: "FK to source document (motion or proposition)"
         tests:
           - not_null
-
-      - name: promise_year
-        description: "Election year when the promise was made."
-
-      - name: promise_text
-        description: "The promise rephrased as a clear, actionable statement."
+      - name: signal_type
+        description: "Type of evidence signal"
         tests:
           - not_null
-
-      - name: source_quote
-        description: "Exact quote from the source document."
+      - name: signal_weight
+        description: "Numeric weight for composite scoring (-0.5 to +0.5)"
         tests:
           - not_null
+      - name: effective_stance
+        description: "Party's effective stance on the motion: supported_motion | opposed_motion | abstained | split | unknown"
+      - name: alignment
+        description: "LLM classification: supports | opposes | tangential"
 
-      - name: category
-        description: "Policy area category (skatt, vard, skola, etc.)."
+  - name: mart_promise_score
+    description: |
+      One row per promise with aggregated evidence and composite score.
+      This is the top-level view for promise accountability assessment.
+      
+      Aggregates all evidence from mart_promise_evidence into:
+        - A composite score (-1.0 to +1.0)
+        - Evidence strength (strong/moderate/weak/none)
+        - Evidence direction (acted/mixed/inaction/contradiction)
+        - Top evidence items for display
+      
+      Score interpretation:
+        >= 0.5:  "Starkt stöd" (strong evidence of action)
+        0.2-0.5: "Visst stöd" (some evidence of action)
+        -0.2-0.2: "Oklart" (mixed or insufficient evidence)
+        -0.5--0.2: "Svagt stöd" (some evidence of inaction)
+        <= -0.5: "Motsägelse" (strong evidence of contradiction)
+    columns:
+      - name: promise_id
+        description: "Primary key - unique identifier for the promise"
         tests:
           - not_null
-
-      - name: specificity
-        description: "Promise specificity level (high, medium, low)."
+          - unique
+      - name: composite_score
+        description: "Aggregated score from -1.0 (contradiction) to +1.0 (strong action)"
         tests:
           - not_null
-
-      - name: target_group
-        description: "Target beneficiary group if mentioned."
-
-      - name: measurable
-        description: "Whether the promise can be objectively verified."
+      - name: evidence_strength
+        description: "Strength of evidence: strong | moderate | weak | none"
         tests:
           - not_null
-
-      - name: motions
-        description: |
-          Array of related motions/propositions and their voting outcomes.
-          Each element contains: match_id, similarity_score, source_dok_id,
-          source_dok_typ, source_titel, source_parti, source_url, votering_id,
-          bet_dok_id, punkt, punkt_rubrik, promise_party_vote, ja_count,
-          nej_count, riksdag_outcome, accountability_status.
+      - name: evidence_direction
+        description: "Direction of evidence: acted | some_action | mixed | some_inaction | contradiction"
         tests:
           - not_null
-
-      - name: motion_count
-        description: "Number of related motions for this promise."
+      - name: assessment_label
+        description: "Human-readable Swedish label for the assessment"
         tests:
           - not_null
-
-      - name: best_similarity_score
-        description: |
-          Highest similarity score among all matched motions.
-          Used for sorting/filtering in the feed.
-        tests:
-          - not_null
-
-      - name: best_accountability_status
-        description: |
-          Accountability status of the best matching motion.
-          Values: supported_passed, supported_failed, opposed_passed,
-          opposed_failed, abstained, unknown.
-        tests:
-          - not_null
-
-      - name: has_contradiction
-        description: |
-          Boolean indicating if any motion has a contradiction
-          (party voted Nej on a related proposal).
+      - name: top_evidence
+        description: "Array of top 10 evidence items for display"
         tests:
           - not_null

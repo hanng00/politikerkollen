@@ -44,22 +44,6 @@ class EmbeddingRecord:
     embedded_at: datetime
     model_version: str = EMBEDDING_MODEL
 
-    def to_row(self) -> tuple:
-        """Convert to a tuple for database insertion."""
-        import json
-
-        return (
-            self.id,
-            self.entity_type,
-            self.entity_id,
-            self.chunk_index,
-            self.chunk_text,
-            self.embedding,
-            json.dumps(self.metadata),
-            self.embedded_at,
-            self.model_version,
-        )
-
 
 @dataclass
 class EmbeddingResult:
@@ -111,3 +95,18 @@ def get_embeddings_table_ddl(schema: str = "cognition") -> str:
             UNIQUE (entity_type, entity_id, chunk_index, model_version)
         )
     """
+
+
+def get_embeddings_columns() -> list[tuple[str, str]]:
+    """Get column definitions for the embeddings table (for schema migrations)."""
+    return [
+        ("id", "VARCHAR PRIMARY KEY"),
+        ("entity_type", "VARCHAR NOT NULL"),
+        ("entity_id", "VARCHAR NOT NULL"),
+        ("chunk_index", "INTEGER NOT NULL"),
+        ("chunk_text", "VARCHAR NOT NULL"),
+        ("embedding", f"FLOAT[{EMBEDDING_DIMENSIONS}] NOT NULL"),
+        ("metadata", "JSON"),
+        ("embedded_at", "TIMESTAMP NOT NULL"),
+        ("model_version", "VARCHAR NOT NULL"),
+    ]

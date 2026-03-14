@@ -1,20 +1,3 @@
-"""
-Dagster assets for cognition (LLM processing) that execute via ContainerExecutor.
-
-Each asset represents an LLM-based data processing task that runs the cognition container.
-Execution is abstracted via ContainerExecutor - works locally (Docker) and production (ECS).
-
-Partitioning:
-- Promises: partitioned by election year (2018, 2022, 2026, ...)
-- Sources: partitioned by riksmöte year (incremental - only embeds new documents within partition)
-- Matches: partitioned by election year (matches promises to sources in the 4-year mandate period)
-
-Run Configuration:
-- LLM assets support `realtime` mode via the Dagster UI launchpad
-- Default is batch mode (50% cost savings, up to 24h)
-- Use realtime for testing small batches with immediate results
-"""
-
 import dagster as dg
 from dagster import AssetExecutionContext, AssetKey, Config
 
@@ -41,6 +24,13 @@ class LLMConfig(Config):
     - True: Real-time API - immediate results, full price
     
     Use realtime=True for testing small batches, then backfill with batch mode.
+    """
+
+    limit: int | None = None
+    """Limit number of items to process (for testing).
+    
+    When set, only processes this many promises/documents.
+    Useful for quick iteration and debugging.
     """
 
 
@@ -232,16 +222,76 @@ def promise_embeddings(
 
 
 # =============================================================================
+# SOURCE TEXT EXTRACTION
+# =============================================================================
+
+
+@dg.asset(
+    key=cognition_asset_key("source_texts"),
+    deps=[dbt_asset_key("int_source_documents"), dbt_asset_key("int_document_content")],
+    group_name=GROUP_NAME,
+    partitions_def=yearly_partitions,
+    description="Extract plain text from source document HTML. Shared by BM25 search and other cognition pipelines.",
+)
+def source_texts(
+    context: AssetExecutionContext,
+    container_executor: ContainerExecutor,
+    secrets_resource: SecretsResource,
+):
+    """Extract plain text from HTML via ContainerExecutor.
+
+    Pure CPU work — no API calls. Incremental: only processes new documents.
+    """
+    command = ["build-source-texts"]
+
+    riksmote_year = _get_year_from_partition(context)
+    if riksmote_year:
+        command.extend(["--riksmote-year", riksmote_year])
+        context.log.info(f"Extracting source texts for riksmöte {riksmote_year}")
+
+    env_vars = {
+        "MOTHERDUCK_ACCESS_TOKEN": secrets_resource.get_motherduck_token(),
+        "DATABASE_NAME": secrets_resource.get_database_name(),
+    }
+
+    result = container_executor.execute(
+        context=context,
+        image="politikerkollen/cognition:latest",
+        command=command,
+        env_vars=env_vars,
+        name=f"source_texts_{_get_partition_suffix(context)}",
+    )
+
+    if not result.success:
+        raise dg.Failure(
+            f"Source text extraction failed with exit code {result.exit_code}",
+            metadata={
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "task": "build-source-texts",
+                "riksmote_year": riksmote_year or "all",
+            },
+        )
+
+    return {
+        "status": "success",
+        "task": "build-source-texts",
+        "riksmote_year": riksmote_year or "all",
+        "exit_code": result.exit_code,
+    }
+
+
+# =============================================================================
 # SOURCE EMBEDDINGS
 # =============================================================================
 
 
 @dg.asset(
     key=cognition_asset_key("source_embeddings"),
-    deps=[dbt_asset_key("int_source_documents")],
+    deps=[cognition_asset_key("source_texts")],
     group_name=GROUP_NAME,
     partitions_def=yearly_partitions,
-    description="Generate embeddings for source documents. Incremental - only embeds new documents within partition.",
+    description="Generate embeddings for source documents. Reads plain text from source_texts.",
 )
 def source_embeddings(
     context: AssetExecutionContext,
@@ -305,7 +355,11 @@ def source_embeddings(
     deps=[
         cognition_asset_key("promise_embeddings"),
         cognition_asset_key("source_embeddings"),
+        cognition_asset_key("source_texts"),
         cognition_asset_key("valmanifest_promises"),
+        # Note: We no longer depend on int_vote_source_links for recall filtering.
+        # The new pipeline matches against ALL sources and lets the LLM classifier
+        # decide relevance (with the "irrelevant" opt-out).
     ],
     group_name=GROUP_NAME,
     partitions_def=election_year_partitions,
@@ -326,6 +380,10 @@ def promise_vote_matches(
     Configure `realtime` in the launchpad:
     - False (default): Batch API - 50% cheaper, async
     - True: Real-time API - immediate results
+
+    Configure `limit` for testing:
+    - None (default): Process all promises
+    - N: Only process N promises (for quick iteration)
     """
     command = ["match-promises"]
 
@@ -339,6 +397,10 @@ def promise_vote_matches(
         context.log.info("Using REALTIME mode (immediate, full price)")
     else:
         context.log.info("Using BATCH mode (50% savings, up to 24h)")
+
+    if config.limit:
+        command.extend(["--limit", str(config.limit)])
+        context.log.info(f"TESTING MODE: Limiting to {config.limit} promises")
 
     env_vars = {
         "MOTHERDUCK_ACCESS_TOKEN": secrets_resource.get_motherduck_token(),
@@ -371,5 +433,6 @@ def promise_vote_matches(
         "task": "match-promises",
         "year": year or "all",
         "mode": "realtime" if config.realtime else "batch",
+        "limit": config.limit,
         "exit_code": result.exit_code,
     }

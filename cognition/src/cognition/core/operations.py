@@ -1,20 +1,3 @@
-"""Unified LLM operations with automatic Batch API support.
-
-All LLM operations go through this module, which:
-1. Uses OpenAI Batch API by default (50% cost savings, 24h SLA)
-2. Falls back to real-time API when immediate results needed
-3. Provides consistent interface for embeddings and completions
-
-Usage:
-    from cognition.core.operations import embed_texts, extract_structured, ExecutionMode
-
-    # Batch mode (default) - 50% cost savings
-    results = embed_texts(requests)
-
-    # Real-time mode - immediate results
-    results = embed_texts(requests, mode=ExecutionMode.REALTIME)
-"""
-
 import json
 import logging
 import time
@@ -23,7 +6,7 @@ from enum import Enum
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
-from cognition.core.llm import get_client
+from cognition.core.llm import get_client, get_langfuse
 
 if TYPE_CHECKING:
     from openai import OpenAI
@@ -43,23 +26,23 @@ def _retry_on_network_error(
     max_delay: float = 60.0,
 ) -> T:
     """Retry a function on transient network errors with exponential backoff.
-    
+
     Args:
         fn: Function to call
         max_retries: Maximum number of retry attempts
         base_delay: Initial delay between retries in seconds
         max_delay: Maximum delay between retries in seconds
-    
+
     Returns:
         Result of the function call
-    
+
     Raises:
         The last exception if all retries fail
     """
     import openai
-    
+
     last_error: Exception | None = None
-    
+
     for attempt in range(max_retries + 1):
         try:
             return fn()
@@ -67,13 +50,13 @@ def _retry_on_network_error(
             last_error = e
             if attempt == max_retries:
                 break
-            delay = min(base_delay * (2 ** attempt), max_delay)
+            delay = min(base_delay * (2**attempt), max_delay)
             logger.warning(
                 f"Network error (attempt {attempt + 1}/{max_retries + 1}), "
                 f"retrying in {delay:.1f}s: {e}"
             )
             time.sleep(delay)
-    
+
     raise last_error  # type: ignore
 
 
@@ -191,6 +174,7 @@ def _submit_extraction_batch(
     """Submit extraction batch job to OpenAI."""
     _validate_unique_ids(requests)
 
+    logger.info(f"Preparing batch file with {len(requests)} requests...")
     lines = []
     for req in requests:
         text = req.text[:max_text_length] if req.text else ""
@@ -211,17 +195,21 @@ def _submit_extraction_batch(
         lines.append(json.dumps(request_obj))
 
     jsonl_content = "\n".join(lines).encode("utf-8")
+    logger.info(f"Uploading batch file ({len(jsonl_content) / 1024:.1f} KB)...")
     file_obj = client.files.create(
         file=("batch.jsonl", BytesIO(jsonl_content)),
         purpose="batch",
     )
+    logger.info(f"Uploaded file: {file_obj.id}")
 
+    logger.info("Submitting batch job to OpenAI...")
     batch = client.batches.create(
         input_file_id=file_obj.id,
         endpoint="/v1/chat/completions",
         completion_window="24h",
         metadata=metadata,
     )
+    logger.info(f"Batch submitted: {batch.id}")
 
     return batch.id
 
@@ -265,20 +253,35 @@ def _wait_for_batch(
         RuntimeError: If batch fails or expires
     """
     start_time = time.time()
+    last_logged_completed = -1
+
+    logger.info(
+        f"Waiting for batch {batch_id} to complete (polling every {poll_interval}s)..."
+    )
 
     while True:
         status = _get_batch_status(batch_id, client)
+        elapsed = time.time() - start_time
+        elapsed_min = elapsed / 60
+
+        if status.completed != last_logged_completed or status.status != "in_progress":
+            logger.info(
+                f"Batch {batch_id[:12]}... status={status.status} "
+                f"progress={status.completed}/{status.total} "
+                f"failed={status.failed} elapsed={elapsed_min:.1f}m"
+            )
+            last_logged_completed = status.completed
 
         if on_progress:
             on_progress(status)
 
         if status.status == "completed":
+            logger.info(f"Batch completed in {elapsed_min:.1f} minutes")
             return status
 
         if status.status in ("failed", "expired", "cancelled"):
             raise RuntimeError(f"Batch {batch_id} {status.status}")
 
-        elapsed = time.time() - start_time
         if elapsed > timeout:
             raise TimeoutError(f"Batch {batch_id} did not complete within {timeout}s")
 
@@ -289,18 +292,25 @@ def _parse_embedding_results(
     output_file_id: str, client: "OpenAI"
 ) -> dict[str, list[float]]:
     """Download and parse embedding batch results."""
+    logger.info(f"Downloading results from {output_file_id}...")
     content = _retry_on_network_error(lambda: client.files.content(output_file_id))
     lines = content.text.strip().split("\n")
+    logger.info(f"Parsing {len(lines)} result lines...")
 
     results = {}
+    errors = 0
     for line in lines:
         result = json.loads(line)
         if result.get("error"):
+            errors += 1
             continue
         custom_id = result["custom_id"]
         embedding = result["response"]["body"]["data"][0]["embedding"]
         results[custom_id] = embedding
 
+    if errors > 0:
+        logger.warning(f"Batch had {errors} failed requests")
+    logger.info(f"Parsed {len(results)} embeddings")
     return results
 
 
@@ -308,20 +318,121 @@ def _parse_extraction_results(
     output_file_id: str, client: "OpenAI"
 ) -> dict[str, dict[str, Any]]:
     """Download and parse extraction batch results."""
+    logger.info(f"Downloading results from {output_file_id}...")
     content = _retry_on_network_error(lambda: client.files.content(output_file_id))
     lines = content.text.strip().split("\n")
+    logger.info(f"Parsing {len(lines)} result lines...")
 
     results = {}
+    errors = 0
     for line in lines:
         result = json.loads(line)
         if result.get("error"):
+            errors += 1
             continue
         custom_id = result["custom_id"]
         content_str = result["response"]["body"]["choices"][0]["message"]["content"]
         parsed = json.loads(content_str)
         results[custom_id] = parsed
 
+    if errors > 0:
+        logger.warning(f"Batch had {errors} failed requests")
+    logger.info(f"Parsed {len(results)} extractions")
     return results
+
+
+def _trace_extraction_batch(
+    requests: list[ExtractionRequest],
+    results: dict[str, dict[str, Any]],
+    model: str,
+    system_prompt: str,
+    batch_id: str,
+    max_text_length: int,
+    metadata: dict[str, str] | None = None,
+) -> None:
+    """Log each extraction in a completed batch as a Langfuse span."""
+    langfuse = get_langfuse()
+    if not langfuse:
+        return
+
+    try:
+        with langfuse.start_as_current_span(name="extract_structured_batch") as span:
+            span.update(
+                metadata={**(metadata or {}), "batch_id": batch_id, "count": len(requests)},
+            )
+
+            request_map = {req.id: req for req in requests}
+            for req_id, output in results.items():
+                req = request_map.get(req_id)
+                if not req:
+                    continue
+                text = req.text[:max_text_length] if req.text else ""
+                prompt = f"Document ID: {req.id}\n\nText:\n{text}"
+
+                with langfuse.start_as_current_generation(
+                    name="extract",
+                    model=model,
+                    input=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt},
+                    ],
+                    output=output,
+                    metadata={"batch_id": batch_id, "custom_id": req_id},
+                ) as _gen:
+                    pass
+    except Exception as e:
+        logger.warning(f"Failed to trace extraction batch: {e}")
+
+
+def _trace_embedding_batch(
+    requests: list[EmbeddingRequest],
+    results: dict[str, list[float]],
+    batch_id: str,
+    metadata: dict[str, str] | None = None,
+) -> None:
+    """Log a completed embedding batch as a single Langfuse span."""
+    langfuse = get_langfuse()
+    if not langfuse:
+        return
+
+    try:
+        with langfuse.start_as_current_span(name="embed_texts_batch") as span:
+            span.update(
+                input={"count": len(requests), "sample_ids": [r.id for r in requests[:5]]},
+                output={"results_count": len(results)},
+                metadata={
+                    **(metadata or {}),
+                    "batch_id": batch_id,
+                    "model": EMBEDDING_MODEL,
+                    "dimensions": EMBEDDING_DIMENSIONS,
+                },
+            )
+    except Exception as e:
+        logger.warning(f"Failed to trace embedding batch: {e}")
+
+
+def _log_batch_errors(status: BatchStatus, client: "OpenAI") -> None:
+    """Download and log errors from a batch with failed requests."""
+    if not status.error_file_id:
+        logger.warning(f"Batch {status.id}: {status.failed}/{status.total} failed but no error file")
+        return
+
+    try:
+        content = _retry_on_network_error(lambda: client.files.content(status.error_file_id))
+        lines = content.text.strip().split("\n")
+        
+        errors: dict[str, int] = {}
+        for line in lines[:100]:
+            result = json.loads(line)
+            error = result.get("response", {}).get("body", {}).get("error", {})
+            msg = error.get("message", "Unknown error")
+            errors[msg] = errors.get(msg, 0) + 1
+        
+        logger.error(f"Batch {status.id}: {status.failed}/{status.total} requests failed")
+        for msg, count in errors.items():
+            logger.error(f"  [{count}x] {msg[:200]}")
+    except Exception as e:
+        logger.warning(f"Could not retrieve batch error file: {e}")
 
 
 def embed_texts(
@@ -352,9 +463,18 @@ def embed_texts(
     if mode == ExecutionMode.BATCH:
         batch_id = _submit_embedding_batch(requests, client, metadata)
         status = _wait_for_batch(batch_id, client, on_progress=on_progress)
+        
+        if status.failed > 0:
+            _log_batch_errors(status, client)
+        
         if not status.output_file_id:
-            raise RuntimeError(f"Batch {batch_id} completed but no output file")
-        return _parse_embedding_results(status.output_file_id, client)
+            raise RuntimeError(
+                f"Batch {batch_id} has no output file "
+                f"({status.failed}/{status.total} requests failed)"
+            )
+        results = _parse_embedding_results(status.output_file_id, client)
+        _trace_embedding_batch(requests, results, batch_id, metadata)
+        return results
 
     else:  # REALTIME
         results = {}
@@ -415,9 +535,20 @@ def extract_structured(
             metadata,
         )
         status = _wait_for_batch(batch_id, client, on_progress=on_progress)
+        
+        if status.failed > 0:
+            _log_batch_errors(status, client)
+        
         if not status.output_file_id:
-            raise RuntimeError(f"Batch {batch_id} completed but no output file")
-        return _parse_extraction_results(status.output_file_id, client)
+            raise RuntimeError(
+                f"Batch {batch_id} has no output file "
+                f"({status.failed}/{status.total} requests failed)"
+            )
+        results = _parse_extraction_results(status.output_file_id, client)
+        _trace_extraction_batch(
+            requests, results, model, system_prompt, batch_id, max_text_length, metadata
+        )
+        return results
 
     else:  # REALTIME
         results = {}

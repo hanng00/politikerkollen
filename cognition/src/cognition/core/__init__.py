@@ -20,6 +20,7 @@ from cognition.core.models import (
     EmbeddingResult,
     EntityType,
     SearchResult,
+    get_embeddings_columns,
     get_embeddings_table_ddl,
 )
 from cognition.core.operations import (
@@ -54,6 +55,7 @@ __all__ = [
     "EmbeddingResult",
     "EntityType",
     "SearchResult",
+    "get_embeddings_columns",
     "get_embeddings_table_ddl",
     # Repository
     "EmbeddingRepository",

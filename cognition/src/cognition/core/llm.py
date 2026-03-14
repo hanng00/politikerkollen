@@ -70,6 +70,18 @@ def get_async_client() -> "AsyncOpenAI":
     return _async_client
 
 
+def get_langfuse():
+    """Get the Langfuse client instance, or None if not available."""
+    if not _langfuse_available():
+        return None
+    try:
+        from langfuse import get_client as get_langfuse_client
+
+        return get_langfuse_client()
+    except Exception:
+        return None
+
+
 def flush() -> None:
     """Flush any pending Langfuse events.
 

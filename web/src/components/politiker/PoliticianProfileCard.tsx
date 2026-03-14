@@ -5,29 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { PoliticianDetail } from "@/hooks/useFetchPolitician";
+import { getPartyColor, needsDarkText } from "@/lib/parties";
 import { Calendar, ExternalLink, Mail, MapPin, Share2 } from "lucide-react";
-
-const partyColors: Record<string, string> = {
-  S: "bg-[#E8112d]",
-  M: "bg-[#52BDEC]",
-  SD: "bg-[#DDDD00] text-black",
-  C: "bg-[#009933]",
-  V: "bg-[#DA291C]",
-  KD: "bg-[#000077]",
-  L: "bg-[#006AB3]",
-  MP: "bg-[#83CF39] text-black",
-};
-
-const partyRingColors: Record<string, string> = {
-  S: "ring-[#E8112d]/30",
-  M: "ring-[#52BDEC]/30",
-  SD: "ring-[#DDDD00]/30",
-  C: "ring-[#009933]/30",
-  V: "ring-[#DA291C]/30",
-  KD: "ring-[#000077]/30",
-  L: "ring-[#006AB3]/30",
-  MP: "ring-[#83CF39]/30",
-};
 
 interface PoliticianProfileCardProps {
   politician: PoliticianDetail;
@@ -50,8 +29,8 @@ export function PoliticianProfileCard({
   politician,
 }: PoliticianProfileCardProps) {
   const initials = `${politician.firstName[0]}${politician.lastName[0]}`;
-  const partyColor = partyColors[politician.party] ?? "bg-muted";
-  const partyRing = partyRingColors[politician.party] ?? "ring-muted";
+  const partyColor = getPartyColor(politician.party);
+  const darkText = needsDarkText(politician.party);
   const activityYears = getActivityYears(
     politician.firstActionDate,
     politician.lastActionDate,
@@ -93,7 +72,10 @@ export function PoliticianProfileCard({
     <Card className="overflow-hidden">
       <CardContent className="pt-6">
         <div className="flex flex-col items-center text-center">
-          <div className={`ring-4 ${partyRing} rounded-full p-0.5 mb-4`}>
+          <div 
+            className="ring-4 rounded-full p-0.5 mb-4"
+            style={{ boxShadow: `0 0 0 4px ${partyColor}30` }}
+          >
             <Avatar className="size-24">
               {politician.imageUrl && (
                 <AvatarImage src={politician.imageUrl} alt={politician.name} />
@@ -104,7 +86,12 @@ export function PoliticianProfileCard({
 
           <div className="flex items-center gap-2 mb-1">
             <h1 className="text-xl font-bold">{politician.name}</h1>
-            <Badge className={`${partyColor}`}>{politician.party}</Badge>
+            <Badge 
+              className={darkText ? "text-black" : ""}
+              style={{ backgroundColor: partyColor }}
+            >
+              {politician.party}
+            </Badge>
           </div>
 
           <p className="text-sm text-muted-foreground">{politician.status}</p>
