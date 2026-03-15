@@ -43,16 +43,20 @@ export function getNarrative(score: PromiseScore): string {
   }
 
   switch (dir) {
-    case "acted":
-      return `${party} har aktivt drivit denna fråga i riksdagen${evidenceSummary}.`;
-    case "some_action":
+    case "implemented":
+      return `${party} har aktivt drivit denna fråga och regeringsförslag har antagits${evidenceSummary}.`;
+    case "partial":
       return `${party} har tagit steg i linje med löftet${evidenceSummary}.`;
-    case "mixed":
-      return `Bevisläget är blandat — ${party} har både stött och motsatt sig relevanta förslag.`;
-    case "some_inaction":
-      return `${party} har visat begränsat engagemang i frågan.`;
-    case "contradiction":
+    case "championed":
+      return `${party} har drivit frågan i riksdagen, men förslagen har inte genomförts${evidenceSummary}.`;
+    case "supported":
+      return `${party} har visat visst stöd för frågan${evidenceSummary}.`;
+    case "contradictory":
+      return `${party} har röstat både för och emot förslag i linje med detta löfte.`;
+    case "opposed":
       return `${party} har röstat mot förslag i linje med detta löfte.`;
+    case "unclear":
+      return `Underlag saknas för att bedöma ${party}s agerande i denna fråga.`;
     default:
       return `Underlag saknas för att bedöma ${party}s agerande i denna fråga.`;
   }
@@ -60,20 +64,17 @@ export function getNarrative(score: PromiseScore): string {
 
 /**
  * Short verdict label (Swedish, human-readable).
- * When has_contradiction is true, we show that instead of the direction.
+ * Focused on clarity for new users.
  */
 export function getVerdictLabel(direction: string, hasContradiction?: boolean): string {
-  // Contradiction overrides direction for clarity
-  if (hasContradiction) {
-    return "Motsägelse";
-  }
-  
   const labels: Record<string, string> = {
-    acted: "Aktivt drivit",
-    some_action: "Tagit steg",
-    mixed: "Blandat",
-    some_inaction: "Begränsat engagemang",
-    contradiction: "Röstat emot",
+    implemented: "Genomfört",
+    partial: "Delvis genomfört",
+    championed: "Drev frågan",
+    supported: "Visst stöd",
+    contradictory: "Motsägelsefullt",
+    opposed: "Röstade emot",
+    unclear: "Oklart",
   };
   return labels[direction] ?? "Ej bedömt";
 }
@@ -115,11 +116,13 @@ export function isStrongEvidence(evidence: {
  */
 export function getAssessmentColor(direction: string): string {
   const colors: Record<string, string> = {
-    acted: "var(--color-success)",
-    some_action: "oklch(0.72 0.15 175)", // teal to distinguish from acted
-    mixed: "var(--color-warning)",
-    some_inaction: "#f97316", // orange-500
-    contradiction: "var(--color-destructive)",
+    implemented: "var(--color-success)",
+    partial: "oklch(0.72 0.15 175)", // teal
+    championed: "oklch(0.65 0.15 250)", // blue
+    supported: "var(--color-muted)",
+    contradictory: "var(--color-warning)",
+    opposed: "var(--color-destructive)",
+    unclear: "var(--color-muted)",
   };
   return colors[direction] ?? "var(--color-muted)";
 }

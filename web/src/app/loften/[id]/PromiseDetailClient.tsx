@@ -4,106 +4,40 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  CircleDot,
-  HelpCircle,
   Link2,
-  MinusCircle,
   Share2,
-  XCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
-import { SiteHeader } from "@/components/layout";
+import { SiteHeader, SiteFooter } from "@/components/layout";
 import {
   PromiseScoreCard,
   PromiseScoreCardSkeleton,
 } from "@/components/promises/PromiseScoreCard";
-import { Badge } from "@/components/ui/badge";
+import { PromiseScoreCardCompact } from "@/components/promises/PromiseScoreCardCompact";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  useAdjacentPromises,
   usePromiseScore,
   usePromiseScores,
-  useAdjacentPromises,
 } from "@/hooks/useAccountability";
 import { CATEGORY_NAMES, getPartyColor, getPartyName } from "@/lib/parties";
-import { getAssessmentColor, getVerdictLabel, getNarrative } from "@/lib/promise-narratives";
 import type { PromiseScore } from "@/types";
-
-function getAssessmentIcon(direction: string, size = "size-3.5") {
-  switch (direction) {
-    case "acted":
-      return <CheckCircle2 className={`${size} text-green-600`} />;
-    case "some_action":
-      return <CircleDot className={`${size} text-green-500`} />;
-    case "mixed":
-      return <HelpCircle className={`${size} text-amber-500`} />;
-    case "some_inaction":
-      return <MinusCircle className={`${size} text-orange-500`} />;
-    case "contradiction":
-      return <XCircle className={`${size} text-red-600`} />;
-    default:
-      return <HelpCircle className={`${size} text-muted-foreground`} />;
-  }
-}
-
-function RelatedPromiseCard({ score }: { score: PromiseScore }) {
-  const partyColor = getPartyColor(score.promise_party);
-  const partyName = getPartyName(score.promise_party);
-  const verdict = getVerdictLabel(score.evidence_direction);
-  const assessmentColor = getAssessmentColor(score.evidence_direction);
-
-  return (
-    <Link href={`/loften/${score.promise_id}`}>
-      <Card className="overflow-hidden h-full hover:ring-1 hover:ring-primary/20 transition-all cursor-pointer group">
-        <div className="h-1" style={{ backgroundColor: assessmentColor }} />
-        <CardContent className="py-3 space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <Badge
-              variant="outline"
-              className="text-[10px]"
-              style={{ borderColor: partyColor, color: partyColor }}
-            >
-              {partyName}
-            </Badge>
-            <div className="flex items-center gap-1">
-              {getAssessmentIcon(score.evidence_direction)}
-              <span className="text-[10px] font-medium">{verdict}</span>
-            </div>
-          </div>
-          <p className="text-xs leading-relaxed line-clamp-2">
-            &ldquo;{score.promise_text}&rdquo;
-          </p>
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground">
-              {score.proposition_count +
-                score.motion_bifall_count +
-                score.motion_supported_count +
-                score.motion_opposed_count}{" "}
-              riksdagsbeslut
-            </span>
-            <ChevronRight className="size-3 text-muted-foreground group-hover:text-foreground transition-colors" />
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
-  );
-}
 
 function RelatedPromisesSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {[1, 2, 3, 4].map((i) => (
         <Card key={i}>
-          <div className="h-1 bg-muted" />
-          <CardContent className="py-3 space-y-2">
-            <Skeleton className="h-4 w-16" />
-            <Skeleton className="h-8 w-full" />
+          <CardContent className="py-4 space-y-3">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-4 w-32" />
           </CardContent>
         </Card>
       ))}
@@ -134,11 +68,11 @@ function ExploreMoreSection({
 
   const filteredPartyPromises =
     partyPromises?.data.filter(
-      (p) => p.promise_id !== currentPromise.promise_id
+      (p) => p.promise_id !== currentPromise.promise_id,
     ) ?? [];
   const filteredCategoryPromises =
     categoryPromises?.data.filter(
-      (p) => p.promise_id !== currentPromise.promise_id
+      (p) => p.promise_id !== currentPromise.promise_id,
     ) ?? [];
 
   const isLoading = partyLoading || categoryLoading;
@@ -163,63 +97,67 @@ function ExploreMoreSection({
       ) : (
         <div className="space-y-8">
           {hasPartyPromises && (
-            <Card className="overflow-hidden">
-              <div
-                className="h-1"
-                style={{ backgroundColor: partyColor }}
-              />
-              <CardContent className="pt-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium">Fler löften från {partyName}</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    nativeButton={false}
-                    render={
-                      <Link
-                        href={`/?party=${currentPromise.promise_party}`}
-                      />
-                    }
-                  >
-                    Visa alla
-                    <ArrowRight className="size-4" />
-                  </Button>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {filteredPartyPromises.slice(0, 4).map((score) => (
-                    <RelatedPromiseCard key={score.promise_id} score={score} />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium flex items-center gap-2">
+                  <span
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: partyColor }}
+                  />
+                  Fler löften från {partyName}
+                </h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  nativeButton={false}
+                  render={
+                    <Link href={`/?party=${currentPromise.promise_party}`} />
+                  }
+                >
+                  Visa alla
+                  <ArrowRight className="size-4" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {filteredPartyPromises.slice(0, 4).map((score, index) => (
+                  <PromiseScoreCardCompact
+                    key={score.promise_id}
+                    score={score}
+                    index={index}
+                  />
+                ))}
+              </div>
+            </div>
           )}
 
           {hasCategoryPromises && (
-            <Card>
-              <CardContent className="pt-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium">
-                    Fler löften inom {categoryName.toLowerCase()}
-                  </h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    nativeButton={false}
-                    render={
-                      <Link href={`/?category=${currentPromise.category}`} />
-                    }
-                  >
-                    Visa alla
-                    <ArrowRight className="size-4" />
-                  </Button>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {filteredCategoryPromises.slice(0, 4).map((score) => (
-                    <RelatedPromiseCard key={score.promise_id} score={score} />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium">
+                  Fler löften inom {categoryName.toLowerCase()}
+                </h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  nativeButton={false}
+                  render={
+                    <Link href={`/?category=${currentPromise.category}`} />
+                  }
+                >
+                  Visa alla
+                  <ArrowRight className="size-4" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {filteredCategoryPromises.slice(0, 4).map((score, index) => (
+                  <PromiseScoreCardCompact
+                    key={score.promise_id}
+                    score={score}
+                    index={index}
+                  />
+                ))}
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -251,8 +189,21 @@ export default function PromiseDetailClient({ id }: { id: string }) {
       promise.promise_text.length > 80
         ? `${promise.promise_text.slice(0, 80)}…`
         : promise.promise_text;
-    const narrative = getNarrative(promise);
-    const text = `${partyName} lovade: "${truncatedPromise}"\n\n${narrative}`;
+
+    const supportedCount =
+      promise.motion_supported_count + promise.motion_bifall_count;
+    const opposedCount = promise.motion_opposed_count;
+
+    let summary = "";
+    if (supportedCount > 0 && opposedCount > 0) {
+      summary = `Stödde ${supportedCount} förslag, röstade emot ${opposedCount}.`;
+    } else if (supportedCount > 0) {
+      summary = `Stödde ${supportedCount} förslag.`;
+    } else if (opposedCount > 0) {
+      summary = `Röstade emot ${opposedCount} förslag.`;
+    }
+
+    const text = `${partyName} lovade: "${truncatedPromise}"\n\n${summary}`;
 
     if (navigator.share) {
       try {
@@ -275,13 +226,7 @@ export default function PromiseDetailClient({ id }: { id: string }) {
     <div className="min-h-screen bg-background flex flex-col">
       <SiteHeader />
 
-      <main className="page-container-narrow py-8 flex-1 pb-24">
-        <div className="text-center mb-6">
-          <p className="text-sm text-muted-foreground">
-            Politikerkollen jämför vallöften med faktiska röstningar i riksdagen
-          </p>
-        </div>
-
+      <main className="page-container py-8 flex-1 pb-24">
         <div className="flex items-center justify-between mb-6">
           <Button
             variant="ghost"
@@ -312,25 +257,11 @@ export default function PromiseDetailClient({ id }: { id: string }) {
         )}
       </main>
 
-      <footer className="border-t py-6 mt-auto">
-        <div className="page-container text-center text-muted-foreground">
-          <p className="text-sm">
-            Data från{" "}
-            <a
-              href="https://data.riksdagen.se"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-foreground"
-            >
-              Riksdagens öppna data
-            </a>
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
 
       {promise && (
         <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm safe-area-bottom">
-          <div className="page-container-narrow py-3">
+          <div className="page-container py-3">
             <div className="flex items-center justify-between gap-2">
               <Button
                 variant="ghost"
@@ -339,7 +270,9 @@ export default function PromiseDetailClient({ id }: { id: string }) {
                 disabled={!prev}
                 nativeButton={!prev}
                 render={
-                  prev ? <Link href={`/loften/${prev.promise_id}`} /> : undefined
+                  prev ? (
+                    <Link href={`/loften/${prev.promise_id}`} />
+                  ) : undefined
                 }
               >
                 <ChevronLeft className="size-5" />
@@ -347,11 +280,7 @@ export default function PromiseDetailClient({ id }: { id: string }) {
               </Button>
 
               <div className="flex items-center gap-2 flex-1 justify-center">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCopyLink}
-                >
+                <Button variant="outline" size="sm" onClick={handleCopyLink}>
                   {copied ? (
                     <>
                       <Check className="size-4" />
@@ -377,7 +306,9 @@ export default function PromiseDetailClient({ id }: { id: string }) {
                 disabled={!next}
                 nativeButton={!next}
                 render={
-                  next ? <Link href={`/loften/${next.promise_id}`} /> : undefined
+                  next ? (
+                    <Link href={`/loften/${next.promise_id}`} />
+                  ) : undefined
                 }
               >
                 <ChevronRight className="size-5" />

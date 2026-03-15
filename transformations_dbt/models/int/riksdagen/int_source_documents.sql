@@ -31,6 +31,7 @@ select
     d.riksmote_year,
     d.datum,
     d.titel,
+    d.source_summary,
     d.dokument_url,
     case 
         when d.dok_typ = 'prop' then 'Regeringen'

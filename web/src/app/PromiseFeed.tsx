@@ -2,143 +2,25 @@
 
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import Link from "next/link";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  ChevronRight,
-  CircleDot,
-  HelpCircle,
-  Loader2,
-  MinusCircle,
-  XCircle,
-} from "lucide-react";
+import { Loader2 } from "lucide-react";
 
+import { PromiseScoreCardCompact } from "@/components/promises/PromiseScoreCardCompact";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useInfinitePromiseScores } from "@/hooks/useAccountability";
-import { CATEGORY_NAMES, getPartyColor, getPartyName } from "@/lib/parties";
-import { getAssessmentColor, getVerdictLabel } from "@/lib/promise-narratives";
-import type { PromiseScore } from "@/types";
+import type { OutcomeFilter } from "./PromiseFilters";
 
 const PAGE_SIZE = 12;
-
-function getAssessmentIcon(direction: string, size = "size-4") {
-  switch (direction) {
-    case "acted":
-      return <CheckCircle2 className={`${size} text-green-600`} />;
-    case "some_action":
-      return <CircleDot className={`${size} text-green-500`} />;
-    case "mixed":
-      return <HelpCircle className={`${size} text-amber-500`} />;
-    case "some_inaction":
-      return <MinusCircle className={`${size} text-orange-500`} />;
-    case "contradiction":
-      return <XCircle className={`${size} text-red-600`} />;
-    default:
-      return <HelpCircle className={`${size} text-muted-foreground`} />;
-  }
-}
-
-function PromiseScoreCardCompact({
-  score,
-  index,
-}: {
-  score: PromiseScore;
-  index: number;
-}) {
-  const partyColor = getPartyColor(score.promise_party);
-  const partyName = getPartyName(score.promise_party);
-  const isContradiction = score.has_contradiction;
-  const verdict = getVerdictLabel(score.evidence_direction, isContradiction);
-  const assessmentColor = isContradiction 
-    ? "var(--color-destructive)" 
-    : getAssessmentColor(score.evidence_direction);
-
-  const supportedCount = score.motion_supported_count + score.motion_bifall_count + score.proposition_count;
-  const opposedCount = score.motion_opposed_count;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index, 4) * 0.05, duration: 0.3 }}
-    >
-      <Link href={`/loften/${score.promise_id}`}>
-        <Card
-          className={`overflow-hidden h-full hover:ring-primary/20 transition-all cursor-pointer group ${isContradiction ? "ring ring-destructive/30" : ""}`}
-        >
-          <CardContent className="p-0 min-w-0 flex flex-col h-full">
-            {/* LOVADE section - fixed height */}
-            <div className="p-4 pb-3 border-b border-border/50 flex-1">
-              <div className="flex items-center gap-1.5 mb-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Lovade
-                </span>
-                <Badge
-                  variant="outline"
-                  className="text-[10px]"
-                  style={{ borderColor: partyColor, color: partyColor }}
-                >
-                  {partyName} {score.promise_year}
-                </Badge>
-                <Badge variant="secondary" className="text-[10px]">
-                  {CATEGORY_NAMES[score.category] ?? score.category}
-                </Badge>
-              </div>
-              <p className="text-sm leading-relaxed line-clamp-3">
-                &ldquo;{score.promise_text}&rdquo;
-              </p>
-            </div>
-
-            {/* GJORDE section - fixed height */}
-            <div className="p-4 pt-3" style={{ borderTop: `2px solid ${assessmentColor}` }}>
-              <div className="flex items-center gap-1.5 mb-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Gjorde
-                </span>
-                {isContradiction ? (
-                  <AlertTriangle className="size-3.5 text-destructive" />
-                ) : (
-                  getAssessmentIcon(score.evidence_direction, "size-3.5")
-                )}
-                <span className={`text-xs font-semibold ${isContradiction ? "text-destructive" : ""}`}>
-                  {verdict}
-                </span>
-              </div>
-              
-              <div className="flex items-center gap-3 text-xs">
-                {supportedCount > 0 && (
-                  <span className="flex items-center gap-1">
-                    <CheckCircle2 className="size-3 text-success" />
-                    <span className="font-medium">{supportedCount}</span>
-                    <span className="text-muted-foreground">stödda</span>
-                  </span>
-                )}
-                {opposedCount > 0 && (
-                  <span className="flex items-center gap-1">
-                    <XCircle className="size-3 text-destructive" />
-                    <span className="font-medium">{opposedCount}</span>
-                    <span className="text-muted-foreground">motsatta</span>
-                  </span>
-                )}
-                <ChevronRight className="size-4 ml-auto text-muted-foreground group-hover:text-foreground transition-colors" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </Link>
-    </motion.div>
-  );
-}
 
 export function PromiseFeed({
   selectedParty,
   selectedCategory,
+  selectedOutcome,
 }: {
   selectedParty: string;
   selectedCategory: string;
+  selectedOutcome: OutcomeFilter;
 }) {
   const {
     data,
@@ -150,6 +32,7 @@ export function PromiseFeed({
   } = useInfinitePromiseScores({
     party: selectedParty !== "all" ? selectedParty : undefined,
     category: selectedCategory !== "all" ? selectedCategory : undefined,
+    outcome: selectedOutcome !== "all" ? selectedOutcome : undefined,
     limit: PAGE_SIZE,
   });
 
@@ -245,7 +128,7 @@ export function PromiseFeed({
             </motion.div>
           ) : (
             <motion.div
-              key={`cards-${selectedParty}-${selectedCategory}`}
+              key={`cards-${selectedParty}-${selectedCategory}-${selectedOutcome}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}

@@ -9,6 +9,7 @@ export interface PromiseEvidence {
   source_dok_id: string;
   source_dok_typ: "mot" | "prop";
   source_titel: string;
+  source_summary: string | null;
   source_url: string | null;
   alignment: "supports" | "opposes" | "tangential" | null;
   alignment_rationale: string | null;
@@ -35,11 +36,13 @@ export interface PromiseScore {
   composite_score: number;
   evidence_strength: "strong" | "moderate" | "weak" | "none";
   evidence_direction:
-    | "acted"
-    | "some_action"
-    | "mixed"
-    | "some_inaction"
-    | "contradiction";
+    | "implemented"
+    | "partial"
+    | "championed"
+    | "supported"
+    | "contradictory"
+    | "opposed"
+    | "unclear";
   assessment_label: string;
 
   // Evidence counts
@@ -49,6 +52,8 @@ export interface PromiseScore {
   motion_supported_count: number;
   motion_opposed_count: number;
   party_filed_count: number;
+  adopted_count: number;
+  rejected_count: number;
 
   // Top evidence items
   top_evidence: PromiseEvidence[];
@@ -140,6 +145,7 @@ export interface FetchPromiseScoresOptions {
   party?: string;
   category?: string;
   evidence_direction?: string;
+  outcome?: 'positive' | 'negative' | 'contradictory';
   limit?: number;
   offset?: number;
 }
@@ -156,10 +162,16 @@ export interface PromiseScoresResponse {
 export interface PartyEvidenceScore {
   party: string;
   total_promises: number;
-  acted_count: number;
-  some_action_count: number;
-  mixed_count: number;
-  some_inaction_count: number;
-  contradiction_count: number;
+  // New categories matching evidence_direction
+  implemented_count: number;
+  partial_count: number;
+  championed_count: number;
+  supported_count: number;
+  contradictory_count: number;
+  opposed_count: number;
+  unclear_count: number;
+  // Aggregated for display
+  positive_count: number;  // implemented + partial + championed + supported
+  negative_count: number;  // opposed
   avg_score: number;
 }

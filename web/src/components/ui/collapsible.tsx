@@ -7,11 +7,11 @@ function Collapsible({ ...props }: CollapsiblePrimitive.Root.Props) {
 }
 
 function CollapsibleTrigger({
-  asChild: _asChild,
+  render,
   ...props
-}: CollapsiblePrimitive.Trigger.Props & { asChild?: boolean }) {
+}: CollapsiblePrimitive.Trigger.Props) {
   return (
-    <CollapsiblePrimitive.Trigger data-slot="collapsible-trigger" {...props} />
+    <CollapsiblePrimitive.Trigger data-slot="collapsible-trigger" render={render} {...props} />
   )
 }
 

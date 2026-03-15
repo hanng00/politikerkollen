@@ -12,14 +12,15 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { FileText, FlaskConical, LogOut, Menu, type LucideIcon } from "lucide-react";
+import { LogOut, Menu, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems: { href: string; label: string; icon?: LucideIcon }[] = [
   // v1: focused nav — only the core loop + credibility
-  { href: "/loften", label: "Löften" },
+  // { href: "/loften", label: "Löften" },
   { href: "/manifesto", label: "Om" },
+  { href: "tel:+46763281170", label: "Kontakt" },
   // v1: commented out — revisit after core loop is proven
   // { href: "/politiker", label: "Politiker" },
   // { href: "/c", label: "Chat", secondary: true },
@@ -143,7 +144,7 @@ export function SiteHeader() {
             <SheetTrigger
               className={cn(
                 buttonVariants({ variant: "ghost", size: "icon-sm" }),
-                "h-8 w-8"
+                "h-8 w-8",
               )}
             >
               <Menu className="size-5" />
@@ -161,13 +162,16 @@ export function SiteHeader() {
                   return (
                     <SheetClose
                       key={item.href}
+                      nativeButton={false}
                       render={
                         <Link href={item.href}>
                           <Button
                             variant="ghost"
                             className={cn(
                               "w-full justify-start h-10",
-                              active ? "font-medium bg-muted" : "text-muted-foreground",
+                              active
+                                ? "font-medium bg-muted"
+                                : "text-muted-foreground",
                             )}
                           >
                             {Icon && <Icon className="size-4 mr-2" />}

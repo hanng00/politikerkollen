@@ -1,6 +1,6 @@
 "use client";
 
-import { SiteHeader } from "@/components/layout";
+import { SiteHeader, SiteFooter } from "@/components/layout";
 import { Suspense, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -9,36 +9,46 @@ import {
 } from "@/hooks/useAccountability";
 import { PartyScorecard } from "./PartyScorecard";
 import { PromiseFeed } from "./PromiseFeed";
+import { PromiseFilters, type OutcomeFilter } from "./PromiseFilters";
 
 function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedParty = searchParams.get("party") || "all";
   const selectedCategory = searchParams.get("category") || "all";
+  const selectedOutcome = (searchParams.get("outcome") || "all") as OutcomeFilter;
 
   const { data: filters } = useAccountabilityFilters();
   const categories = filters?.categories ?? [];
 
-  const buildUrl = useCallback((party: string, category: string) => {
+  const buildUrl = useCallback((party: string, category: string, outcome: OutcomeFilter) => {
     const params = new URLSearchParams();
     if (party !== "all") params.set("party", party);
     if (category !== "all") params.set("category", category);
+    if (outcome !== "all") params.set("outcome", outcome);
     const qs = params.toString();
     return qs ? `/?${qs}` : "/";
   }, []);
 
   const handlePartyChange = useCallback(
     (party: string) => {
-      router.push(buildUrl(party, selectedCategory), { scroll: false });
+      router.push(buildUrl(party, selectedCategory, selectedOutcome), { scroll: false });
     },
-    [router, buildUrl, selectedCategory],
+    [router, buildUrl, selectedCategory, selectedOutcome],
   );
 
   const handleCategoryChange = useCallback(
     (category: string) => {
-      router.push(buildUrl(selectedParty, category), { scroll: false });
+      router.push(buildUrl(selectedParty, category, selectedOutcome), { scroll: false });
     },
-    [router, buildUrl, selectedParty],
+    [router, buildUrl, selectedParty, selectedOutcome],
+  );
+
+  const handleOutcomeChange = useCallback(
+    (outcome: OutcomeFilter) => {
+      router.push(buildUrl(selectedParty, selectedCategory, outcome), { scroll: false });
+    },
+    [router, buildUrl, selectedParty, selectedCategory],
   );
 
   return (
@@ -47,13 +57,22 @@ function HomeContent() {
         selectedParty={selectedParty}
         selectedCategory={selectedCategory}
         onPartySelect={handlePartyChange}
-        onCategoryChange={handleCategoryChange}
+      />
+
+      <PromiseFilters
+        selectedParty={selectedParty}
+        selectedCategory={selectedCategory}
+        selectedOutcome={selectedOutcome}
         categories={categories}
+        onPartyChange={handlePartyChange}
+        onCategoryChange={handleCategoryChange}
+        onOutcomeChange={handleOutcomeChange}
       />
 
       <PromiseFeed
         selectedParty={selectedParty}
         selectedCategory={selectedCategory}
+        selectedOutcome={selectedOutcome}
       />
     </>
   );
@@ -69,21 +88,7 @@ export default function HomePage() {
           <HomeContent />
         </Suspense>
 
-        <footer className="border-t py-6 mt-auto">
-          <div className="page-container text-center text-muted-foreground">
-            <p className="text-sm">
-              Data från{" "}
-              <a
-                href="https://data.riksdagen.se"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline hover:text-foreground"
-              >
-                Riksdagens öppna data
-              </a>
-            </p>
-          </div>
-        </footer>
+        <SiteFooter />
       </main>
     </div>
   );

@@ -135,6 +135,7 @@ async function fetchPromiseScores(
   if (options.party) params.set("party", options.party);
   if (options.category) params.set("category", options.category);
   if (options.evidence_direction) params.set("evidence_direction", options.evidence_direction);
+  if (options.outcome) params.set("outcome", options.outcome);
   if (options.limit) params.set("limit", options.limit.toString());
   if (options.offset) params.set("offset", options.offset.toString());
 

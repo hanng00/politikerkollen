@@ -1,4 +1,4 @@
-import { SiteHeader } from "@/components/layout";
+import { SiteHeader, SiteFooter } from "@/components/layout";
 import type { Metadata } from "next";
 import { InfluenceMethodology } from "./InfluenceMethodology";
 
@@ -38,17 +38,7 @@ export default function MethodologyPage() {
         </div>
       </div>
 
-      <footer className="page-container py-8 border-t text-sm text-muted-foreground text-center">
-        <p>
-          Har du frågor om vår metodik?{" "}
-          <a
-            href="mailto:kontakt@politikerkollen.org"
-            className="underline hover:text-foreground"
-          >
-            Kontakta oss
-          </a>
-        </p>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

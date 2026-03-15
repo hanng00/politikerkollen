@@ -33,7 +33,7 @@ export interface PromiseScore {
   // Composite assessment
   composite_score: number;
   evidence_strength: 'strong' | 'moderate' | 'weak' | 'none';
-  evidence_direction: 'acted' | 'some_action' | 'mixed' | 'some_inaction' | 'contradiction';
+  evidence_direction: 'implemented' | 'partial' | 'championed' | 'supported' | 'contradictory' | 'opposed' | 'unclear';
   assessment_label: string;
   
   // Evidence counts
@@ -43,6 +43,8 @@ export interface PromiseScore {
   motion_supported_count: number;
   motion_opposed_count: number;
   party_filed_count: number;
+  adopted_count: number;
+  rejected_count: number;
   
   // Top evidence items
   top_evidence: PromiseEvidence[];
@@ -155,6 +157,7 @@ export interface GetPromiseScoresRequest {
   party?: string;
   category?: string;
   evidence_direction?: string;
+  outcome?: 'positive' | 'negative' | 'contradictory';
   limit?: number;
   offset?: number;
 }

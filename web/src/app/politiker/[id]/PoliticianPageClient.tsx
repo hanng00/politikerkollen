@@ -540,8 +540,9 @@ function WrittenQuestionCard({
                 <span>—</span>
                 <span>{date}</span>
               </div>
-              <CollapsibleTrigger asChild>
-                <div className="text-left w-full group cursor-pointer">
+              <CollapsibleTrigger
+                render={<div className="text-left w-full group cursor-pointer" />}
+              >
                   <div className="flex items-start gap-2">
                     <p className="font-medium group-hover:text-primary transition-colors">
                       {item.title || fallbackTitle}
@@ -552,7 +553,6 @@ function WrittenQuestionCard({
                       }`}
                     />
                   </div>
-                </div>
               </CollapsibleTrigger>
             </div>
             {externalLink}
@@ -793,8 +793,9 @@ function MotionCard({ item }: { item: TimelineItem }) {
                   </>
                 )}
               </div>
-              <CollapsibleTrigger asChild>
-                <div className="text-left w-full group cursor-pointer">
+              <CollapsibleTrigger
+                render={<div className="text-left w-full group cursor-pointer" />}
+              >
                   <div className="flex items-start gap-2">
                     <p className="font-medium group-hover:text-primary transition-colors">
                       {item.title || "Motion"}
@@ -805,7 +806,6 @@ function MotionCard({ item }: { item: TimelineItem }) {
                       }`}
                     />
                   </div>
-                </div>
               </CollapsibleTrigger>
             </div>
             {externalLink}

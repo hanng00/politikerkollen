@@ -80,7 +80,7 @@ export async function getPartyScorecard(): Promise<PartyScore[]> {
 export async function getPromiseScores(
   request: GetPromiseScoresRequest,
 ): Promise<{ data: PromiseScore[]; total: number }> {
-  const { party, category, evidence_direction, limit = DEFAULT_LIMIT, offset = 0 } = request;
+  const { party, category, evidence_direction, outcome, limit = DEFAULT_LIMIT, offset = 0 } = request;
 
   const conditions: string[] = [];
 
@@ -94,6 +94,18 @@ export async function getPromiseScores(
 
   if (evidence_direction) {
     conditions.push(`evidence_direction = '${evidence_direction}'`);
+  }
+
+  // Outcome filter - maps to assessment categories
+  if (outcome === 'positive') {
+    // Positive = implemented, partial, championed, or supported (acted in favor)
+    conditions.push(`evidence_direction IN ('implemented', 'partial', 'championed', 'supported')`);
+  } else if (outcome === 'negative') {
+    // Negative = opposed (voted against)
+    conditions.push(`evidence_direction = 'opposed'`);
+  } else if (outcome === 'contradictory') {
+    // Contradictory = contradictory behavior
+    conditions.push(`evidence_direction = 'contradictory'`);
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -124,6 +136,8 @@ export async function getPromiseScores(
       motion_supported_count,
       motion_opposed_count,
       party_filed_count,
+      adopted_count,
+      rejected_count,
       top_evidence,
       has_strong_positive,
       has_contradiction
@@ -167,6 +181,8 @@ export async function getPromiseScoreById(promiseId: string): Promise<PromiseSco
       motion_supported_count,
       motion_opposed_count,
       party_filed_count,
+      adopted_count,
+      rejected_count,
       top_evidence,
       has_strong_positive,
       has_contradiction
@@ -185,11 +201,15 @@ export async function getPromiseScoreById(promiseId: string): Promise<PromiseSco
 export async function getPartyEvidenceScorecard(category?: string): Promise<Array<{
   party: string;
   total_promises: number;
-  acted_count: number;
-  some_action_count: number;
-  mixed_count: number;
-  some_inaction_count: number;
-  contradiction_count: number;
+  implemented_count: number;
+  partial_count: number;
+  championed_count: number;
+  supported_count: number;
+  contradictory_count: number;
+  opposed_count: number;
+  unclear_count: number;
+  positive_count: number;
+  negative_count: number;
   avg_score: number;
 }>> {
   const whereClause = category ? `WHERE category = '${category}'` : '';
@@ -197,11 +217,15 @@ export async function getPartyEvidenceScorecard(category?: string): Promise<Arra
     SELECT
       promise_party as party,
       COUNT(*) as total_promises,
-      COALESCE(SUM(CASE WHEN evidence_direction = 'acted' THEN 1 ELSE 0 END), 0) as acted_count,
-      COALESCE(SUM(CASE WHEN evidence_direction = 'some_action' THEN 1 ELSE 0 END), 0) as some_action_count,
-      COALESCE(SUM(CASE WHEN evidence_direction = 'mixed' THEN 1 ELSE 0 END), 0) as mixed_count,
-      COALESCE(SUM(CASE WHEN evidence_direction = 'some_inaction' THEN 1 ELSE 0 END), 0) as some_inaction_count,
-      COALESCE(SUM(CASE WHEN evidence_direction = 'contradiction' THEN 1 ELSE 0 END), 0) as contradiction_count,
+      COALESCE(SUM(CASE WHEN evidence_direction = 'implemented' THEN 1 ELSE 0 END), 0) as implemented_count,
+      COALESCE(SUM(CASE WHEN evidence_direction = 'partial' THEN 1 ELSE 0 END), 0) as partial_count,
+      COALESCE(SUM(CASE WHEN evidence_direction = 'championed' THEN 1 ELSE 0 END), 0) as championed_count,
+      COALESCE(SUM(CASE WHEN evidence_direction = 'supported' THEN 1 ELSE 0 END), 0) as supported_count,
+      COALESCE(SUM(CASE WHEN evidence_direction = 'contradictory' THEN 1 ELSE 0 END), 0) as contradictory_count,
+      COALESCE(SUM(CASE WHEN evidence_direction = 'opposed' THEN 1 ELSE 0 END), 0) as opposed_count,
+      COALESCE(SUM(CASE WHEN evidence_direction = 'unclear' THEN 1 ELSE 0 END), 0) as unclear_count,
+      COALESCE(SUM(CASE WHEN evidence_direction IN ('implemented', 'partial', 'championed', 'supported') THEN 1 ELSE 0 END), 0) as positive_count,
+      COALESCE(SUM(CASE WHEN evidence_direction = 'opposed' THEN 1 ELSE 0 END), 0) as negative_count,
       ROUND(AVG(composite_score), 3) as avg_score
     FROM ${MART_SCHEMA}.mart_promise_score
     ${whereClause}
@@ -212,11 +236,15 @@ export async function getPartyEvidenceScorecard(category?: string): Promise<Arra
   const result = await query<{
     party: string;
     total_promises: number;
-    acted_count: number;
-    some_action_count: number;
-    mixed_count: number;
-    some_inaction_count: number;
-    contradiction_count: number;
+    implemented_count: number;
+    partial_count: number;
+    championed_count: number;
+    supported_count: number;
+    contradictory_count: number;
+    opposed_count: number;
+    unclear_count: number;
+    positive_count: number;
+    negative_count: number;
     avg_score: number;
   }>(sql);
   return result.data;

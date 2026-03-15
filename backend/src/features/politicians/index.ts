@@ -198,6 +198,7 @@ const server = Bun.serve({
             party: url.searchParams.get('party') || undefined,
             category: url.searchParams.get('category') || undefined,
             evidence_direction: url.searchParams.get('evidence_direction') || undefined,
+            outcome: (url.searchParams.get('outcome') as 'positive' | 'negative' | 'contradictory') || undefined,
             limit: parseInt(url.searchParams.get('limit') || '20', 10),
             offset: parseInt(url.searchParams.get('offset') || '0', 10),
           };

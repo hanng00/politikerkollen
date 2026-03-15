@@ -14,7 +14,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback } from "react";
 
-import { SiteHeader } from "@/components/layout";
+import { SiteHeader, SiteFooter } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -364,24 +364,7 @@ export default function LoftenPage() {
         </Suspense>
       </main>
 
-      <footer className="border-t py-6">
-        <div className="page-container text-center text-muted-foreground">
-          <p className="text-sm">
-            Ett verktyg för demokratiskt ansvarsutkrävande.
-          </p>
-          <p className="text-sm mt-1">
-            Data från{" "}
-            <a
-              href="https://data.riksdagen.se"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-foreground"
-            >
-              Riksdagens öppna data
-            </a>
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { LogoMark, SiteHeader } from "@/components/layout";
+import { LogoMark, SiteHeader, SiteFooter } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
 import type { Metadata } from "next";
@@ -139,10 +139,7 @@ export default function ManifestoPage() {
         </section>
       </article>
 
-      <footer className="page-container-narrow py-8 border-t text-sm text-muted-foreground">
-        Ett verktyg för systematiskt, kontinuerligt demokratiskt
-        ansvarsutkrävande.
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

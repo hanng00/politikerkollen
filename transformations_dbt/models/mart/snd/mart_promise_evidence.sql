@@ -53,6 +53,7 @@ source_docs as (
         dok_id,
         dok_typ,
         titel,
+        source_summary,
         parti as source_parti,
         dokument_url
     from {{ ref('int_source_documents') }}
@@ -134,6 +135,7 @@ matches_with_sources as (
         p.category,
         sd.dok_typ as source_dok_typ,
         sd.titel as source_titel,
+        sd.source_summary,
         sd.source_parti,
         sd.dokument_url as source_url
     from matches m
@@ -157,6 +159,7 @@ motion_evidence as (
         mws.category,
         mws.source_dok_typ,
         mws.source_titel,
+        mws.source_summary,
         mws.source_parti,
         mws.source_url,
         
@@ -231,6 +234,7 @@ proposition_evidence as (
         mws.category,
         mws.source_dok_typ,
         mws.source_titel,
+        mws.source_summary,
         mws.source_parti,
         mws.source_url,
         
@@ -310,6 +314,7 @@ select
     category,
     source_dok_typ,
     source_titel,
+    source_summary,
     source_parti,
     source_url,
     bet_dok_id,
@@ -382,19 +387,19 @@ select
     
     -- Human-readable signal description
     case
-        when signal_type = 'proposition_supported' then 'Regeringsförslag antaget, partiet röstade för'
-        when signal_type = 'proposition_opposed' then 'Regeringsförslag antaget, partiet röstade emot'
-        when signal_type = 'proposition_passed' then 'Regeringsförslag antaget'
-        when signal_type = 'proposition_rejected_supported' then 'Regeringsförslag avslaget, partiet stödde'
-        when signal_type = 'proposition_rejected_opposed' then 'Regeringsförslag avslaget, partiet motsatte sig'
-        when signal_type = 'proposition_rejected' then 'Regeringsförslag avslaget'
-        when signal_type = 'motion_bifall_supported' then 'Motion bifallen, partiet stödde'
+        when signal_type = 'proposition_supported' then 'Regeringsf?rslag antaget, partiet r?stade f?r'
+        when signal_type = 'proposition_opposed' then 'Regeringsf?rslag antaget, partiet r?stade emot'
+        when signal_type = 'proposition_passed' then 'Regeringsf?rslag antaget'
+        when signal_type = 'proposition_rejected_supported' then 'Regeringsf?rslag avslaget, partiet st?dde'
+        when signal_type = 'proposition_rejected_opposed' then 'Regeringsf?rslag avslaget, partiet motsatte sig'
+        when signal_type = 'proposition_rejected' then 'Regeringsf?rslag avslaget'
+        when signal_type = 'motion_bifall_supported' then 'Motion bifallen, partiet st?dde'
         when signal_type = 'motion_bifall_opposed' then 'Motion bifallen, partiet motsatte sig'
         when signal_type = 'motion_bifall' then 'Motion bifallen'
-        when signal_type = 'motion_supported' then 'Partiet stödde motionen'
+        when signal_type = 'motion_supported' then 'Partiet st?dde motionen'
         when signal_type = 'motion_opposed' then 'Partiet motsatte sig motionen'
         when signal_type = 'motion_abstained' then 'Partiet avstod'
-        else 'Okänt'
+        else 'Ok?nt'
     end as signal_description
 
 from all_evidence

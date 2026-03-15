@@ -3,20 +3,17 @@
 --
 -- This is the top-level view for promise accountability assessment.
 -- Aggregates all evidence from mart_promise_evidence into:
---   - A composite score (-1.0 to +1.0)
---   - Evidence strength (strong/moderate/weak/none)
---   - Evidence direction (acted/mixed/inaction/contradiction)
---   - Top evidence items for display
+--   - Intention: What the party tried to do (supported/opposed)
+--   - Implementation: What actually happened (adopted/rejected)
+--   - Assessment: Combined verdict
 --
--- Scoring method: weighted average of non-zero signals (not sum).
--- This prevents score inflation from many weak signals.
---
--- Score interpretation (balanced thresholds):
---   >= 0.35:  "Starkt stöd" (strong evidence of action)
---   0.15-0.35: "Visst stöd" (some evidence of action)
---   -0.15-0.15: "Oklart" (mixed or insufficient evidence)
---   -0.35--0.15: "Svagt stöd" (some evidence of inaction)
---   <= -0.35: "Motsägelse" (strong evidence of contradiction)
+-- Assessment categories:
+--   - "Genomfört": Proposition passed or motion adopted
+--   - "Delvis genomfört": Some motions adopted
+--   - "Drev frågan": Supported many proposals, none adopted
+--   - "Motsägelsefullt": Both supported and opposed similar proposals
+--   - "Röstade emot": Opposed majority of proposals
+--   - "Oklart": Insufficient evidence
 
 with evidence as (
     select
@@ -29,6 +26,7 @@ with evidence as (
         source_dok_id,
         source_dok_typ,
         source_titel,
+        source_summary,
         source_url,
         alignment,
         alignment_confidence,
@@ -72,6 +70,10 @@ promise_aggregates as (
         countif(signal_type = 'motion_opposed') as motion_opposed_count,
         countif(party_filed_motion) as party_filed_count,
         
+        -- Implementation counts (what actually happened in riksdagen)
+        countif(motion_outcome = 'bifall') as adopted_count,
+        countif(motion_outcome = 'avslag') as rejected_count,
+        
         -- Alignment distribution
         countif(alignment = 'supports') as supports_count,
         countif(alignment = 'opposes') as opposes_count,
@@ -81,12 +83,13 @@ promise_aggregates as (
         arg_max(match_id, abs(signal_weight)) as best_evidence_match_id,
         max(abs(signal_weight)) as best_evidence_weight,
         
-        -- Aggregate evidence into array for display (top items by weight, excluding zero-weight noise)
+        -- Aggregate evidence into array for display (all items, sorted by weight)
         list({
             'match_id': match_id,
             'source_dok_id': source_dok_id,
             'source_dok_typ': source_dok_typ,
             'source_titel': source_titel,
+            'source_summary': source_summary,
             'source_url': source_url,
             'alignment': alignment,
             'alignment_rationale': alignment_rationale,
@@ -99,10 +102,30 @@ promise_aggregates as (
             'punkt_rubrik': punkt_rubrik,
             'motion_outcome': motion_outcome,
             'similarity_score': similarity_score
-        } order by abs(signal_weight) desc) filter (where signal_weight != 0) as evidence_items
+        } order by abs(signal_weight) desc) as evidence_items
         
     from evidence
     group by promise_id
+),
+
+-- Calculate derived metrics
+promise_with_metrics as (
+    select
+        *,
+        -- Total relevant proposals (supported + opposed)
+        (motion_supported_count + motion_bifall_count + motion_opposed_count) as total_relevant,
+        -- Support ratio
+        case 
+            when (motion_supported_count + motion_bifall_count + motion_opposed_count) = 0 then 0.0
+            else (motion_supported_count + motion_bifall_count)::float / 
+                 (motion_supported_count + motion_bifall_count + motion_opposed_count)
+        end as support_ratio,
+        -- Has contradiction: both supported and opposed significant amounts
+        (motion_supported_count + motion_bifall_count > 0 
+         and motion_opposed_count > 0 
+         and motion_opposed_count >= (motion_supported_count + motion_bifall_count) * 0.25
+        ) as has_contradiction
+    from promise_aggregates
 )
 
 select
@@ -121,22 +144,33 @@ select
         else 'none'
     end as evidence_strength,
     
-    -- Evidence direction based on score (balanced thresholds)
+    -- Assessment category (new model: intention + implementation)
     case
-        when composite_score >= 0.35 then 'acted'
-        when composite_score >= 0.15 then 'some_action'
-        when composite_score > -0.15 then 'mixed'
-        when composite_score > -0.35 then 'some_inaction'
-        else 'contradiction'
+        -- Contradiction takes priority
+        when has_contradiction then 'contradictory'
+        -- Implementation: proposition passed
+        when proposition_count > 0 then 'implemented'
+        -- No relevant evidence
+        when total_relevant = 0 then 'unclear'
+        -- Opposed majority
+        when support_ratio <= 0.3 then 'opposed'
+        -- Championed with partial success
+        when support_ratio >= 0.7 and motion_bifall_count > 0 then 'partial'
+        -- Championed but not implemented
+        when support_ratio >= 0.7 then 'championed'
+        -- Some support
+        else 'supported'
     end as evidence_direction,
     
-    -- Human-readable assessment label
+    -- Human-readable assessment label (Swedish)
     case
-        when composite_score >= 0.35 then 'Starkt stöd'
-        when composite_score >= 0.15 then 'Visst stöd'
-        when composite_score > -0.15 then 'Oklart'
-        when composite_score > -0.35 then 'Svagt stöd'
-        else 'Motsägelse'
+        when has_contradiction then 'Motsägelsefullt'
+        when proposition_count > 0 then 'Genomfört'
+        when total_relevant = 0 then 'Oklart'
+        when support_ratio <= 0.3 then 'Röstade emot'
+        when support_ratio >= 0.7 and motion_bifall_count > 0 then 'Delvis genomfört'
+        when support_ratio >= 0.7 then 'Drev frågan'
+        else 'Visst stöd'
     end as assessment_label,
     
     -- Counts
@@ -146,17 +180,19 @@ select
     motion_supported_count,
     motion_opposed_count,
     party_filed_count,
+    adopted_count,
+    rejected_count,
     supports_count,
     opposes_count,
     tangential_count,
     
-    -- Top evidence items (limit to 10 for API response size)
-    coalesce(evidence_items[:10], []) as top_evidence,
+    -- Top evidence items (limit to 20 for API response size)
+    coalesce(evidence_items[:20], []) as top_evidence,
     
     -- Has any strong positive signal?
     (proposition_count > 0 or motion_bifall_count > 0) as has_strong_positive,
     
     -- Has any contradiction?
-    (motion_opposed_count > 0 and supports_count > 0) as has_contradiction
+    has_contradiction
 
-from promise_aggregates
+from promise_with_metrics
