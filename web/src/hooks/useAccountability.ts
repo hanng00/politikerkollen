@@ -6,12 +6,40 @@ import type {
   FetchAccountabilityCardsOptions,
   PartyScore,
   PromiseScore,
+  PromiseEvidence,
   PromiseScoresResponse,
   FetchPromiseScoresOptions,
   PartyEvidenceScore,
 } from "@/types";
 
 const API_ENDPOINT = process.env.NEXT_PUBLIC_API_ENDPOINT;
+
+function normalizeEvidence(raw: Record<string, unknown>): PromiseEvidence {
+  return {
+    ...raw,
+    signal_weight: Number(raw.signal_weight) || 0,
+    similarity_score: Number(raw.similarity_score) || 0,
+    punkt: raw.punkt != null ? Number(raw.punkt) : null,
+  } as PromiseEvidence;
+}
+
+function normalizePromiseScore(raw: Record<string, unknown>): PromiseScore {
+  const topEvidence = Array.isArray(raw.top_evidence) 
+    ? raw.top_evidence.map((e: Record<string, unknown>) => normalizeEvidence(e))
+    : [];
+  
+  return {
+    ...raw,
+    proposition_count: Number(raw.proposition_count) || 0,
+    motion_bifall_count: Number(raw.motion_bifall_count) || 0,
+    motion_supported_count: Number(raw.motion_supported_count) || 0,
+    motion_opposed_count: Number(raw.motion_opposed_count) || 0,
+    party_filed_count: Number(raw.party_filed_count) || 0,
+    total_evidence_count: Number(raw.total_evidence_count) || 0,
+    composite_score: Number(raw.composite_score) || 0,
+    top_evidence: topEvidence,
+  } as PromiseScore;
+}
 
 async function fetchAccountabilityCards(
   options: FetchAccountabilityCardsOptions = {}
@@ -117,7 +145,11 @@ async function fetchPromiseScores(
     throw new Error(`Failed to fetch promise scores: ${res.status}`);
   }
 
-  return res.json();
+  const json = await res.json();
+  return {
+    ...json,
+    data: json.data.map(normalizePromiseScore),
+  };
 }
 
 async function fetchPromiseScoreById(id: string): Promise<PromiseScore> {
@@ -131,7 +163,7 @@ async function fetchPromiseScoreById(id: string): Promise<PromiseScore> {
   }
 
   const json = await res.json();
-  return json.data;
+  return normalizePromiseScore(json.data);
 }
 
 async function fetchPartyEvidenceScorecard(category?: string): Promise<PartyEvidenceScore[]> {

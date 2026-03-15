@@ -130,6 +130,7 @@ export async function getPromiseScores(
     FROM ${MART_SCHEMA}.mart_promise_score
     ${whereClause}
     ORDER BY 
+      has_contradiction DESC,
       abs(composite_score) DESC,
       total_evidence_count DESC,
       promise_year DESC

@@ -384,7 +384,7 @@ select
     case
         when signal_type = 'proposition_supported' then 'Regeringsförslag antaget, partiet röstade för'
         when signal_type = 'proposition_opposed' then 'Regeringsförslag antaget, partiet röstade emot'
-        when signal_type = 'proposition_passed' then 'Regeringsf?rslag antaget'
+        when signal_type = 'proposition_passed' then 'Regeringsförslag antaget'
         when signal_type = 'proposition_rejected_supported' then 'Regeringsförslag avslaget, partiet stödde'
         when signal_type = 'proposition_rejected_opposed' then 'Regeringsförslag avslaget, partiet motsatte sig'
         when signal_type = 'proposition_rejected' then 'Regeringsförslag avslaget'

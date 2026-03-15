@@ -7,13 +7,24 @@ import { getPartyName } from "@/lib/parties";
  */
 export function getNarrative(score: PromiseScore): string {
   const party = getPartyName(score.promise_party);
-  const { evidence_direction: dir } = score;
+  const { evidence_direction: dir, has_contradiction } = score;
 
   const hasProposition = score.proposition_count > 0;
   const hasBifall = score.motion_bifall_count > 0;
   const hasPartyFiled = score.party_filed_count > 0;
   const hasSupported = score.motion_supported_count > 0;
   const hasOpposed = score.motion_opposed_count > 0;
+
+  // Special case: contradiction takes priority for narrative
+  if (has_contradiction) {
+    const supportedCount = score.motion_supported_count + score.motion_bifall_count;
+    const opposedCount = score.motion_opposed_count;
+    
+    if (supportedCount > 0 && opposedCount > 0) {
+      return `${party} har stött ${supportedCount} förslag men även röstat emot ${opposedCount} liknande förslag.`;
+    }
+    return `${party} har röstat både för och emot förslag i linje med detta löfte.`;
+  }
 
   let evidenceSummary = "";
 
@@ -49,9 +60,14 @@ export function getNarrative(score: PromiseScore): string {
 
 /**
  * Short verdict label (Swedish, human-readable).
- * Replaces the raw assessment_label for UI display where we want maximum clarity.
+ * When has_contradiction is true, we show that instead of the direction.
  */
-export function getVerdictLabel(direction: string): string {
+export function getVerdictLabel(direction: string, hasContradiction?: boolean): string {
+  // Contradiction overrides direction for clarity
+  if (hasContradiction) {
+    return "Motsägelse";
+  }
+  
   const labels: Record<string, string> = {
     acted: "Aktivt drivit",
     some_action: "Tagit steg",

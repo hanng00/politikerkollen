@@ -61,131 +61,140 @@ function stanceLabel(stance: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// LAYER 1: The Viral Card - Redesigned for impact
+// LAYER 1: The Promise Section - "LOVADE"
 // ---------------------------------------------------------------------------
 
-function ViralCard({ score }: { score: PromiseScore }) {
+function PromiseSection({ score }: { score: PromiseScore }) {
   const partyColor = getPartyColor(score.promise_party);
   const partyName = getPartyName(score.promise_party);
-  const narrative = getNarrative(score);
-  const assessmentColor = getAssessmentColor(score.evidence_direction);
-  const verdict = getVerdictLabel(score.evidence_direction);
   const categoryName = CATEGORY_NAMES[score.category] ?? score.category;
 
   return (
-    <Card className="overflow-hidden">
-      <div className="h-1.5" style={{ backgroundColor: assessmentColor }} />
-
-      <CardContent className="pt-5 pb-5 space-y-4">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2">
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Lovade
+        </span>
+        <div className="flex-1 h-px bg-border" />
+      </div>
+      
+      <Card>
+        <CardContent className="pt-4 pb-4 space-y-3">
+          <div className="flex items-center gap-2 flex-wrap">
             <Badge
               variant="outline"
               style={{ borderColor: partyColor, color: partyColor }}
             >
-              {partyName} {score.promise_year}
+              {partyName}
             </Badge>
             <Badge variant="secondary" className="text-xs">
               {categoryName}
             </Badge>
+            <span className="text-xs text-muted-foreground">
+              Valmanifest {score.promise_year}
+            </span>
           </div>
-          <div className="flex items-center gap-1.5">
-            {getDirectionIcon(score.evidence_direction, "size-4")}
-            <span className="text-sm font-medium">{verdict}</span>
-          </div>
-        </div>
 
-        <blockquote className="text-lg font-serif leading-relaxed">
-          &ldquo;{score.promise_text}&rdquo;
-        </blockquote>
-
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          {narrative}
-        </p>
-
-        {score.has_contradiction && (
-          <div className="flex items-center gap-2 text-sm font-medium p-3 rounded-lg bg-destructive/10 text-destructive">
-            <AlertTriangle className="size-4 shrink-0" />
-            Partiet har även röstat mot liknande förslag
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          <blockquote className="text-lg font-serif leading-relaxed border-l-2 border-muted-foreground/30 pl-4">
+            &ldquo;{score.promise_text}&rdquo;
+          </blockquote>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// LAYER 2: Data Summary
+// LAYER 2: The Action Section - "GJORDE"
 // ---------------------------------------------------------------------------
 
-function DataSummary({ score }: { score: PromiseScore }) {
-  const categoryName = CATEGORY_NAMES[score.category] ?? score.category;
+function ActionSection({ score }: { score: PromiseScore }) {
+  const partyName = getPartyName(score.promise_party);
+  const isContradiction = score.has_contradiction;
+  const assessmentColor = isContradiction 
+    ? "var(--color-destructive)" 
+    : getAssessmentColor(score.evidence_direction);
+  const verdict = getVerdictLabel(score.evidence_direction, isContradiction);
+  const narrative = getNarrative(score);
+  
+  const actionableCount = score.proposition_count + 
+    score.motion_bifall_count + 
+    score.motion_supported_count + 
+    score.motion_opposed_count;
 
-  // Show outcome-based counts (these don't overlap with each other)
-  // party_filed_count overlaps with these, so we don't show it separately
-  const counts = [
-    {
-      n: score.proposition_count,
-      label: "regeringsförslag",
-      color: "bg-success",
-      explanation: "Propositioner från regeringen som stödjer löftet.",
-    },
-    {
-      n: score.motion_bifall_count,
-      label: "godkända motioner",
-      color: "bg-success/70",
-      explanation: "Motioner som riksdagen godkänt och som stödjer löftet.",
-    },
-    {
-      n: score.motion_supported_count,
-      label: "stödda motioner",
-      color: "bg-primary",
-      explanation: "Motioner partiet röstat för (även om de avslogs).",
-    },
-    {
-      n: score.motion_opposed_count,
-      label: "motsatta motioner",
-      color: "bg-destructive",
-      explanation: "Motioner i linje med löftet som partiet röstat emot.",
-    },
-  ].filter((c) => c.n > 0);
-
-  if (counts.length === 0) {
-    return null;
-  }
+  const supportedCount = score.motion_supported_count + score.motion_bifall_count + score.proposition_count;
+  const opposedCount = score.motion_opposed_count;
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-medium text-muted-foreground">
-          Riksdagsbeslut
-        </h3>
-        <Badge variant="secondary">{categoryName}</Badge>
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Gjorde
+        </span>
+        <div className="flex-1 h-px bg-border" />
       </div>
-
-      <Card>
-        <CardContent className="py-4">
-          <div className="flex flex-wrap gap-x-5 gap-y-2">
-            {counts.map((c) => (
-              <TooltipProvider key={c.label} delay={0}>
+      
+      <Card className={isContradiction ? "ring ring-destructive/30" : ""}>
+        <div className="h-1.5" style={{ backgroundColor: assessmentColor }} />
+        <CardContent className="pt-4 pb-4 space-y-4">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              {isContradiction ? (
+                <AlertTriangle className="size-5 text-destructive" />
+              ) : (
+                getDirectionIcon(score.evidence_direction, "size-5")
+              )}
+              <span className={`text-lg font-semibold ${isContradiction ? "text-destructive" : ""}`}>
+                {verdict}
+              </span>
+            </div>
+            {actionableCount > 0 && (
+              <TooltipProvider delay={0}>
                 <Tooltip>
                   <TooltipTrigger
                     render={<span />}
-                    className="flex items-center gap-1.5 text-sm text-muted-foreground cursor-help"
+                    className="flex items-center gap-1.5 cursor-help text-sm"
                   >
-                    <span className={`size-2 rounded-full ${c.color}`} />
-                    <span className="tabular-nums font-medium text-foreground">
-                      {c.n}
-                    </span>{" "}
-                    {c.label}
+                    <span className="font-medium">
+                      {score.composite_score >= 0 ? "+" : ""}{score.composite_score.toFixed(2)}
+                    </span>
+                    <HelpCircle className="size-3 text-muted-foreground" />
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-xs text-xs">
-                    {c.explanation}
+                  <TooltipContent side="bottom" className="max-w-xs text-xs">
+                    <p className="font-medium mb-1">Poängberäkning:</p>
+                    <p>Viktat genomsnitt av partiets agerande i {actionableCount} riksdagsbeslut.</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-            ))}
+            )}
           </div>
+
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            {narrative}
+          </p>
+
+          {actionableCount > 0 && (
+            <div className="flex flex-wrap gap-4 pt-2 border-t">
+              {supportedCount > 0 && (
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="size-4 text-success" />
+                  <span className="text-sm">
+                    <span className="font-semibold">{supportedCount}</span>
+                    <span className="text-muted-foreground"> förslag stödda</span>
+                  </span>
+                </div>
+              )}
+              {opposedCount > 0 && (
+                <div className="flex items-center gap-2">
+                  <XCircle className="size-4 text-destructive" />
+                  <span className="text-sm">
+                    <span className="font-semibold">{opposedCount}</span>
+                    <span className="text-muted-foreground"> förslag motsatta</span>
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -206,6 +215,9 @@ function EvidenceItem({
   const isPositive = evidence.signal_weight > 0;
   const isNegative = evidence.signal_weight < 0;
   const translated = translateSignal(evidence.signal_description);
+  const weightDisplay = evidence.signal_weight > 0 
+    ? `+${evidence.signal_weight.toFixed(2)}` 
+    : evidence.signal_weight.toFixed(2);
 
   return (
     <motion.div
@@ -245,6 +257,23 @@ function EvidenceItem({
             >
               {translated}
             </Badge>
+            {evidence.signal_weight !== 0 && (
+              <TooltipProvider delay={0}>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={<span />}
+                    className={`text-[11px] font-mono tabular-nums cursor-help ${
+                      isPositive ? "text-success" : isNegative ? "text-destructive" : "text-muted-foreground"
+                    }`}
+                  >
+                    {weightDisplay}
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs text-xs">
+                    Bidrag till totalpoängen. Positiva värden stödjer löftet, negativa motsäger det.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
 
           <h4 className="text-sm font-medium leading-snug">
@@ -338,15 +367,18 @@ export function PromiseScoreCard({ score }: { score: PromiseScore }) {
 
   return (
     <div className="space-y-8">
-      <ViralCard score={score} />
+      <PromiseSection score={score} />
 
-      <DataSummary score={score} />
+      <ActionSection score={score} />
 
       {score.top_evidence.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-sm font-medium text-muted-foreground">
-            Viktigaste besluten
-          </h3>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Underlag
+            </span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
           <div>
             {visibleEvidence.map((evidence, index) => (
               <EvidenceItem

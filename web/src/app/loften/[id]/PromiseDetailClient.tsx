@@ -22,7 +22,6 @@ import {
   PromiseScoreCard,
   PromiseScoreCardSkeleton,
 } from "@/components/promises/PromiseScoreCard";
-import { PromiseShareDialog } from "@/components/promises/PromiseShareDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,7 +32,7 @@ import {
   useAdjacentPromises,
 } from "@/hooks/useAccountability";
 import { CATEGORY_NAMES, getPartyColor, getPartyName } from "@/lib/parties";
-import { getAssessmentColor, getVerdictLabel } from "@/lib/promise-narratives";
+import { getAssessmentColor, getVerdictLabel, getNarrative } from "@/lib/promise-narratives";
 import type { PromiseScore } from "@/types";
 
 function getAssessmentIcon(direction: string, size = "size-3.5") {
@@ -82,7 +81,11 @@ function RelatedPromiseCard({ score }: { score: PromiseScore }) {
           </p>
           <div className="flex items-center justify-between">
             <span className="text-[10px] text-muted-foreground">
-              {score.total_evidence_count} dokument
+              {score.proposition_count +
+                score.motion_bifall_count +
+                score.motion_supported_count +
+                score.motion_opposed_count}{" "}
+              riksdagsbeslut
             </span>
             <ChevronRight className="size-3 text-muted-foreground group-hover:text-foreground transition-colors" />
           </div>
@@ -226,7 +229,6 @@ function ExploreMoreSection({
 
 export default function PromiseDetailClient({ id }: { id: string }) {
   const { data: promise, isLoading, error } = usePromiseScore(id);
-  const [shareOpen, setShareOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const { prev, next } = useAdjacentPromises(id, {
@@ -238,6 +240,35 @@ export default function PromiseDetailClient({ id }: { id: string }) {
     navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleShare = async () => {
+    if (!promise) return;
+
+    const url = `${window.location.origin}/loften/${id}`;
+    const partyName = getPartyName(promise.promise_party);
+    const truncatedPromise =
+      promise.promise_text.length > 80
+        ? `${promise.promise_text.slice(0, 80)}…`
+        : promise.promise_text;
+    const narrative = getNarrative(promise);
+    const text = `${partyName} lovade: "${truncatedPromise}"\n\n${narrative}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${partyName}: "${truncatedPromise}"`,
+          text,
+          url,
+        });
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          handleCopyLink();
+        }
+      }
+    } else {
+      handleCopyLink();
+    }
   };
 
   return (
@@ -333,7 +364,7 @@ export default function PromiseDetailClient({ id }: { id: string }) {
                     </>
                   )}
                 </Button>
-                <Button size="sm" onClick={() => setShareOpen(true)}>
+                <Button size="sm" onClick={handleShare}>
                   <Share2 className="size-4" />
                   Dela
                 </Button>
@@ -355,14 +386,6 @@ export default function PromiseDetailClient({ id }: { id: string }) {
             </div>
           </div>
         </div>
-      )}
-
-      {promise && (
-        <PromiseShareDialog
-          open={shareOpen}
-          onOpenChange={setShareOpen}
-          promise={promise}
-        />
       )}
     </div>
   );

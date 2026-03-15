@@ -105,7 +105,11 @@ function PromiseScoreCardCompact({
 
             <div className="flex items-center justify-between pt-1">
               <span className="text-xs text-muted-foreground">
-                {score.total_evidence_count} dokument
+                {score.proposition_count +
+                  score.motion_bifall_count +
+                  score.motion_supported_count +
+                  score.motion_opposed_count}{" "}
+                riksdagsbeslut
               </span>
               <ChevronRight className="size-4 text-muted-foreground group-hover:text-foreground transition-colors" />
             </div>

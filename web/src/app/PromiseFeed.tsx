@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
 import {
+  AlertTriangle,
   CheckCircle2,
   ChevronRight,
   CircleDot,
@@ -18,7 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useInfinitePromiseScores } from "@/hooks/useAccountability";
 import { CATEGORY_NAMES, getPartyColor, getPartyName } from "@/lib/parties";
-import { getAssessmentColor, getNarrative, getVerdictLabel } from "@/lib/promise-narratives";
+import { getAssessmentColor, getVerdictLabel } from "@/lib/promise-narratives";
 import type { PromiseScore } from "@/types";
 
 const PAGE_SIZE = 12;
@@ -50,8 +51,13 @@ function PromiseScoreCardCompact({
   const partyColor = getPartyColor(score.promise_party);
   const partyName = getPartyName(score.promise_party);
   const isContradiction = score.has_contradiction;
-  const verdict = getVerdictLabel(score.evidence_direction);
-  const assessmentColor = getAssessmentColor(score.evidence_direction);
+  const verdict = getVerdictLabel(score.evidence_direction, isContradiction);
+  const assessmentColor = isContradiction 
+    ? "var(--color-destructive)" 
+    : getAssessmentColor(score.evidence_direction);
+
+  const supportedCount = score.motion_supported_count + score.motion_bifall_count + score.proposition_count;
+  const opposedCount = score.motion_opposed_count;
 
   return (
     <motion.div
@@ -61,14 +67,18 @@ function PromiseScoreCardCompact({
     >
       <Link href={`/loften/${score.promise_id}`}>
         <Card
-          className={`overflow-hidden h-full hover:ring-primary/20 transition-all cursor-pointer group ${isContradiction ? "ring ring-contrast-done/20" : ""}`}
+          className={`overflow-hidden h-full hover:ring-primary/20 transition-all cursor-pointer group ${isContradiction ? "ring ring-destructive/30" : ""}`}
         >
-          <div className="h-1" style={{ backgroundColor: assessmentColor }} />
-          <CardContent className="space-y-3 min-w-0">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-1.5">
+          <CardContent className="p-0 min-w-0 flex flex-col h-full">
+            {/* LOVADE section - fixed height */}
+            <div className="p-4 pb-3 border-b border-border/50 flex-1">
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Lovade
+                </span>
                 <Badge
                   variant="outline"
+                  className="text-[10px]"
                   style={{ borderColor: partyColor, color: partyColor }}
                 >
                   {partyName} {score.promise_year}
@@ -77,25 +87,44 @@ function PromiseScoreCardCompact({
                   {CATEGORY_NAMES[score.category] ?? score.category}
                 </Badge>
               </div>
-              <div className="flex items-center gap-1.5">
-                {getAssessmentIcon(score.evidence_direction, "size-3.5")}
-                <span className="text-xs font-medium">{verdict}</span>
-              </div>
+              <p className="text-sm leading-relaxed line-clamp-3">
+                &ldquo;{score.promise_text}&rdquo;
+              </p>
             </div>
 
-            <p className="text-sm leading-relaxed line-clamp-2">
-              &ldquo;{score.promise_text}&rdquo;
-            </p>
-
-            <p className="text-xs text-muted-foreground line-clamp-2">
-              {getNarrative(score)}
-            </p>
-
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-xs text-muted-foreground">
-                {score.total_evidence_count} dokument
-              </span>
-              <ChevronRight className="size-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+            {/* GJORDE section - fixed height */}
+            <div className="p-4 pt-3" style={{ borderTop: `2px solid ${assessmentColor}` }}>
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Gjorde
+                </span>
+                {isContradiction ? (
+                  <AlertTriangle className="size-3.5 text-destructive" />
+                ) : (
+                  getAssessmentIcon(score.evidence_direction, "size-3.5")
+                )}
+                <span className={`text-xs font-semibold ${isContradiction ? "text-destructive" : ""}`}>
+                  {verdict}
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-3 text-xs">
+                {supportedCount > 0 && (
+                  <span className="flex items-center gap-1">
+                    <CheckCircle2 className="size-3 text-success" />
+                    <span className="font-medium">{supportedCount}</span>
+                    <span className="text-muted-foreground">stödda</span>
+                  </span>
+                )}
+                {opposedCount > 0 && (
+                  <span className="flex items-center gap-1">
+                    <XCircle className="size-3 text-destructive" />
+                    <span className="font-medium">{opposedCount}</span>
+                    <span className="text-muted-foreground">motsatta</span>
+                  </span>
+                )}
+                <ChevronRight className="size-4 ml-auto text-muted-foreground group-hover:text-foreground transition-colors" />
+              </div>
             </div>
           </CardContent>
         </Card>
