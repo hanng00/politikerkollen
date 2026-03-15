@@ -56,7 +56,7 @@ from cognition.modules.match_promises.repository import (
 @click.option(
     "--limit",
     type=int,
-    default=50,
+    default=150,
     help="Limit number of promises to process (for testing)",
 )
 @click.option(

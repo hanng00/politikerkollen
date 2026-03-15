@@ -30,44 +30,44 @@ FTS_SCHEMA = f"fts_{SCHEMA}_source_texts"
 
 RRF_K = 60
 DEFAULT_MAX_PER_PROMISE = 50
-DEFAULT_SIMILARITY_THRESHOLD = 0.4
+DEFAULT_SIMILARITY_THRESHOLD = 0.5
 DEFAULT_MIN_BM25_SCORE = 4.0
 
 
 def expand_promise_for_retrieval(promise: dict[str, Any]) -> str:
     """Expand promise text with context for better retrieval.
-    
+
     Adds category context and parliamentary vocabulary to bridge the semantic
     gap between short promise statements and verbose parliamentary documents.
-    
+
     Args:
         promise: Dict with promise_text, category, party keys
-        
+
     Returns:
         Expanded text optimized for embedding similarity with riksdag documents
     """
     text = promise.get("promise_text", "")
     category = promise.get("category", "")
-    
+
     # Get category description for context
     category_desc = CATEGORY_DESCRIPTIONS.get(category, "")
-    
+
     # Build expanded query with parliamentary context
     parts = []
-    
+
     # Category framing
     if category_desc:
         parts.append(f"Politikområde: {category_desc}.")
-    
+
     # The promise itself
     parts.append(f"Vallöfte: {text}")
-    
+
     # Parliamentary vocabulary hints
     parts.append(
         "Relaterade riksdagsdokument: motion, proposition, utskottsbetänkande, "
         "yrkande, förslag, tillkännagivande."
     )
-    
+
     return " ".join(parts)
 
 
@@ -292,7 +292,7 @@ def _fetch_promises(
     exclude_matched: bool = True,
 ) -> list[dict[str, Any]]:
     """Fetch promises with metadata for on-the-fly embedding.
-    
+
     Args:
         conn: DuckDB connection
         pool: CandidatePool for filtering
@@ -302,7 +302,7 @@ def _fetch_promises(
     year_filter = ""
     if pool.year:
         year_filter = f"AND year = {pool.year}"
-    
+
     exclude_clause = ""
     if exclude_matched:
         exclude_clause = f"""
@@ -310,9 +310,9 @@ def _fetch_promises(
                 SELECT DISTINCT promise_id FROM {MATCHES_TABLE}
             )
         """
-    
+
     limit_clause = f"LIMIT {limit}" if limit else ""
-    
+
     query = f"""
         SELECT 
             promise_id,
@@ -346,15 +346,15 @@ def _vector_search_onthefly(
     embedding_service: EmbeddingService | None = None,
 ) -> list[dict[str, Any]]:
     """Vector similarity search with on-the-fly promise embedding.
-    
+
     Instead of using pre-computed promise embeddings, this:
     1. Expands promise text with category context and parliamentary vocabulary
     2. Embeds the expanded text on-the-fly
     3. Compares against pre-embedded source chunks
-    
+
     This allows experimenting with different promise representations without
     re-running the embedding pipeline.
-    
+
     Processes one promise at a time to avoid OOM on MotherDuck's memory limits.
     Without HNSW indexes (not supported on MotherDuck), brute-force similarity
     requires O(n) comparisons per promise, but doing them sequentially avoids
@@ -362,31 +362,33 @@ def _vector_search_onthefly(
     """
     if not promises:
         return []
-    
+
     if embedding_service is None:
         embedding_service = EmbeddingService()
-    
+
     # Expand and embed promises on-the-fly
     logger.info(f"Expanding and embedding {len(promises)} promises on-the-fly...")
     expanded_texts = [expand_promise_for_retrieval(p) for p in promises]
     embedding_results = embedding_service.embed_texts(expanded_texts)
-    
+
     # Build promise_id -> embedding mapping
     promise_embeddings = [
         (p["promise_id"], result.embedding)
         for p, result in zip(promises, embedding_results)
     ]
-    
-    logger.info(f"Embedded {len(promise_embeddings)} promises, searching against sources...")
-    
+
+    logger.info(
+        f"Embedded {len(promise_embeddings)} promises, searching against sources..."
+    )
+
     # Process one promise at a time to avoid OOM
     # This runs N queries instead of one massive cross join
     all_results = []
-    
+
     for i, (promise_id, embedding) in enumerate(promise_embeddings):
         if (i + 1) % 10 == 0 or i == len(promise_embeddings) - 1:
             logger.info(f"Processing promise {i + 1}/{len(promise_embeddings)}...")
-        
+
         # Query for this single promise against all source chunks
         query = f"""
             WITH source_chunks AS (
@@ -419,19 +421,21 @@ def _vector_search_onthefly(
             ORDER BY similarity_score DESC
             LIMIT {max_per_promise}
         """
-        
+
         result = conn.execute(query, [embedding]).fetchall()
-        
-        all_results.extend([
-            {
-                "promise_id": promise_id,
-                "source_dok_id": row[0],
-                "similarity_score": row[1],
-                "best_chunk_text": row[2],
-            }
-            for row in result
-        ])
-    
+
+        all_results.extend(
+            [
+                {
+                    "promise_id": promise_id,
+                    "source_dok_id": row[0],
+                    "similarity_score": row[1],
+                    "best_chunk_text": row[2],
+                }
+                for row in result
+            ]
+        )
+
     return all_results
 
 
@@ -677,12 +681,14 @@ def find_matches(
 
     # Fetch and embed promises on-the-fly with context expansion
     logger.info("Fetching promises for on-the-fly embedding...")
-    promises = _fetch_promises(conn, pool, limit=limit, exclude_matched=not full_refresh)
-    
+    promises = _fetch_promises(
+        conn, pool, limit=limit, exclude_matched=not full_refresh
+    )
+
     if not promises:
         logger.warning("No promises found to match (all may already be processed)")
         return []
-    
+
     logger.info("Running vector similarity search...")
     vector_results = _vector_search_onthefly(
         conn,
@@ -691,7 +697,7 @@ def find_matches(
         max_per_promise,
         year_filter_source,
     )
-    
+
     logger.info(f"Vector search complete: {len(vector_results)} matches")
 
     if not enable_keyword:
@@ -708,7 +714,7 @@ def find_matches(
 
     year_filter_promise = pool.promise_sql()
     limit_clause = f"LIMIT {limit}" if limit else ""
-    
+
     keyword_results = _keyword_search(
         conn,
         max_per_promise,
