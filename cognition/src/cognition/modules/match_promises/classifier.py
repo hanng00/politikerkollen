@@ -6,6 +6,10 @@ or is tangential to a political promise.
 Supports two execution modes:
 - BATCH (default): Uses OpenAI Batch API for 50% cost savings
 - REALTIME: Uses direct API calls for immediate results
+
+Caching:
+- Already-classified matches (alignment IS NOT NULL) are skipped by default
+- Use reclassify=True to force re-classification of all matches
 """
 
 import logging
@@ -33,6 +37,7 @@ MAX_TEXT_LENGTH = 10000
 
 EMBEDDINGS_TABLE = f"{SCHEMA}.embeddings"
 PROMISES_TABLE = f"{SCHEMA}.valmanifest_promises"
+MATCHES_TABLE = f"{SCHEMA}.promise_vote_matches"
 
 
 def _get_response_format() -> dict[str, Any]:
@@ -115,12 +120,52 @@ def _fetch_match_texts(
     return enriched
 
 
+def _get_already_classified(
+    conn: duckdb.DuckDBPyConnection,
+    matches: list[dict[str, Any]],
+) -> dict[str, AlignmentResult]:
+    """Fetch existing classifications from the database.
+
+    Returns:
+        Dict mapping "{promise_id}_{source_dok_id}" -> AlignmentResult
+    """
+    if not matches:
+        return {}
+
+    pairs = [(m["promise_id"], m["source_dok_id"]) for m in matches]
+    values_sql = ", ".join(f"('{p}', '{s}')" for p, s in pairs)
+
+    query = f"""
+        SELECT 
+            promise_id,
+            source_dok_id,
+            alignment,
+            alignment_confidence,
+            alignment_rationale
+        FROM {MATCHES_TABLE}
+        WHERE alignment IS NOT NULL
+          AND (promise_id, source_dok_id) IN ({values_sql})
+    """
+
+    results = {}
+    for row in conn.execute(query).fetchall():
+        key = f"{row[0]}_{row[1]}"
+        results[key] = AlignmentResult(
+            alignment=row[2],
+            confidence=row[3] or 0.0,
+            rationale=row[4] or "",
+        )
+
+    return results
+
+
 def classify_alignments(
     conn: duckdb.DuckDBPyConnection,
     matches: list[dict[str, Any]],
     mode: ExecutionMode = ExecutionMode.BATCH,
     on_progress: Callable[[BatchStatus], None] | None = None,
     metadata: dict[str, str] | None = None,
+    reclassify: bool = False,
 ) -> dict[str, AlignmentResult]:
     """Classify alignment for promise-source matches.
 
@@ -130,14 +175,40 @@ def classify_alignments(
         mode: BATCH (default, 50% savings) or REALTIME
         on_progress: Progress callback for batch mode
         metadata: Optional metadata for batch tracking
+        reclassify: If True, re-classify all matches even if already classified.
+                    If False (default), skip matches that already have alignment.
 
     Returns:
-        Dict mapping match_id -> AlignmentResult
+        Dict mapping match_id -> AlignmentResult (includes both cached and new)
     """
     if not matches:
         return {}
 
-    enriched = _fetch_match_texts(conn, matches)
+    results: dict[str, AlignmentResult] = {}
+    matches_to_classify = matches
+
+    if not reclassify:
+        cached = _get_already_classified(conn, matches)
+        if cached:
+            logger.info(
+                f"Found {len(cached)} already-classified matches (skipping LLM)"
+            )
+            results.update(cached)
+
+            cached_keys = set(cached.keys())
+            matches_to_classify = [
+                m
+                for m in matches
+                if f"{m['promise_id']}_{m['source_dok_id']}" not in cached_keys
+            ]
+
+    if not matches_to_classify:
+        logger.info("All matches already classified, nothing to do")
+        return results
+
+    logger.info(f"Classifying {len(matches_to_classify)} new matches...")
+
+    enriched = _fetch_match_texts(conn, matches_to_classify)
     logger.info(f"Fetched texts for {len(enriched)} matches")
 
     requests = []
@@ -168,7 +239,7 @@ DOKUMENT (Parliamentary document excerpt):
 
     if not requests:
         logger.warning("No valid requests to classify")
-        return {}
+        return results
 
     logger.info(
         f"Submitting {len(requests)} requests for classification (model: {MODEL_NAME})..."
@@ -185,7 +256,6 @@ DOKUMENT (Parliamentary document excerpt):
         metadata=metadata,
     )
 
-    results = {}
     for match_id, data in raw_results.items():
         try:
             results[match_id] = AlignmentResult(**data)

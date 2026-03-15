@@ -76,11 +76,16 @@ from cognition.modules.match_promises.repository import (
 )
 @click.option(
     "--full-refresh",
-    is_flag=True,
+    is_flag=False,
     help="Re-process all promises, including already-matched ones (default: skip matched)",
 )
 @click.option(
     "--skip-classification", is_flag=True, help="Skip LLM alignment classification"
+)
+@click.option(
+    "--reclassify",
+    is_flag=True,
+    help="Re-classify all matches even if already classified (default: skip classified)",
 )
 @click.option(
     "--realtime",
@@ -104,6 +109,7 @@ def match_promises_cmd(
     clear: bool,
     full_refresh: bool,
     skip_classification: bool,
+    reclassify: bool,
     realtime: bool,
     dry_run: bool,
     verbose: bool,
@@ -217,6 +223,7 @@ def match_promises_cmd(
                 matches,
                 mode=mode,
                 metadata={"year": str(year) if year else "all"},
+                reclassify=reclassify,
             )
             logger.info(f"Classified {len(alignments)} matches")
 
