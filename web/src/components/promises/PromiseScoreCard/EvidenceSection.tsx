@@ -155,6 +155,7 @@ export function EvidenceSection({ score }: { score: PromiseScore }) {
   const [showAllFor, setShowAllFor] = useState(false);
   const [showAllAgainst, setShowAllAgainst] = useState(false);
   const [showUnclear, setShowUnclear] = useState(false);
+  const [showExplainer, setShowExplainer] = useState(false);
   
   const partyName = getPartyName(score.promise_party);
   const categorized = categorizeEvidence(score.top_evidence);
@@ -177,11 +178,56 @@ export function EvidenceSection({ score }: { score: PromiseScore }) {
 
   return (
     <section className="space-y-6">
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Underlag
-        </span>
-        <div className="flex-1 h-px bg-border" />
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Underlag
+          </span>
+          <div className="flex-1 h-px bg-border" />
+          <button
+            onClick={() => setShowExplainer(!showExplainer)}
+            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+          >
+            <HelpCircle className="size-3" />
+            {showExplainer ? "Dölj guide" : "Så tolkar du detta"}
+          </button>
+        </div>
+        
+        {/* Inline explainer */}
+        {showExplainer && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="rounded-md bg-muted/50 p-3 text-sm text-muted-foreground space-y-2"
+          >
+            <p className="font-medium text-foreground">Så tolkar du underlaget:</p>
+            <ul className="space-y-1 text-xs">
+              <li className="flex items-start gap-2">
+                <span className="bg-success/10 text-success px-1.5 py-0.5 rounded text-xs font-medium shrink-0">Stödjer löftet</span>
+                <span>Dokumentet föreslår samma sak som vallöftet</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="bg-destructive/10 text-destructive px-1.5 py-0.5 rounded text-xs font-medium shrink-0">Motsätter löftet</span>
+                <span>Dokumentet föreslår motsatsen till vallöftet</span>
+              </li>
+            </ul>
+            <p className="text-xs pt-1 border-t border-border/50">
+              <TrendingUp className="size-3 inline text-success mr-1" />
+              <strong>Agerade i linje</strong> = partiet röstade så att det gynnar löftet
+              <br />
+              <TrendingDown className="size-3 inline text-destructive mr-1" />
+              <strong>Agerade mot</strong> = partiet röstade så att det motverkar löftet
+            </p>
+            <a 
+              href="/om/metodik#loften" 
+              className="inline-flex items-center gap-1 text-xs text-foreground hover:underline pt-1"
+            >
+              Läs mer om vår metodik
+              <ExternalLink className="size-3" />
+            </a>
+          </motion.div>
+        )}
       </div>
 
       {/* Actions FOR the promise */}

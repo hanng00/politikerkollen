@@ -15,7 +15,7 @@ export function PromiseScoreCard({ score }: { score: PromiseScore }) {
       <SummarySection score={score} />
       <EvidenceSection score={score} />
       <ContextSection score={score} />
-      <MethodologySection />
+      <MethodologySection score={score} />
     </div>
   );
 }

@@ -12,19 +12,19 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { LogOut, Menu, type LucideIcon } from "lucide-react";
+import { FlaskConical, LogOut, Menu, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems: { href: string; label: string; icon?: LucideIcon }[] = [
   // v1: focused nav — only the core loop + credibility
   // { href: "/loften", label: "Löften" },
+  { href: "/om/metodik", label: "Metodik", icon: FlaskConical },
   { href: "/manifesto", label: "Om" },
   { href: "tel:+46763281170", label: "Kontakt" },
   // v1: commented out — revisit after core loop is proven
   // { href: "/politiker", label: "Politiker" },
   // { href: "/c", label: "Chat", secondary: true },
-  // { href: "/om/metodik", label: "Metodik", icon: FlaskConical, secondary: true },
 ];
 
 export function LogoMark({ className }: { className?: string }) {

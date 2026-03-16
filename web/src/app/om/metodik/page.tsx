@@ -1,6 +1,7 @@
 import { SiteHeader, SiteFooter } from "@/components/layout";
 import type { Metadata } from "next";
 import { InfluenceMethodology } from "./InfluenceMethodology";
+import { PromiseTrackingMethodology } from "./PromiseTrackingMethodology";
 
 export const metadata: Metadata = {
   title: "Metodik — Politikerkollen",
@@ -30,11 +31,8 @@ export default function MethodologyPage() {
         </header>
 
         <div className="space-y-8">
+          <PromiseTrackingMethodology />
           <InfluenceMethodology />
-
-          {/* Future methodology sections will be added here */}
-          {/* <PromiseTrackingMethodology /> */}
-          {/* <VotingPatternMethodology /> */}
         </div>
       </div>
 
