@@ -55,7 +55,8 @@ source_docs as (
         titel,
         source_summary,
         parti as source_parti,
-        dokument_url
+        dokument_url,
+        datum
     from {{ ref('int_source_documents') }}
 ),
 
@@ -137,7 +138,8 @@ matches_with_sources as (
         sd.titel as source_titel,
         sd.source_summary,
         sd.source_parti,
-        sd.dokument_url as source_url
+        sd.dokument_url as source_url,
+        sd.datum as source_datum
     from matches m
     inner join promises p on p.promise_id = m.promise_id
     inner join source_docs sd on sd.dok_id = m.source_dok_id
@@ -162,6 +164,7 @@ motion_evidence as (
         mws.source_summary,
         mws.source_parti,
         mws.source_url,
+        mws.source_datum,
         
         md.bet_dok_id,
         md.punkt,
@@ -237,6 +240,7 @@ proposition_evidence as (
         mws.source_summary,
         mws.source_parti,
         mws.source_url,
+        mws.source_datum,
         
         pd.bet_dok_id,
         pd.punkt,
@@ -317,6 +321,7 @@ select
     source_summary,
     source_parti,
     source_url,
+    source_datum,
     bet_dok_id,
     punkt,
     punkt_rubrik,

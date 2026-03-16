@@ -28,6 +28,7 @@ with evidence as (
         source_titel,
         source_summary,
         source_url,
+        source_datum,
         alignment,
         alignment_confidence,
         alignment_rationale,
@@ -62,13 +63,20 @@ promise_aggregates as (
             ))
         end as composite_score,
         
-        -- Evidence counts by type
+        -- Evidence counts by type (all alignments)
         count(*) as total_evidence_count,
         countif(signal_type like 'proposition%') as proposition_count,
         countif(signal_type like 'motion_bifall%') as motion_bifall_count,
         countif(signal_type = 'motion_supported') as motion_supported_count,
         countif(signal_type = 'motion_opposed') as motion_opposed_count,
         countif(party_filed_motion) as party_filed_count,
+        
+        -- Evidence counts filtered to non-tangential (for scoring logic)
+        -- These exclude tangential matches which pollute the signal
+        countif(signal_type like 'proposition%' and alignment != 'tangential') as proposition_relevant_count,
+        countif(signal_type like 'motion_bifall%' and alignment != 'tangential') as motion_bifall_relevant_count,
+        countif(signal_type = 'motion_supported' and alignment != 'tangential') as motion_supported_relevant_count,
+        countif(signal_type = 'motion_opposed' and alignment != 'tangential') as motion_opposed_relevant_count,
         
         -- Implementation counts (what actually happened in riksdagen)
         countif(motion_outcome = 'bifall') as adopted_count,
@@ -91,6 +99,7 @@ promise_aggregates as (
             'source_titel': source_titel,
             'source_summary': source_summary,
             'source_url': source_url,
+            'source_datum': source_datum,
             'alignment': alignment,
             'alignment_rationale': alignment_rationale,
             'signal_type': signal_type,
@@ -112,18 +121,21 @@ promise_aggregates as (
 promise_with_metrics as (
     select
         *,
-        -- Total relevant proposals (supported + opposed)
-        (motion_supported_count + motion_bifall_count + motion_opposed_count) as total_relevant,
-        -- Support ratio
+        -- Total relevant proposals (supported + opposed) - using RELEVANT counts (non-tangential)
+        (motion_supported_relevant_count + motion_bifall_relevant_count + motion_opposed_relevant_count) as total_relevant,
+        -- Support ratio - using RELEVANT counts (non-tangential)
         case 
-            when (motion_supported_count + motion_bifall_count + motion_opposed_count) = 0 then 0.0
-            else (motion_supported_count + motion_bifall_count)::float / 
-                 (motion_supported_count + motion_bifall_count + motion_opposed_count)
+            when (motion_supported_relevant_count + motion_bifall_relevant_count + motion_opposed_relevant_count) = 0 then 0.0
+            else (motion_supported_relevant_count + motion_bifall_relevant_count)::float / 
+                 (motion_supported_relevant_count + motion_bifall_relevant_count + motion_opposed_relevant_count)
         end as support_ratio,
         -- Has contradiction: both supported and opposed significant amounts
-        (motion_supported_count + motion_bifall_count > 0 
-         and motion_opposed_count > 0 
-         and motion_opposed_count >= (motion_supported_count + motion_bifall_count) * 0.25
+        -- CRITICAL: Only count non-tangential evidence to avoid false positives
+        -- A party opposing a tangential motion (e.g., about farm regulations) shouldn't
+        -- count as contradicting their antibiotic promise
+        (motion_supported_relevant_count + motion_bifall_relevant_count > 0 
+         and motion_opposed_relevant_count > 0 
+         and motion_opposed_relevant_count >= (motion_supported_relevant_count + motion_bifall_relevant_count) * 0.25
         ) as has_contradiction
     from promise_aggregates
 )
@@ -137,25 +149,27 @@ select
     composite_score,
     
     -- Evidence strength based on count and weight
+    -- Use relevant counts (non-tangential) for determining strength
     case
-        when proposition_count > 0 or motion_bifall_count > 0 then 'strong'
+        when proposition_relevant_count > 0 or motion_bifall_relevant_count > 0 then 'strong'
         when total_evidence_count >= 3 and abs(composite_score) >= 0.15 then 'moderate'
         when total_evidence_count >= 1 then 'weak'
         else 'none'
     end as evidence_strength,
     
     -- Assessment category (new model: intention + implementation)
+    -- Uses relevant counts (non-tangential) for all logic
     case
         -- Contradiction takes priority
         when has_contradiction then 'contradictory'
-        -- Implementation: proposition passed
-        when proposition_count > 0 then 'implemented'
+        -- Implementation: proposition passed (non-tangential)
+        when proposition_relevant_count > 0 then 'implemented'
         -- No relevant evidence
         when total_relevant = 0 then 'unclear'
         -- Opposed majority
         when support_ratio <= 0.3 then 'opposed'
         -- Championed with partial success
-        when support_ratio >= 0.7 and motion_bifall_count > 0 then 'partial'
+        when support_ratio >= 0.7 and motion_bifall_relevant_count > 0 then 'partial'
         -- Championed but not implemented
         when support_ratio >= 0.7 then 'championed'
         -- Some support
@@ -165,10 +179,10 @@ select
     -- Human-readable assessment label (Swedish)
     case
         when has_contradiction then 'Motsägelsefullt'
-        when proposition_count > 0 then 'Genomfört'
+        when proposition_relevant_count > 0 then 'Genomfört'
         when total_relevant = 0 then 'Oklart'
         when support_ratio <= 0.3 then 'Röstade emot'
-        when support_ratio >= 0.7 and motion_bifall_count > 0 then 'Delvis genomfört'
+        when support_ratio >= 0.7 and motion_bifall_relevant_count > 0 then 'Delvis genomfört'
         when support_ratio >= 0.7 then 'Drev frågan'
         else 'Visst stöd'
     end as assessment_label,
@@ -189,8 +203,8 @@ select
     -- Top evidence items (limit to 20 for API response size)
     coalesce(evidence_items[:20], []) as top_evidence,
     
-    -- Has any strong positive signal?
-    (proposition_count > 0 or motion_bifall_count > 0) as has_strong_positive,
+    -- Has any strong positive signal? (non-tangential only)
+    (proposition_relevant_count > 0 or motion_bifall_relevant_count > 0) as has_strong_positive,
     
     -- Has any contradiction?
     has_contradiction

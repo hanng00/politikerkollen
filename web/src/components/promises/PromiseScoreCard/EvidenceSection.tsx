@@ -7,9 +7,11 @@ import {
   ChevronDown,
   ExternalLink,
   FileText,
-  ThumbsDown,
-  ThumbsUp,
   XCircle,
+  Calendar,
+  TrendingUp,
+  TrendingDown,
+  HelpCircle,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -21,7 +23,16 @@ import {
 } from "@/components/ui/collapsible";
 import { getPartyName } from "@/lib/parties";
 import type { PromiseEvidence, PromiseScore } from "@/types";
-import { betUrl, categorizeEvidence, getPartyVoteDescription, getRiksdagOutcome } from "./utils";
+import { betUrl, categorizeEvidence, getAlignmentBadge, getPromiseActionDescription, getRiksdagOutcome } from "./utils";
+
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("sv-SE", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
 
 function EvidenceCard({
   evidence,
@@ -32,20 +43,39 @@ function EvidenceCard({
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const outcome = getRiksdagOutcome(evidence);
-  const partyVote = getPartyVoteDescription(evidence);
+  const actionInfo = getPromiseActionDescription(evidence, partyName);
+  const alignmentBadge = getAlignmentBadge(evidence.alignment);
   const isProposition = evidence.source_dok_typ === "prop";
 
   return (
     <Card className="overflow-hidden">
       <CardContent className="pt-4 pb-4 space-y-3">
-        {/* Header: Document type and title */}
+        {/* Header: Document type, alignment badge, and title */}
         <div className="flex items-start justify-between gap-2">
-          <div className="space-y-1 min-w-0">
-            <div className="flex items-center gap-2">
+          <div className="space-y-1.5 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
               <FileText className="size-4 text-muted-foreground shrink-0" />
               <span className="text-xs font-medium text-muted-foreground uppercase">
-                {isProposition ? "Regeringsförslag (Proposition)" : "Motion"}
+                {isProposition ? "Proposition" : "Motion"}
               </span>
+              {alignmentBadge && (
+                <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                  alignmentBadge.variant === "success" 
+                    ? "bg-success/10 text-success" 
+                    : "bg-destructive/10 text-destructive"
+                }`}>
+                  {alignmentBadge.label}
+                </span>
+              )}
+              {evidence.source_datum && (
+                <>
+                  <span className="text-muted-foreground/50">·</span>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Calendar className="size-3" />
+                    {formatDate(evidence.source_datum)}
+                  </span>
+                </>
+              )}
             </div>
             <h4 className="font-medium leading-snug">
               {evidence.source_titel}
@@ -64,11 +94,14 @@ function EvidenceCard({
           )}
         </div>
 
-        {/* Key info: Party vote + Riksdag outcome */}
+        {/* Key info: Party action + Riksdag outcome */}
         <div className="flex flex-wrap gap-2">
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50 text-sm">
-            <span className="text-muted-foreground">{partyName}:</span>
-            <span className="font-medium">{partyVote}</span>
+          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-sm ${
+            actionInfo.isPositive ? "bg-success/10" : "bg-destructive/10"
+          }`}>
+            <span className={actionInfo.isPositive ? "text-success" : "text-destructive"}>
+              {partyName}: {actionInfo.action}
+            </span>
           </div>
           <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-sm ${
             outcome.adopted ? "bg-success/10 text-success" : "bg-muted/50"
@@ -96,11 +129,6 @@ function EvidenceCard({
             >
               betänkande {evidence.bet_dok_id}
             </a>
-            {evidence.punkt_rubrik && (
-              <span className="text-muted-foreground/70">
-                {" "}· {evidence.punkt_rubrik}
-              </span>
-            )}
           </p>
         )}
 
@@ -124,23 +152,24 @@ function EvidenceCard({
 }
 
 export function EvidenceSection({ score }: { score: PromiseScore }) {
-  const [showAllSupported, setShowAllSupported] = useState(false);
-  const [showAllOpposed, setShowAllOpposed] = useState(false);
+  const [showAllFor, setShowAllFor] = useState(false);
+  const [showAllAgainst, setShowAllAgainst] = useState(false);
+  const [showUnclear, setShowUnclear] = useState(false);
   
   const partyName = getPartyName(score.promise_party);
   const categorized = categorizeEvidence(score.top_evidence);
   
-  const supportedCount = score.motion_supported_count + score.motion_bifall_count;
-  const opposedCount = score.motion_opposed_count;
+  // Show ALL evidence (no artificial limit)
+  const visibleFor = showAllFor 
+    ? categorized.actedForPromise 
+    : categorized.actedForPromise.slice(0, 5);
+  const visibleAgainst = showAllAgainst 
+    ? categorized.actedAgainstPromise 
+    : categorized.actedAgainstPromise.slice(0, 5);
 
-  const visibleSupported = showAllSupported 
-    ? categorized.supported 
-    : categorized.supported.slice(0, 3);
-  const visibleOpposed = showAllOpposed 
-    ? categorized.opposed 
-    : categorized.opposed.slice(0, 3);
-
-  const hasEvidence = categorized.supported.length > 0 || categorized.opposed.length > 0;
+  const hasEvidence = categorized.actedForPromise.length > 0 || 
+                      categorized.actedAgainstPromise.length > 0 ||
+                      categorized.unclear.length > 0;
 
   if (!hasEvidence) {
     return null;
@@ -155,21 +184,21 @@ export function EvidenceSection({ score }: { score: PromiseScore }) {
         <div className="flex-1 h-px bg-border" />
       </div>
 
-      {/* Supported proposals */}
-      {categorized.supported.length > 0 && (
+      {/* Actions FOR the promise */}
+      {categorized.actedForPromise.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <ThumbsUp className="size-4 text-success" />
+            <TrendingUp className="size-4 text-success" />
             <h3 className="text-sm font-medium">
-              Förslag {partyName} stödde
+              Agerade i linje med löftet
               <span className="text-muted-foreground font-normal ml-1">
-                ({supportedCount} st)
+                ({categorized.actedForPromise.length} st)
               </span>
             </h3>
           </div>
           
           <div className="space-y-3 pl-6 border-l-2 border-success/30">
-            {visibleSupported.map((evidence, index) => (
+            {visibleFor.map((evidence, index) => (
               <motion.div
                 key={evidence.match_id}
                 initial={{ opacity: 0, y: 8 }}
@@ -181,41 +210,35 @@ export function EvidenceSection({ score }: { score: PromiseScore }) {
             ))}
           </div>
 
-          {categorized.supported.length > 3 && !showAllSupported && (
+          {categorized.actedForPromise.length > 5 && !showAllFor && (
             <Button
               variant="ghost"
               size="sm"
               className="ml-6"
-              onClick={() => setShowAllSupported(true)}
+              onClick={() => setShowAllFor(true)}
             >
               <ChevronDown className="size-4 mr-1" />
-              Visa {categorized.supported.length - 3} fler
+              Visa {categorized.actedForPromise.length - 5} fler
             </Button>
-          )}
-
-          {supportedCount > categorized.supported.length && (
-            <p className="text-xs text-muted-foreground ml-6">
-              Visar {categorized.supported.length} av {supportedCount} förslag
-            </p>
           )}
         </div>
       )}
 
-      {/* Opposed proposals */}
-      {categorized.opposed.length > 0 && (
+      {/* Actions AGAINST the promise */}
+      {categorized.actedAgainstPromise.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <ThumbsDown className="size-4 text-destructive" />
+            <TrendingDown className="size-4 text-destructive" />
             <h3 className="text-sm font-medium">
-              Förslag {partyName} röstade emot
+              Agerade mot löftet
               <span className="text-muted-foreground font-normal ml-1">
-                ({opposedCount} st)
+                ({categorized.actedAgainstPromise.length} st)
               </span>
             </h3>
           </div>
           
           <div className="space-y-3 pl-6 border-l-2 border-destructive/30">
-            {visibleOpposed.map((evidence, index) => (
+            {visibleAgainst.map((evidence, index) => (
               <motion.div
                 key={evidence.match_id}
                 initial={{ opacity: 0, y: 8 }}
@@ -227,24 +250,45 @@ export function EvidenceSection({ score }: { score: PromiseScore }) {
             ))}
           </div>
 
-          {categorized.opposed.length > 3 && !showAllOpposed && (
+          {categorized.actedAgainstPromise.length > 5 && !showAllAgainst && (
             <Button
               variant="ghost"
               size="sm"
               className="ml-6"
-              onClick={() => setShowAllOpposed(true)}
+              onClick={() => setShowAllAgainst(true)}
             >
               <ChevronDown className="size-4 mr-1" />
-              Visa {categorized.opposed.length - 3} fler
+              Visa {categorized.actedAgainstPromise.length - 5} fler
             </Button>
           )}
-
-          {opposedCount > categorized.opposed.length && (
-            <p className="text-xs text-muted-foreground ml-6">
-              Visar {categorized.opposed.length} av {opposedCount} förslag
-            </p>
-          )}
         </div>
+      )}
+
+      {/* Unclear evidence (collapsed by default) */}
+      {categorized.unclear.length > 0 && (
+        <Collapsible open={showUnclear} onOpenChange={setShowUnclear}>
+          <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <HelpCircle className="size-4" />
+            <span>
+              Oklart underlag ({categorized.unclear.length} st)
+            </span>
+            <ChevronDown className={`size-4 transition-transform ${showUnclear ? "rotate-180" : ""}`} />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="space-y-3 mt-3 pl-6 border-l-2 border-muted">
+              {categorized.unclear.map((evidence, index) => (
+                <motion.div
+                  key={evidence.match_id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <EvidenceCard evidence={evidence} partyName={partyName} />
+                </motion.div>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       )}
     </section>
   );

@@ -11,6 +11,7 @@ export interface PromiseEvidence {
   source_titel: string;
   source_summary: string | null;
   source_url: string | null;
+  source_datum: string | null;
   alignment: "supports" | "opposes" | "tangential" | null;
   alignment_rationale: string | null;
   signal_type: string;
