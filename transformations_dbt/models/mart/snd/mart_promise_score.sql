@@ -8,12 +8,16 @@
 --   - Assessment: Combined verdict
 --
 -- Assessment categories:
---   - "Genomfört": Proposition passed or motion adopted
---   - "Delvis genomfört": Some motions adopted
+--   - "Genomfört": Party voted FOR a proposition that passed and aligns with promise
+--   - "Delvis genomfört": Some motions adopted that party supported
 --   - "Drev frågan": Supported many proposals, none adopted
 --   - "Motsägelsefullt": Both supported and opposed similar proposals
 --   - "Röstade emot": Opposed majority of proposals
---   - "Oklart": Insufficient evidence
+--   - "Oklart": Insufficient evidence or no vote data
+--
+-- IMPORTANT: "Genomfört" requires actual vote evidence (proposition_supported).
+-- A proposition passing without vote data (proposition_passed) does NOT count
+-- as implementation - we can't prove the party contributed.
 
 with evidence as (
     select
@@ -73,8 +77,12 @@ promise_aggregates as (
         
         -- Evidence counts filtered to non-tangential (for scoring logic)
         -- These exclude tangential matches which pollute the signal
-        countif(signal_type like 'proposition%' and alignment != 'tangential') as proposition_relevant_count,
-        countif(signal_type like 'motion_bifall%' and alignment != 'tangential') as motion_bifall_relevant_count,
+        -- CRITICAL: Only count propositions where we have actual vote evidence (proposition_supported)
+        -- proposition_passed is a fallback when no vote data exists - it proves nothing about party action
+        countif(signal_type = 'proposition_supported' and alignment != 'tangential') as proposition_relevant_count,
+        -- CRITICAL: Only count motion_bifall where party actually voted FOR it (motion_bifall_supported)
+        -- motion_bifall without suffix means no vote data - can't prove party contributed
+        countif(signal_type = 'motion_bifall_supported' and alignment != 'tangential') as motion_bifall_relevant_count,
         countif(signal_type = 'motion_supported' and alignment != 'tangential') as motion_supported_relevant_count,
         countif(signal_type = 'motion_opposed' and alignment != 'tangential') as motion_opposed_relevant_count,
         
@@ -201,7 +209,8 @@ select
     tangential_count,
     
     -- Top evidence items (limit to 20 for API response size)
-    coalesce(evidence_items[:20], []) as top_evidence,
+    -- Convert to JSON string for proper serialization through Postgres wire protocol
+    to_json(coalesce(evidence_items[:20], [])) as top_evidence,
     
     -- Has any strong positive signal? (non-tangential only)
     (proposition_relevant_count > 0 or motion_bifall_relevant_count > 0) as has_strong_positive,

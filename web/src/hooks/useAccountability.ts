@@ -1,10 +1,6 @@
 import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import type {
-  AccountabilityCard,
   AccountabilityFilters,
-  AccountabilityCardsResponse,
-  FetchAccountabilityCardsOptions,
-  PartyScore,
   PromiseScore,
   PromiseEvidence,
   PromiseScoresResponse,
@@ -41,25 +37,6 @@ function normalizePromiseScore(raw: Record<string, unknown>): PromiseScore {
   } as PromiseScore;
 }
 
-async function fetchAccountabilityCards(
-  options: FetchAccountabilityCardsOptions = {}
-): Promise<AccountabilityCardsResponse> {
-  const params = new URLSearchParams();
-  if (options.party) params.set("party", options.party);
-  if (options.category) params.set("category", options.category);
-  if (options.limit) params.set("limit", options.limit.toString());
-  if (options.offset) params.set("offset", options.offset.toString());
-
-  const url = `${API_ENDPOINT}/contradictions${params.toString() ? `?${params}` : ""}`;
-  const res = await fetch(url);
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch accountability cards: ${res.status}`);
-  }
-
-  return res.json();
-}
-
 async function fetchAccountabilityFilters(): Promise<AccountabilityFilters> {
   const res = await fetch(`${API_ENDPOINT}/contradictions/filters`);
 
@@ -70,63 +47,13 @@ async function fetchAccountabilityFilters(): Promise<AccountabilityFilters> {
   return res.json();
 }
 
-async function fetchPromiseById(id: string): Promise<AccountabilityCard> {
-  const res = await fetch(`${API_ENDPOINT}/contradictions/${id}`);
-
-  if (!res.ok) {
-    if (res.status === 404) {
-      throw new Error("Löftet hittades inte");
-    }
-    throw new Error(`Failed to fetch promise: ${res.status}`);
-  }
-
-  const json = await res.json();
-  return json.data;
-}
-
-export function useAccountabilityCards(options: FetchAccountabilityCardsOptions = {}) {
-  return useQuery({
-    queryKey: ["accountability", "cards", options],
-    queryFn: () => fetchAccountabilityCards(options),
-  });
-}
-
 export function useAccountabilityFilters() {
   return useQuery({
     queryKey: ["accountability", "filters"],
     queryFn: fetchAccountabilityFilters,
-    staleTime: 5 * 60 * 1000, // Filters rarely change
-  });
-}
-
-export function usePromise(id: string) {
-  return useQuery({
-    queryKey: ["accountability", "promise", id],
-    queryFn: () => fetchPromiseById(id),
-    enabled: !!id,
-  });
-}
-
-async function fetchPartyScorecard(): Promise<PartyScore[]> {
-  const res = await fetch(`${API_ENDPOINT}/contradictions/scorecard`);
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch scorecard: ${res.status}`);
-  }
-
-  const json = await res.json();
-  return json.data;
-}
-
-export function usePartyScorecard() {
-  return useQuery({
-    queryKey: ["accountability", "scorecard"],
-    queryFn: fetchPartyScorecard,
     staleTime: 5 * 60 * 1000,
   });
 }
-
-// New evidence-based API hooks
 
 async function fetchPromiseScores(
   options: FetchPromiseScoresOptions = {}

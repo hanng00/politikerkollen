@@ -2,11 +2,11 @@
  * Hybrid search: semantic similarity + keyword matching, fused with RRF.
  *
  * Uses the unified embeddings table with chunk aggregation.
- * Vector search stores the query embedding in a local temp table to avoid
- * issues with large inline array literals over the MotherDuck wire protocol.
+ * Vector search stores the query embedding in a temp table to avoid
+ * issues with large inline array literals over the wire protocol.
  */
 
-import { getConnection, query, escapeString } from '../../../utils/motherduck';
+import { execute, query, escapeString } from '../../../utils/motherduck';
 import { embeddingDimensions } from '../../../utils/models';
 import type { SourceMatch } from './types';
 import { DEFAULT_SIMILARITY_THRESHOLD, DEFAULT_RIKSMOTE_YEAR } from './types';
@@ -22,20 +22,15 @@ export interface HybridSearchOptions {
   riksmote_year?: number;
 }
 
-/**
- * Vector search with chunk aggregation.
- * Searches the unified embeddings table and aggregates chunk scores by entity.
- */
 async function vectorSearch(
   embedding: number[],
   threshold: number,
   limit: number,
   riksmote_year: number,
 ): Promise<SourceMatch[]> {
-  const conn = await getConnection();
   const embeddingLiteral = `[${embedding.join(',')}]::FLOAT[${embeddingDimensions}]`;
 
-  await conn.run(`CREATE OR REPLACE TEMP TABLE _query_embedding AS SELECT ${embeddingLiteral} AS emb`);
+  await execute(`CREATE OR REPLACE TEMP TABLE _query_embedding AS SELECT ${embeddingLiteral} AS emb`);
 
   const sql = `
     WITH candidates AS (
@@ -81,8 +76,7 @@ async function vectorSearch(
     LIMIT ${limit}
   `;
 
-  const reader = await conn.runAndReadAll(sql);
-  const rows = reader.getRowObjectsJson() as Array<{
+  const result = await query<{
     dok_id: string;
     titel: string;
     dok_typ: string;
@@ -90,9 +84,9 @@ async function vectorSearch(
     intressent_ids: string | null;
     similarity: number;
     best_chunk_text: string;
-  }>;
+  }>(sql);
 
-  return rows.map(row => ({
+  return result.data.map(row => ({
     dok_id: row.dok_id,
     titel: row.titel,
     dok_typ: row.dok_typ as 'mot' | 'prop',
@@ -103,10 +97,6 @@ async function vectorSearch(
   }));
 }
 
-/**
- * Keyword search on chunk text.
- * Searches across all chunks and aggregates by entity.
- */
 async function keywordSearch(
   queryText: string,
   limit: number,
@@ -177,10 +167,6 @@ async function keywordSearch(
   }));
 }
 
-/**
- * Reciprocal Rank Fusion: merge two ranked result lists.
- * score(doc) = Σ 1/(k + rank_i) for each list the doc appears in.
- */
 function reciprocalRankFusion(
   vectorResults: SourceMatch[],
   keywordResults: SourceMatch[],
@@ -209,9 +195,6 @@ function reciprocalRankFusion(
     .map(({ match }) => match);
 }
 
-/**
- * Hybrid search: vector search first (needs temp table), then keyword in parallel-safe sequence, fused with RRF.
- */
 export async function searchSources(options: HybridSearchOptions): Promise<SourceMatch[]> {
   const {
     embedding,

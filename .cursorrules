@@ -2,9 +2,10 @@
 
 Democratic infrastructure for accountability and transparency in Swedish politics. Indexes political promises against actual actions (votes, speeches, documents) from Riksdagen.
 
-## Brand Voice
+## Brand
 
-When writing user-facing copy, UI text, or marketing concepts, always consult `docs/brand-voice.md`.
+When writing user-facing copy, UI text, or marketing concepts, consult `docs/brand/voice.md`.
+When making frontend design decisions, consult `docs/brand/design-aesthetics.md`.
 
 ## Tech Stack
 

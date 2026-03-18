@@ -10,12 +10,4 @@ export * from "./motion";
 export * from "./speech";
 
 // Accountability
-export * from "./promise";
-export * from "./contradiction";
 export * from "./accountability";
-
-// Aggregations
-export * from "./activity";
-
-// Engagement
-export * from "./comment";

@@ -1,36 +1,43 @@
 /**
  * Query promises from mart_promise_score and mart_promise_evidence
- * 
- * Legacy endpoints (/contradictions/*) redirect to new endpoints or return empty data
- * to maintain backward compatibility during migration.
  */
 
 import { query } from '../../utils/motherduck';
-import type { AccountabilityCard, GetContradictionsRequest, GetPromiseScoresRequest, PartyScore, PromiseScore } from './types';
+import type { GetPromiseScoresRequest, PromiseScore, PromiseEvidence } from './types';
 import { DEFAULT_LIMIT } from './types';
+
+/** Raw row from DB where top_evidence is a JSON string */
+interface PromiseScoreRow extends Omit<PromiseScore, 'top_evidence'> {
+  top_evidence: string;
+}
+
+/** Parse top_evidence JSON string into array */
+function parsePromiseScore(row: PromiseScoreRow): PromiseScore {
+  let topEvidence: PromiseEvidence[] = [];
+  try {
+    if (row.top_evidence && typeof row.top_evidence === 'string') {
+      topEvidence = JSON.parse(row.top_evidence);
+    } else if (Array.isArray(row.top_evidence)) {
+      topEvidence = row.top_evidence;
+    }
+  } catch (e) {
+    console.error('Failed to parse top_evidence:', e);
+  }
+  return {
+    ...row,
+    top_evidence: topEvidence,
+  };
+}
 
 const MART_SCHEMA = 'main_mart';
 
 /**
- * @deprecated Use getPromiseScores instead.
- * Returns empty data for backward compatibility.
+ * Get available filter options for promises
  */
-export async function getContradictions(
-  request: GetContradictionsRequest,
-): Promise<{ data: AccountabilityCard[]; total: number }> {
-  // Return empty data - frontend should migrate to /promises/scores
-  return { data: [], total: 0 };
-}
-
-/**
- * @deprecated Use getPromiseScores filters instead.
- * Still works - uses new mart_promise_score.
- */
-export async function getContradictionFilters(): Promise<{
+export async function getPromiseFilters(): Promise<{
   parties: string[];
   categories: string[];
 }> {
-  // Use the new mart_promise_score for filters
   const sql = `
     SELECT 
       DISTINCT promise_party as party
@@ -57,25 +64,7 @@ export async function getContradictionFilters(): Promise<{
 }
 
 /**
- * @deprecated Use getPromiseScoreById instead.
- * Returns null for backward compatibility.
- */
-export async function getPromiseById(promiseId: string): Promise<AccountabilityCard | null> {
-  // Return null - frontend should migrate to /promises/scores/:id
-  return null;
-}
-
-/**
- * @deprecated Use getPartyEvidenceScorecard instead.
- * Returns empty array for backward compatibility.
- */
-export async function getPartyScorecard(): Promise<PartyScore[]> {
-  // Return empty - frontend should migrate to /promises/scorecard
-  return [];
-}
-
-/**
- * Get promise scores with evidence-based assessment (new API)
+ * Get promise scores with evidence-based assessment
  */
 export async function getPromiseScores(
   request: GetPromiseScoresRequest,
@@ -96,15 +85,11 @@ export async function getPromiseScores(
     conditions.push(`evidence_direction = '${evidence_direction}'`);
   }
 
-  // Outcome filter - maps to assessment categories
   if (outcome === 'positive') {
-    // Positive = implemented, partial, championed, or supported (acted in favor)
     conditions.push(`evidence_direction IN ('implemented', 'partial', 'championed', 'supported')`);
   } else if (outcome === 'negative') {
-    // Negative = opposed (voted against)
     conditions.push(`evidence_direction = 'opposed'`);
   } else if (outcome === 'contradictory') {
-    // Contradictory = contradictory behavior
     conditions.push(`evidence_direction = 'contradictory'`);
   }
 
@@ -152,10 +137,10 @@ export async function getPromiseScores(
     OFFSET ${offset}
   `;
 
-  const dataResult = await query<PromiseScore>(dataSql);
+  const dataResult = await query<PromiseScoreRow>(dataSql);
 
   return {
-    data: dataResult.data,
+    data: dataResult.data.map(parsePromiseScore),
     total,
   };
 }
@@ -191,12 +176,13 @@ export async function getPromiseScoreById(promiseId: string): Promise<PromiseSco
     LIMIT 1
   `;
 
-  const result = await query<PromiseScore>(sql);
-  return result.data[0] ?? null;
+  const result = await query<PromiseScoreRow>(sql);
+  const row = result.data[0];
+  return row ? parsePromiseScore(row) : null;
 }
 
 /**
- * Get party-level scorecard using new evidence-based scoring
+ * Get party-level scorecard using evidence-based scoring
  */
 export async function getPartyEvidenceScorecard(category?: string): Promise<Array<{
   party: string;

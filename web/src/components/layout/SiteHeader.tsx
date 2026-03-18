@@ -1,7 +1,6 @@
 "use client";
 
 import { useAuth } from "@/components/providers/AuthProvider";
-import { SearchBar } from "@/components/search";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Sheet,
@@ -12,19 +11,13 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { FlaskConical, LogOut, Menu, type LucideIcon } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const navItems: { href: string; label: string; icon?: LucideIcon }[] = [
-  // v1: focused nav — only the core loop + credibility
-  // { href: "/loften", label: "Löften" },
-  { href: "/om/metodik", label: "Metodik", icon: FlaskConical },
-  { href: "/manifesto", label: "Om" },
-  { href: "tel:+46763281170", label: "Kontakt" },
-  // v1: commented out — revisit after core loop is proven
-  // { href: "/politiker", label: "Politiker" },
-  // { href: "/c", label: "Chat", secondary: true },
+const navItems = [
+  { href: "/loften", label: "Löften" },
+  { href: "/rapporter", label: "Intelligence" },
 ];
 
 export function LogoMark({ className }: { className?: string }) {
@@ -35,7 +28,6 @@ export function LogoMark({ className }: { className?: string }) {
       className={cn("size-5", className)}
       aria-hidden="true"
     >
-      {/* Two thin circles, slightly offset */}
       <circle
         cx="11"
         cy="11"
@@ -60,86 +52,49 @@ export function SiteHeader() {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
 
-  const isActive = (href: string, exact?: boolean) =>
-    exact ? pathname === href : pathname.startsWith(href);
+  const isActive = (href: string) => pathname.startsWith(href);
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
-      <div className="page-container-wide flex h-14 min-w-0 items-center gap-2 sm:gap-4">
-        <Link href="/" className="flex items-center gap-1.5 shrink-0">
+      <div className="page-container-wide flex h-14 items-center">
+        <Link href="/" className="flex items-center gap-1.5">
           <LogoMark />
-          <span className="font-serif font-medium text-sm sm:text-base">
+          <span className="font-serif font-medium">
             Politikerkollen
           </span>
         </Link>
 
-        <SearchBar className="hidden sm:block flex-1 min-w-0 max-w-sm" />
-
         {/* Desktop navigation */}
-        <nav className="hidden md:flex min-w-0 shrink-0 items-center gap-0.5 sm:gap-1 ml-auto">
-          {navItems.map((item) => {
-            const active = isActive(item.href);
-            const Icon = item.icon;
-
-            return (
-              <Link key={item.href} href={item.href}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "h-8",
-                    active ? "font-medium" : "text-muted-foreground",
-                  )}
-                >
-                  {Icon && <Icon className="size-4 mr-1.5" />}
-                  {item.label}
-                </Button>
-              </Link>
-            );
-          })}
+        <nav className="hidden md:flex items-center gap-1 ml-auto">
+          {navItems.map((item) => (
+            <Link key={item.href} href={item.href}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "h-8",
+                  isActive(item.href) ? "font-medium" : "text-muted-foreground",
+                )}
+              >
+                {item.label}
+              </Button>
+            </Link>
+          ))}
 
           {user && (
             <Button
               variant="ghost"
               size="sm"
               onClick={() => signOut()}
-              className="h-8 ml-1 text-muted-foreground hover:text-foreground"
+              className="h-8 ml-1 text-muted-foreground"
             >
               <LogOut className="size-4" />
-              <span className="sr-only">Logga ut</span>
             </Button>
           )}
         </nav>
 
         {/* Mobile navigation */}
         <div className="flex md:hidden items-center gap-1 ml-auto">
-          {/* v1: mobile quick-link to Löften instead of Politiker
-          <Link href="/politiker">
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "h-8",
-                isActive("/politiker") ? "font-medium" : "text-muted-foreground",
-              )}
-            >
-              Politiker
-            </Button>
-          </Link>
-          */}
-          <Link href="/loften">
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "h-8",
-                isActive("/loften") ? "font-medium" : "text-muted-foreground",
-              )}
-            >
-              Löften
-            </Button>
-          </Link>
-
           <Sheet>
             <SheetTrigger
               className={cn(
@@ -148,40 +103,34 @@ export function SiteHeader() {
               )}
             >
               <Menu className="size-5" />
-              <span className="sr-only">Öppna meny</span>
+              <span className="sr-only">Meny</span>
             </SheetTrigger>
             <SheetContent side="right">
               <SheetHeader>
                 <SheetTitle>Meny</SheetTitle>
               </SheetHeader>
               <nav className="flex flex-col gap-1 p-4">
-                {navItems.map((item) => {
-                  const active = isActive(item.href);
-                  const Icon = item.icon;
-
-                  return (
-                    <SheetClose
-                      key={item.href}
-                      nativeButton={false}
-                      render={
-                        <Link href={item.href}>
-                          <Button
-                            variant="ghost"
-                            className={cn(
-                              "w-full justify-start h-10",
-                              active
-                                ? "font-medium bg-muted"
-                                : "text-muted-foreground",
-                            )}
-                          >
-                            {Icon && <Icon className="size-4 mr-2" />}
-                            {item.label}
-                          </Button>
-                        </Link>
-                      }
-                    />
-                  );
-                })}
+                {navItems.map((item) => (
+                  <SheetClose
+                    key={item.href}
+                    nativeButton={false}
+                    render={
+                      <Link href={item.href}>
+                        <Button
+                          variant="ghost"
+                          className={cn(
+                            "w-full justify-start h-10",
+                            isActive(item.href)
+                              ? "font-medium bg-muted"
+                              : "text-muted-foreground",
+                          )}
+                        >
+                          {item.label}
+                        </Button>
+                      </Link>
+                    }
+                  />
+                ))}
 
                 {user && (
                   <>
@@ -191,7 +140,7 @@ export function SiteHeader() {
                         <Button
                           variant="ghost"
                           onClick={() => signOut()}
-                          className="w-full justify-start h-10 text-muted-foreground hover:text-foreground"
+                          className="w-full justify-start h-10 text-muted-foreground"
                         >
                           <LogOut className="size-4 mr-2" />
                           Logga ut

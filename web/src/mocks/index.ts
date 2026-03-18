@@ -4,6 +4,4 @@ export * from "./politicians";
 export * from "./votes";
 export * from "./speeches";
 export * from "./motions";
-export * from "./contradictions";
-export * from "./promises";
 export * from "./constituencies";

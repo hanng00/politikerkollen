@@ -143,17 +143,16 @@ Resources:
       BuildProperties: { Sourcemap: true }
 
   # =============================================================================
-  # Politicians API (public, no auth) - Docker-based for native DuckDB support
+  # Politicians API (public, no auth) — /politicians/*, /search/politicians
   # =============================================================================
 
   PoliticiansApi:
     Type: AWS::Serverless::Function
     Properties:
-      PackageType: Image
+      Runtime: nodejs22.x
+      Handler: src/features/politicians/handler.handler
       Timeout: 30
-      MemorySize: 1024 # DuckDB benefits from more memory
-      Architectures:
-        - arm64
+      MemorySize: 1024
       Events:
         ListOptions:
           Type: Api
@@ -219,22 +218,27 @@ Resources:
             Method: POST
             Auth:
               Authorizer: NONE
-        ContradictionsOptions:
-          Type: Api
+        Keepalive:
+          Type: Schedule
           Properties:
-            RestApiId: !Ref Api
-            Path: /contradictions
-            Method: OPTIONS
-            Auth:
-              Authorizer: NONE
-        Contradictions:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /contradictions
-            Method: GET
-            Auth:
-              Authorizer: NONE
+            Schedule: rate(5 minutes)
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties: { Sourcemap: true }
+
+  # =============================================================================
+  # Accountability API (public, no auth) — /promises/*
+  # =============================================================================
+
+  AccountabilityApi:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs22.x
+      Handler: src/features/accountability/handler.handler
+      Timeout: 30
+      MemorySize: 1024
+      Events:
+        # Legacy route kept for backward compatibility (redirects to new filters)
         ContradictionsFiltersOptions:
           Type: Api
           Properties:
@@ -251,39 +255,7 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
-        ContradictionByIdOptions:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /contradictions/{promiseId}
-            Method: OPTIONS
-            Auth:
-              Authorizer: NONE
-        ContradictionById:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /contradictions/{promiseId}
-            Method: GET
-            Auth:
-              Authorizer: NONE
-        ContradictionsScorecardOptions:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /contradictions/scorecard
-            Method: OPTIONS
-            Auth:
-              Authorizer: NONE
-        ContradictionsScorecard:
-          Type: Api
-          Properties:
-            RestApiId: !Ref Api
-            Path: /contradictions/scorecard
-            Method: GET
-            Auth:
-              Authorizer: NONE
-        # New evidence-based promise API
+        # New promise-based routes
         PromiseScoresOptions:
           Type: Api
           Properties:
@@ -332,10 +304,13 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
+        Keepalive:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
     Metadata:
-      DockerTag: politicians-api
-      DockerContext: .
-      Dockerfile: src/features/politicians/Dockerfile
+      BuildMethod: esbuild
+      BuildProperties: { Sourcemap: true }
 
 Outputs:
   CognitoUserPoolId: { Value: !Ref CognitoUserPool }
