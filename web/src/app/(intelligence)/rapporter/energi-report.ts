@@ -41,7 +41,7 @@ export const energiReport: Report = {
     // ARGUMENT 1: Vad hände?
     {
       type: "callout",
-      title: "1. Vad hände: Röstningen avslöjar nyanserna",
+      title: "Vad hände: Röstningen avslöjar nyanserna",
       content:
         "Betänkande 2024/25:NU20 hade fyra omröstningspunkter. Huvudförslaget var jämnt, men på tekniska frågor fanns bred enighet. Detta är avgörande för att förstå framtida röstmönster.",
       highlight: "opportunity",
@@ -101,7 +101,7 @@ export const energiReport: Report = {
     // ARGUMENT 2: Varför det spelar roll
     {
       type: "callout",
-      title: "2. Varför det spelar roll: Tre beslut väntar",
+      title: "Varför det spelar roll: Tre beslut väntar",
       content:
         "Tre energipolitiska betänkanden från Näringsutskottet väntar på beslut under Q2 2026. Baserat på röstmönstret från NU20 kan vi förutse utfallen.",
       highlight: "opportunity",
@@ -140,7 +140,7 @@ export const energiReport: Report = {
     // ARGUMENT 3: Vad det betyder för er
     {
       type: "callout",
-      title: "3. Vad det betyder: Implikationer per aktör",
+      title: "Vad det betyder: Implikationer per aktör",
       content:
         "Beroende på er position i energisektorn har beslutet olika konsekvenser. Här är vår bedömning av vad ni bör bevaka.",
       highlight: "opportunity",
@@ -322,56 +322,62 @@ export const energiReport: Report = {
     },
 
     {
-      type: "table",
+      type: "stakeholders",
       title: "Intressenternas positioner",
       data: [
         {
-          Intressent: "Svenskt Näringsliv",
-          Position: "Starkt för",
-          Argument:
+          name: "Svenskt Näringsliv",
+          position: "for",
+          positionLabel: "Starkt för",
+          argument:
             "Planerbar el avgörande för industrins konkurrenskraft. Elanvändningen väntas öka till 290 TWh 2050.",
-          Källa: "svensktnaringsliv.se, 2025-04",
-          URL: "svensktnaringsliv.se/sakomraden/hallbarhet-miljo-och-energi/valkommet-besked-om-karnkraftsfinansiering_1229834.html",
+          source: "svensktnaringsliv.se, 2025-04",
+          url: "https://svensktnaringsliv.se/sakomraden/hallbarhet-miljo-och-energi/valkommet-besked-om-karnkraftsfinansiering_1229834.html",
         },
         {
-          Intressent: "Energiföretagen",
-          Position: "För",
-          Argument:
+          name: "Energiföretagen",
+          position: "for",
+          positionLabel: "För",
+          argument:
             "Välkomnar att staten tar ansvar. CfD-modellen prövad i andra länder och godkänd av EU-kommissionen.",
-          Källa: "energiforetagen.se, 2025-03-27",
-          URL: "energiforetagen.se/pressrum/nyheter/2025/mars/positivt-med-forslag-om-finansieringsmodell-for-ny-karnkraft/",
+          source: "energiforetagen.se, 2025-03-27",
+          url: "https://energiforetagen.se/pressrum/nyheter/2025/mars/positivt-med-forslag-om-finansieringsmodell-for-ny-karnkraft/",
         },
         {
-          Intressent: "Svensk Vindenergi",
-          Position: "Kritisk",
-          Argument:
+          name: "Svensk Vindenergi",
+          position: "critical",
+          positionLabel: "Kritisk",
+          argument:
             "Riskerar att minska investeringsviljan i andra kraftslag. Investeringstakten redan ned från 1,2 GW (2023) till 446 MW (2024).",
-          Källa: "svenskvindenergi.org, 2025-03",
-          URL: "svenskvindenergi.org/kommentar/vind-och-solbranschen-om-forslag-till-finansiering-och-riskdelning-i-ny-karnkraft",
+          source: "svenskvindenergi.org, 2025-03",
+          url: "https://svenskvindenergi.org/kommentar/vind-och-solbranschen-om-forslag-till-finansiering-och-riskdelning-i-ny-karnkraft",
         },
         {
-          Intressent: "Naturskyddsföreningen",
-          Position: "Emot",
-          Argument:
+          name: "Naturskyddsföreningen",
+          position: "against",
+          positionLabel: "Emot",
+          argument:
             "Kärnkraftsfokus kan ge 220 miljoner ton högre CO2-utsläpp till 2045 jämfört med förnybart.",
-          Källa: "naturskyddsforeningen.se, 2025",
-          URL: "naturskyddsforeningen.se/artiklar/karnkraftsfallan-hogre-utslapp-i-vantan-pa-ny-karnkraft/",
+          source: "naturskyddsforeningen.se, 2025",
+          url: "https://naturskyddsforeningen.se/artiklar/karnkraftsfallan-hogre-utslapp-i-vantan-pa-ny-karnkraft/",
         },
         {
-          Intressent: "LO",
-          Position: "Kritisk med förbehåll",
-          Argument:
+          name: "LO",
+          position: "critical",
+          positionLabel: "Kritisk med förbehåll",
+          argument:
             "Om kärnkraft byggs med statliga subventioner bör den ägas offentligt. Efterfrågar samhällsekonomisk granskning.",
-          Källa: "lo.se, 2024-11",
-          URL: "lo.se/start/lo_fakta/los_yttrande_over_finansiering_och_riskdelning_vid_investeringar_i_ny_karnkraft",
+          source: "lo.se, 2024-11",
+          url: "https://lo.se/start/lo_fakta/los_yttrande_over_finansiering_och_riskdelning_vid_investeringar_i_ny_karnkraft",
         },
         {
-          Intressent: "Greenpeace",
-          Position: "Starkt emot",
-          Argument:
+          name: "Greenpeace",
+          position: "against",
+          positionLabel: "Starkt emot",
+          argument:
             "Kallar det 'ett av de största ekonomiska stöden till enskilda företag i Sveriges historia'. Pekar på kostnadsökningar i Finland, Frankrike, UK.",
-          Källa: "greenpeace.org/sweden, 2025",
-          URL: "greenpeace.org/sweden/pressmeddelanden/klimat/miljardsubventioner-till-karnkraft-blir-ett-massivt-slukhal/",
+          source: "greenpeace.org/sweden, 2025",
+          url: "https://greenpeace.org/sweden/pressmeddelanden/klimat/miljardsubventioner-till-karnkraft-blir-ett-massivt-slukhal/",
         },
       ],
     },

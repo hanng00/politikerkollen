@@ -4,7 +4,9 @@
  */
 
 import { strandskyddReport } from "./strandskydd-report";
-import { energiReport } from "./energi-report";
+// Old energy report variant - replaced by Pyramid Principle version
+// import { energiReport } from "./energi-report";
+import { energiReportV2 } from "./energi-report-v2";
 
 export interface Politician {
   name: string;
@@ -27,7 +29,7 @@ export interface TrendDataPoint {
 }
 
 export interface ReportSection {
-  type: "narrative" | "chart" | "quotes" | "table" | "callout" | "timeline" | "vote-result" | "politicians" | "data-gap" | "divider" | "source-list" | "executive-summary" | "implications" | "methodology";
+  type: "narrative" | "chart" | "quotes" | "table" | "callout" | "timeline" | "vote-result" | "politicians" | "data-gap" | "divider" | "source-list" | "executive-summary" | "executive-summary-v2" | "implications" | "methodology" | "stakeholders" | "pyramid-section";
   title?: string;
   content?: string;
   data?: TrendDataPoint[] | ReportQuote[] | Record<string, unknown>[];
@@ -35,6 +37,11 @@ export interface ReportSection {
   highlight?: "spike" | "drop" | "convergence" | "prediction-correct" | "prediction-wrong" | "warning" | "opportunity";
   politicians?: Politician[];
   part?: number;
+  // Pyramid section fields
+  actionTitle?: string;
+  supportingFacts?: string[];
+  evidence?: Array<{ type: string; data: unknown }>;
+  takeaway?: string;
 }
 
 export interface Report {
@@ -53,7 +60,8 @@ export interface Report {
 }
 
 export const reports: Report[] = [
-  energiReport,
+  energiReportV2,
+  // energiReport, // Old variant - replaced by Pyramid Principle version (energiReportV2)
   strandskyddReport,
   {
     id: "karnkraft-september-2025",
