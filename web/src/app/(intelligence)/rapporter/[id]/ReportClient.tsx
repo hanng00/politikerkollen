@@ -227,10 +227,10 @@ function PyramidEvidence({ evidence }: { evidence: PyramidEvidence }) {
   if (evidence.type === "metrics") {
     const metrics = evidence.data as Array<{ label: string; value: string; subtext?: string }>;
     return (
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         {metrics.map((m, i) => (
-          <div key={i} className="p-4 rounded-lg border bg-card text-center">
-            <p className="text-2xl font-semibold mb-1">{m.value}</p>
+          <div key={i} className="p-3 sm:p-4 rounded-lg border bg-card text-center">
+            <p className="text-xl sm:text-2xl font-semibold mb-1">{m.value}</p>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">{m.label}</p>
             {m.subtext && (
               <p className="text-xs text-muted-foreground mt-1">{m.subtext}</p>
@@ -273,7 +273,7 @@ function PyramidEvidence({ evidence }: { evidence: PyramidEvidence }) {
                 <div className="bg-destructive" style={{ width: `${nejPercent}%` }} />
               </div>
               
-              <div className="grid grid-cols-3 gap-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-xs">
                 <div>
                   <span className="text-success font-medium">{vote.ja} Ja</span>
                   <p className="text-muted-foreground mt-0.5">{vote.jaPartier}</p>
@@ -788,7 +788,7 @@ function VoteResultSection({ section }: { section: ReportSection }) {
                 />
               </div>
               
-              <div className="grid grid-cols-3 gap-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-xs">
                 <div>
                   <span className="text-success font-medium">{vote.ja} Ja</span>
                   <p className="text-muted-foreground mt-0.5">{vote.jaPartier}</p>
@@ -1076,7 +1076,7 @@ function ExecutiveSummarySection({ section }: { section: ReportSection }) {
         <p className="text-lg leading-relaxed mb-8">{section.content}</p>
       )}
       {metrics && metrics.length > 0 && (
-        <div className="grid grid-cols-3 gap-4 pt-6 border-t">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 pt-6 border-t">
           {metrics.map((m, i) => (
             <div key={i}>
               <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{String(m.label)}</p>
@@ -1113,10 +1113,10 @@ function ExecutiveSummaryV2Section({ section }: { section: ReportSection }) {
 
       {/* Key metrics */}
       {metrics && metrics.length > 0 && (
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
           {metrics.map((m, i) => (
-            <div key={i} className="p-4 rounded-lg border bg-card text-center">
-              <p className="text-2xl font-semibold mb-1">{m.value}</p>
+            <div key={i} className="p-3 sm:p-4 rounded-lg border bg-card text-center">
+              <p className="text-xl sm:text-2xl font-semibold mb-1">{m.value}</p>
               <p className="text-xs text-muted-foreground uppercase tracking-wider">{m.label}</p>
               {m.subtext && (
                 <p className="text-xs text-muted-foreground mt-1">{m.subtext}</p>
