@@ -2,116 +2,286 @@ import type { Report } from "./data";
 
 export const energiReport: Report = {
   id: "energipolitik-prediktion-2026",
-  title: "Kärnkraftsfinansieringen: Vad händer nu?",
-  subtitle: "Regeringen vann med 3 rösters marginal. Nästa strid avgörs Q2 2026.",
+  title: "Kärnkraftsfinansieringen: Regeringen vann — men S visade pragmatism",
+  subtitle:
+    "Tre rösters marginal på huvudförslaget. Bred enighet på tekniska frågor. Vad betyder det för kommande beslut?",
   date: "2026-03-18",
   vertical: "energi",
-  iteration: 2,
-  summary: "I maj 2025 antog riksdagen statliga kreditgarantier för ny kärnkraft med knapp majoritet (154-151). Nu väntar tre nya energibeslut. Vi analyserar vad som hände, vad som kommer, och vad det betyder för er.",
-  keyInsight: "Kärnkraftsfinansieringen gick igenom med 3 rösters marginal. S röstade nej på huvudförslaget men ja på tekniska detaljer — en signal om pragmatism som kan påverka kommande omröstningar.",
-  predictionMade: "2026-03-18: HD01NU13 (Energipolitik) går igenom med regeringsmajoritet. S avstår eller röstar ja på elmarknadsfrågor.",
+  iteration: 3,
+  summary:
+    "Riksdagen antog kärnkraftsfinansieringen med 154-151. Men på punkt 3 röstade S och C ja tillsammans med regeringen (255-36). Denna dolda enighet är nyckeln till att förstå kommande energibeslut.",
+  keyInsight:
+    "S röstade nej på principfrågan men ja på tekniska detaljer — 80 av 93 S-ledamöter stödde punkt 3. Detta mönster kan upprepas på HD01NU17 (Elmarknadsfrågor).",
+  predictionMade:
+    "2026-03-18: HD01NU13 går igenom med regeringsmajoritet. HD01NU17 kan få bredare stöd om S väljer pragmatism.",
   tags: ["energi", "kärnkraft", "elmarknad", "prediktion", "pending"],
   sections: [
-    // ══════════════════════════════════════════════════════════════════════
-    // EXECUTIVE SUMMARY
-    // ══════════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════════
+    // PYRAMID LEVEL 1: HUVUDBUDSKAP (Governing Thought)
+    // ════════════════════════════════════════════════════════════════════════
     {
       type: "executive-summary",
-      title: "Sammanfattning",
-      content: "Riksdagen antog den 21 maj 2025 proposition 2024/25:150 om statliga kreditgarantier för ny kärnkraft. Beslutet var historiskt — första gången sedan 1980 som Sverige aktivt främjar ny kärnkraft. Nu väntar tre nya energibeslut under Q1-Q2 2026.",
+      title: "Huvudbudskap",
+      content:
+        "Kärnkraftsfinansieringen gick igenom med knapp marginal (154-151), men röstmönstret avslöjar en dold pragmatism hos S som kan påverka kommande energibeslut. På punkt 3 röstade 80 av 93 S-ledamöter ja tillsammans med regeringen — ett mönster som kan upprepas på elmarknadsfrågor (HD01NU17) under Q2 2026.",
       data: [
-        { label: "Kärnkraftsfinansiering", value: "Antagen (154-151)" },
-        { label: "Vindkraftsskatt", value: "Väntar på beslut" },
-        { label: "Energipolitik (HD01NU13)", value: "Beslut Q2 2026" },
-        { label: "Elmarknad (HD01NU17)", value: "Beslut Q2 2026" },
+        { label: "Huvudförslaget (punkt 1)", value: "154-151 — Regeringen vann" },
+        {
+          label: "Teknisk fråga (punkt 3)",
+          value: "255-36 — S och C röstade ja",
+        },
+        { label: "Kommande beslut", value: "HD01NU13, NU16, NU17 väntar Q2" },
       ],
     },
 
-    // ══════════════════════════════════════════════════════════════════════
-    // IMPLIKATIONER
-    // ══════════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════════
+    // PYRAMID LEVEL 2: TRE STÖDJANDE ARGUMENT
+    // ════════════════════════════════════════════════════════════════════════
+
+    // ARGUMENT 1: Vad hände?
     {
-      type: "implications",
-      title: "Vad betyder detta för er?",
-      data: [
-        { 
-          target: "Kärnkraftsbolag (Vattenfall, Fortum, Uniper)",
-          implication: "Statliga kreditgarantier på upp till 400 miljarder kr är nu tillgängliga. Finansieringsrisken för nya reaktorer har minskat dramatiskt.",
-          action: "Påbörja investeringskalkyler. Bevaka HD01NU13 för ytterligare signaler om regeringens ambitionsnivå.",
-        },
-        {
-          target: "Vindkraftsbolag (OX2, Eolus, Arise)",
-          implication: "Höjd fastighetsskatt för vindkraft (HC03168) väntar på beslut. Kan påverka lönsamheten för nya projekt.",
-          action: "Bevaka HD01NU13. Överväg att delta i remissprocesser för kommande propositioner.",
-        },
-        {
-          target: "Elnätsbolag (Ellevio, Vattenfall Eldistribution)",
-          implication: "Elmarknadsreformen (HD01NU17) kan påverka nättariffer och investeringsincitament.",
-          action: "Analysera EU:s nya elmarknadsdesign. Bevaka HD01NU17 för svenska anpassningar.",
-        },
-        {
-          target: "Industribolag (SSAB, LKAB, H2 Green Steel)",
-          implication: "Stabil elförsörjning är kritisk för elektrifiering. Kärnkraftssatsningen ger långsiktig planerbarhet.",
-          action: "Inkludera kärnkraftsscenariot i långsiktiga energiavtal. Bevaka mineralbeslutet (HD01NU16) för batteriråvaror.",
-        },
-      ],
+      type: "callout",
+      title: "1. Vad hände: Röstningen avslöjar nyanserna",
+      content:
+        "Betänkande 2024/25:NU20 hade fyra omröstningspunkter. Huvudförslaget var jämnt, men på tekniska frågor fanns bred enighet. Detta är avgörande för att förstå framtida röstmönster.",
+      highlight: "opportunity",
     },
-
-    // ══════════════════════════════════════════════════════════════════════
-    // TIDSLINJE
-    // ══════════════════════════════════════════════════════════════════════
-    {
-      type: "timeline",
-      title: "Tidslinje: Från Tidöavtalet till idag",
-      data: [
-        { date: "2022-10-14", event: "POLITISKT BESLUT", description: "Tidöavtalet: 'Ny kärnkraft ska möjliggöras'", actor: "M, SD, KD, L", source: "regeringen.se" },
-        { date: "2023-01-01", event: "LAGÄNDRING", description: "Förbudet mot nya reaktorer upphävs", actor: "Riksdagen", source: "riksdagen.se" },
-        { date: "2024-11-05", event: "UTREDNING", description: "Finansieringsutredningen presenteras", actor: "Regeringen", source: "regeringen.se" },
-        { date: "2025-03-27", event: "PROPOSITION", description: "Prop. 2024/25:150 om kreditgarantier", actor: "Regeringen", source: "riksdagen.se" },
-        { date: "2025-05-21", event: "BESLUT", description: "Riksdagen antar förslaget (154-151)", actor: "Riksdagen", source: "riksdagen.se" },
-        { date: "2025-06-17", event: "PROPOSITION", description: "Höjd fastighetsskatt vindkraft (HC03168)", actor: "Regeringen", source: "riksdagen.se" },
-        { date: "2025-11-05", event: "BESLUT", description: "Uranförbudet tas bort (HD01NU7)", actor: "Riksdagen", source: "riksdagen.se" },
-        { date: "2025-11-11", event: "BETÄNKANDE", description: "HD01NU13, NU17, NU16 publiceras", actor: "Näringsutskottet", source: "riksdagen.se" },
-        { date: "2026-Q2", event: "BESLUT", description: "Omröstning väntas", actor: "Riksdagen", source: "Prediktion" },
-      ],
-    },
-
-    // ══════════════════════════════════════════════════════════════════════
-    // RÖSTNING - DET SOM HÄNDE
-    // ══════════════════════════════════════════════════════════════════════
     {
       type: "vote-result",
-      title: "Röstningsresultat: Kärnkraftsfinansieringen (21 maj 2025)",
+      title: "Röstningsresultat: Betänkande 2024/25:NU20 (21 maj 2025)",
       data: [
-        { punkt: "1", rubrik: "Kreditgarantier för kärnkraft", ja: 154, nej: 151, avstar: 0, jaPartier: "M, KD, L, SD", nejPartier: "S, C, MP, V" },
-        { punkt: "2", rubrik: "Tekniska detaljer", ja: 154, nej: 15, avstar: 136, jaPartier: "M, KD, L, SD", nejPartier: "MP", avstarPartier: "S, C, V" },
-        { punkt: "3", rubrik: "Energimyndighetens roll", ja: 255, nej: 36, avstar: 14, jaPartier: "M, KD, L, SD, S, C", nejPartier: "MP, V" },
-        { punkt: "4", rubrik: "Reservation om marknadsprinciper", ja: 154, nej: 94, avstar: 57, jaPartier: "M, KD, L, SD", nejPartier: "S", avstarPartier: "C, MP, V" },
+        {
+          punkt: "1",
+          rubrik: "Statligt stöd för ny kärnkraft (huvudförslaget)",
+          ja: 154,
+          nej: 151,
+          avstar: 0,
+          jaPartier: "M (60), SD (63), KD (16), L (14)",
+          nejPartier: "S (93), C (21), V (21), MP (15)",
+        },
+        {
+          punkt: "2",
+          rubrik: "Avslag på alternativa förslag",
+          ja: 154,
+          nej: 15,
+          avstar: 136,
+          jaPartier: "M, SD, KD, L",
+          nejPartier: "MP (15)",
+          avstarPartier: "S (93), C (21), V (21)",
+        },
+        {
+          punkt: "3",
+          rubrik: "Utskottets förslag i övrigt",
+          ja: 255,
+          nej: 36,
+          avstar: 14,
+          jaPartier: "M (60), SD (63), KD (16), L (14), S (80), C (21)",
+          nejPartier: "MP (15), V (21)",
+          avstarPartier: "S (13)",
+        },
+        {
+          punkt: "4",
+          rubrik: "Avslag på S-reservation om marknadsprinciper",
+          ja: 154,
+          nej: 94,
+          avstar: 57,
+          jaPartier: "M, SD, KD, L",
+          nejPartier: "S (93)",
+          avstarPartier: "C (21), MP (15), V (21)",
+        },
       ],
     },
     {
       type: "narrative",
-      title: "Analys: Tre rösters marginal",
-      content: "Huvudförslaget gick igenom med 154-151 — tre rösters marginal. Men punkt 3 (Energimyndighetens roll) fick bred majoritet med 255 ja-röster, inklusive S och C. Detta visar att det finns pragmatism under ytan. S röstade nej på principfrågan men ja på tekniska detaljer. Denna nyans är viktig för att förstå kommande omröstningar.",
+      title: "Nyckelinsikt: S:s splittrade röstning",
+      content:
+        "På punkt 3 röstade 80 av 93 S-ledamöter ja — tillsammans med regeringspartierna och C. Endast 13 S-ledamöter avstod. Detta visar att S är villiga att stödja tekniska och administrativa aspekter av energipolitiken, även när de motsätter sig principfrågan. Mönstret är viktigt för att förstå hur S kan agera på kommande elmarknadsfrågor.",
     },
 
-    // ══════════════════════════════════════════════════════════════════════
-    // NYCKELAKTÖRER
-    // ══════════════════════════════════════════════════════════════════════
+    // ARGUMENT 2: Varför det spelar roll
     {
-      type: "politicians",
-      title: "Nyckelaktörer i debatten",
-      politicians: [
-        { name: "Tobias Andersson", party: "SD", imageUrl: "https://data.riksdagen.se/filarkiv/bilder/ledamot/0217932b-600a-4e27-ba09-1cf9913b0695_192.jpg", role: "Ordförande NU — drev frågan i utskottet" },
-        { name: "Fredrik Olovsson", party: "S", imageUrl: "https://data.riksdagen.se/filarkiv/bilder/ledamot/0f77e517-8d8e-4e08-8897-bfaborc3e3e3_192.jpg", role: "S:s talesperson — kritisk men pragmatisk" },
-        { name: "Rickard Nordin", party: "C", imageUrl: "https://data.riksdagen.se/filarkiv/bilder/ledamot/a57d39bb-9f60-4def-ab90-97791ec56447_192.jpg", role: "C:s energitalesperson — förespråkar alternativ" },
-        { name: "Birger Lahti", party: "V", imageUrl: "https://data.riksdagen.se/filarkiv/bilder/ledamot/0f77e517-8d8e-4e08-8897-bf3b0c3e3e3e_192.jpg", role: "V:s talesperson — principiellt motstånd" },
+      type: "callout",
+      title: "2. Varför det spelar roll: Tre beslut väntar",
+      content:
+        "Tre energipolitiska betänkanden från Näringsutskottet väntar på beslut under Q2 2026. Baserat på röstmönstret från NU20 kan vi förutse utfallen.",
+      highlight: "opportunity",
+    },
+    {
+      type: "table",
+      title: "Kommande beslut och vår bedömning",
+      data: [
+        {
+          Betänkande: "HD01NU13",
+          Titel: "Energipolitik",
+          Bedömning: "Regeringen vinner (154-151)",
+          Grund: "Samma blockindelning som NU20 punkt 1",
+        },
+        {
+          Betänkande: "HD01NU17",
+          Titel: "Elmarknadsfrågor",
+          Bedömning: "Möjlig bred majoritet",
+          Grund: "EU-anpassning — S kan rösta ja som på NU20 punkt 3",
+        },
+        {
+          Betänkande: "HD01NU16",
+          Titel: "Mineralpolitik",
+          Bedömning: "Regeringen vinner (154-151)",
+          Grund: "Uranförbudet redan borttaget (HD01NU7)",
+        },
+      ],
+    },
+    {
+      type: "narrative",
+      title: "HD01NU17 är nyckeln att bevaka",
+      content:
+        "Elmarknadsfrågor (HD01NU17) handlar primärt om EU-anpassning av elmarknadsdesignen — inte om kärnkraft specifikt. Om S bedömer att frågan är teknisk snarare än ideologisk, kan de välja att rösta ja eller avstå, precis som på punkt 3 i NU20. Detta skulle ge en bred majoritet och signalera konstruktivitet inför valet 2026.",
+    },
+
+    // ARGUMENT 3: Vad det betyder för er
+    {
+      type: "callout",
+      title: "3. Vad det betyder: Implikationer per aktör",
+      content:
+        "Beroende på er position i energisektorn har beslutet olika konsekvenser. Här är vår bedömning av vad ni bör bevaka.",
+      highlight: "opportunity",
+    },
+    {
+      type: "implications",
+      title: "Implikationer per aktörstyp",
+      data: [
+        {
+          target: "Kärnkraftsbolag",
+          implication:
+            "Statliga lån och prisdifferenskontrakt (CfD) är nu tillgängliga. Lagen träder i kraft 1 augusti 2025.",
+          action:
+            "Påbörja dialog med Finansdepartementet om avtalsvillkor. Bevaka HD01NU13 för signaler om ambitionsnivå.",
+        },
+        {
+          target: "Vindkraftsbolag",
+          implication:
+            "Investeringstakten har redan minskat — 446 MW beslutades 2024 jämfört med 1,2 GW 2023 (Svensk Vindenergi).",
+          action:
+            "Bevaka HD01NU13 och eventuell vindkraftsskatt. Delta i remissprocesser.",
+        },
+        {
+          target: "Elnätsbolag",
+          implication:
+            "HD01NU17 kan påverka nättariffer och incitament för nätinvesteringar.",
+          action:
+            "Analysera EU:s elmarknadsdesign. Förbered för svenska anpassningar.",
+        },
+        {
+          target: "Storförbrukare (industri)",
+          implication:
+            "Långsiktig planerbarhet ökar. Elanvändningen väntas öka från 140 till 290 TWh till 2050 (Svenskt Näringsliv).",
+          action:
+            "Inkludera kärnkraftsscenariot i långsiktiga elavtal. Bevaka HD01NU16 för batteriråvaror.",
+        },
       ],
     },
 
-    // ══════════════════════════════════════════════════════════════════════
-    // CITAT
-    // ══════════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════════
+    // PYRAMID LEVEL 3: STÖDJANDE DETALJER
+    // ════════════════════════════════════════════════════════════════════════
+
+    {
+      type: "timeline",
+      title: "Tidslinje: Från Tidöavtalet till kommande beslut",
+      data: [
+        {
+          date: "2022-10-14",
+          event: "POLITISKT BESLUT",
+          description: "Tidöavtalet: 'Ny kärnkraft ska möjliggöras'",
+          actor: "M, SD, KD, L",
+          source: "regeringen.se",
+        },
+        {
+          date: "2023-01-01",
+          event: "LAGÄNDRING",
+          description: "Förbudet mot nya reaktorer upphävs",
+          actor: "Riksdagen",
+          source: "riksdagen.se",
+        },
+        {
+          date: "2024-11-05",
+          event: "UTREDNING",
+          description: "Finansieringsutredningen presenteras",
+          actor: "Regeringen",
+          source: "regeringen.se",
+        },
+        {
+          date: "2025-03-27",
+          event: "PROPOSITION",
+          description: "Prop. 2024/25:150 om statligt stöd",
+          actor: "Regeringen",
+          source: "riksdagen.se",
+        },
+        {
+          date: "2025-05-21",
+          event: "BESLUT",
+          description: "Riksdagen antar förslaget (154-151)",
+          actor: "Riksdagen",
+          source: "riksdagen.se",
+        },
+        {
+          date: "2025-08-01",
+          event: "IKRAFTTRÄDANDE",
+          description: "Lagen om statligt stöd träder i kraft",
+          actor: "Regeringen",
+          source: "riksdagen.se",
+        },
+        {
+          date: "2025-11-11",
+          event: "BETÄNKANDE",
+          description: "HD01NU13, NU16, NU17 publiceras",
+          actor: "Näringsutskottet",
+          source: "riksdagen.se",
+        },
+        {
+          date: "2026-Q2",
+          event: "VÄNTAR",
+          description: "Omröstning om HD01NU13, NU16, NU17",
+          actor: "Riksdagen",
+          source: "Bedömning",
+        },
+      ],
+    },
+
+    {
+      type: "politicians",
+      title: "Nyckelaktörer i debatten (21 maj 2025)",
+      politicians: [
+        {
+          name: "Tobias Andersson",
+          party: "SD",
+          imageUrl:
+            "https://data.riksdagen.se/filarkiv/bilder/ledamot/0217932b-600a-4e27-ba09-1cf9913b0695_192.jpg",
+          role: "Ordförande Näringsutskottet — 14 anföranden i debatten",
+        },
+        {
+          name: "Fredrik Olovsson",
+          party: "S",
+          imageUrl:
+            "https://data.riksdagen.se/filarkiv/bilder/ledamot/bc5c4354-fca3-4071-8096-acd9b7b1d09a_192.jpg",
+          role: "S:s energipolitiske talesperson — 12 anföranden",
+        },
+        {
+          name: "Rickard Nordin",
+          party: "C",
+          imageUrl:
+            "https://data.riksdagen.se/filarkiv/bilder/ledamot/a57d39bb-9f60-4def-ab90-97791ec56447_192.jpg",
+          role: "C:s energitalesperson — 11 anföranden",
+        },
+        {
+          name: "Birger Lahti",
+          party: "V",
+          imageUrl:
+            "https://data.riksdagen.se/filarkiv/bilder/ledamot/0f77e517-8d8e-4e08-8897-bf3b0c3e3e3e_192.jpg",
+          role: "V:s talesperson — 11 anföranden",
+        },
+      ],
+    },
+
     {
       type: "quotes",
       title: "Röster från debatten",
@@ -120,72 +290,92 @@ export const energiReport: Report = {
           date: "2025-05-21",
           politician: "Birger Lahti",
           party: "V",
-          context: "I dag ska jag ha den viktigaste debatten jag haft i riksdagen under min tid. Debatten handlar om finansiering och riskdelning av investeringar i ny kärnkraft.",
+          context:
+            "I dag ska jag ha den viktigaste debatten jag haft i riksdagen under min tid. Debatten handlar om finansiering och riskdelning av investeringar i ny kärnkraft.",
+          source: "Riksdagens protokoll 2024/25:120",
         },
         {
           date: "2025-05-21",
           politician: "Fredrik Olovsson",
           party: "S",
-          context: "Vi får många rapporter om att ny energiproduktion i Sverige tvärstoppas. Man fattar inte nya investeringsbeslut.",
+          context:
+            "Vi får många rapporter om att ny energiproduktion i Sverige tvärstoppas. Man fattar inte nya investeringsbeslut.",
+          source: "Riksdagens protokoll 2024/25:120",
         },
         {
           date: "2025-05-21",
           politician: "Rickard Nordin",
           party: "C",
-          context: "Jag ser en majoritet för stärkt vattenkraft, effektökningar, pumpkraft — mycket mer kostnadseffektivt än regeringens kärnkraftsförslag.",
+          context:
+            "Jag ser en majoritet för stärkt vattenkraft, effektökningar, pumpkraft — mycket mer kostnadseffektivt än regeringens kärnkraftsförslag.",
+          source: "Riksdagens protokoll 2024/25:120",
         },
         {
           date: "2025-05-21",
           politician: "Tobias Andersson",
           party: "SD",
-          context: "Oavsett om det rör sig om väg, el eller energiinfrastruktur finns det stora risker — men vi måste skydda det system som blivit så eftersatt.",
+          context:
+            "Oavsett om det rör sig om väg, el eller energiinfrastruktur finns det stora risker — men vi måste skydda det system som blivit så eftersatt.",
+          source: "Riksdagens protokoll 2024/25:120",
         },
       ],
     },
 
-    // ══════════════════════════════════════════════════════════════════════
-    // INTRESSENTANALYS
-    // ══════════════════════════════════════════════════════════════════════
     {
       type: "table",
       title: "Intressenternas positioner",
       data: [
-        { Intressent: "Svenskt Näringsliv", Position: "Starkt för", Argument: "Planerbar el är avgörande för industrins konkurrenskraft", Källa: "svensktnaringsliv.se" },
-        { Intressent: "Energiföretagen", Position: "För", Argument: "Välkomnar teknikneutralitet och långsiktiga spelregler", Källa: "energiforetagen.se" },
-        { Intressent: "Svensk Vindenergi", Position: "Kritisk", Argument: "Snedvrider konkurrensen mot vindkraft", Källa: "svenskvindenergi.org" },
-        { Intressent: "Naturskyddsföreningen", Position: "Emot", Argument: "Kärnkraft är dyrare och långsammare än förnybart", Källa: "naturskyddsforeningen.se" },
-        { Intressent: "LO", Position: "Delvis för", Argument: "Stöder om det skapar jobb, men vill se bred energimix", Källa: "lo.se" },
-        { Intressent: "Greenpeace", Position: "Starkt emot", Argument: "Kärnkraft är farligt och olönsamt", Källa: "greenpeace.org/sweden" },
+        {
+          Intressent: "Svenskt Näringsliv",
+          Position: "Starkt för",
+          Argument:
+            "Planerbar el avgörande för industrins konkurrenskraft. Elanvändningen väntas öka till 290 TWh 2050.",
+          Källa: "svensktnaringsliv.se, 2025-04",
+          URL: "svensktnaringsliv.se/sakomraden/hallbarhet-miljo-och-energi/valkommet-besked-om-karnkraftsfinansiering_1229834.html",
+        },
+        {
+          Intressent: "Energiföretagen",
+          Position: "För",
+          Argument:
+            "Välkomnar att staten tar ansvar. CfD-modellen prövad i andra länder och godkänd av EU-kommissionen.",
+          Källa: "energiforetagen.se, 2025-03-27",
+          URL: "energiforetagen.se/pressrum/nyheter/2025/mars/positivt-med-forslag-om-finansieringsmodell-for-ny-karnkraft/",
+        },
+        {
+          Intressent: "Svensk Vindenergi",
+          Position: "Kritisk",
+          Argument:
+            "Riskerar att minska investeringsviljan i andra kraftslag. Investeringstakten redan ned från 1,2 GW (2023) till 446 MW (2024).",
+          Källa: "svenskvindenergi.org, 2025-03",
+          URL: "svenskvindenergi.org/kommentar/vind-och-solbranschen-om-forslag-till-finansiering-och-riskdelning-i-ny-karnkraft",
+        },
+        {
+          Intressent: "Naturskyddsföreningen",
+          Position: "Emot",
+          Argument:
+            "Kärnkraftsfokus kan ge 220 miljoner ton högre CO2-utsläpp till 2045 jämfört med förnybart.",
+          Källa: "naturskyddsforeningen.se, 2025",
+          URL: "naturskyddsforeningen.se/artiklar/karnkraftsfallan-hogre-utslapp-i-vantan-pa-ny-karnkraft/",
+        },
+        {
+          Intressent: "LO",
+          Position: "Kritisk med förbehåll",
+          Argument:
+            "Om kärnkraft byggs med statliga subventioner bör den ägas offentligt. Efterfrågar samhällsekonomisk granskning.",
+          Källa: "lo.se, 2024-11",
+          URL: "lo.se/start/lo_fakta/los_yttrande_over_finansiering_och_riskdelning_vid_investeringar_i_ny_karnkraft",
+        },
+        {
+          Intressent: "Greenpeace",
+          Position: "Starkt emot",
+          Argument:
+            "Kallar det 'ett av de största ekonomiska stöden till enskilda företag i Sveriges historia'. Pekar på kostnadsökningar i Finland, Frankrike, UK.",
+          Källa: "greenpeace.org/sweden, 2025",
+          URL: "greenpeace.org/sweden/pressmeddelanden/klimat/miljardsubventioner-till-karnkraft-blir-ett-massivt-slukhal/",
+        },
       ],
     },
 
-    // ══════════════════════════════════════════════════════════════════════
-    // VAD HÄNDER NU - PREDIKTION
-    // ══════════════════════════════════════════════════════════════════════
-    {
-      type: "callout",
-      title: "Vad händer nu? Tre beslut väntar",
-      content: "Tre energipolitiska betänkanden väntar på beslut under Q1-Q2 2026: HD01NU13 (Energipolitik), HD01NU17 (Elmarknadsfrågor) och HD01NU16 (Mineralpolitik). Baserat på röstmönstret från maj 2025 gör vi följande prediktioner.",
-      highlight: "opportunity",
-    },
-    {
-      type: "table",
-      title: "Vår prediktion (18 mars 2026)",
-      data: [
-        { Betänkande: "HD01NU13", Titel: "Energipolitik", Prediktion: "Regeringen vinner (154-151)", Konfidens: "85%", Nyckelfråga: "Fortsatta kärnkraftssatsningar" },
-        { Betänkande: "HD01NU17", Titel: "Elmarknadsfrågor", Prediktion: "Bred majoritet möjlig", Konfidens: "70%", Nyckelfråga: "S kan rösta ja på tekniska detaljer" },
-        { Betänkande: "HD01NU16", Titel: "Mineralpolitik", Prediktion: "Regeringen vinner (154-151)", Konfidens: "90%", Nyckelfråga: "Uranförbud redan borttaget" },
-      ],
-    },
-    {
-      type: "narrative",
-      title: "Varför vi tror S kan överraska",
-      content: "I kärnkraftsomröstningen röstade S nej på huvudförslaget men ja på punkt 3 (Energimyndighetens roll) tillsammans med regeringen. Detta visar pragmatism. På elmarknadsfrågor (HD01NU17), som handlar om EU-anpassning snarare än kärnkraft, kan S välja att rösta ja eller avstå för att visa konstruktivitet inför valet 2026.",
-    },
-
-    // ══════════════════════════════════════════════════════════════════════
-    // HISTORISKA RÖSTMÖNSTER
-    // ══════════════════════════════════════════════════════════════════════
     {
       type: "chart",
       title: "Historiska röstmönster i Näringsutskottet (2025)",
@@ -202,43 +392,75 @@ export const energiReport: Report = {
       ],
     },
 
-    // ══════════════════════════════════════════════════════════════════════
-    // KÄLLOR
-    // ══════════════════════════════════════════════════════════════════════
-    {
-      type: "table",
-      title: "Källor",
-      data: [
-        { Dokument: "Prop. 2024/25:150", Typ: "Proposition", URL: "riksdagen.se/sv/dokument-och-lagar/dokument/proposition/finansiering-och-riskdelning-vid-investeringar-i_hc03150" },
-        { Dokument: "Betänkande 2024/25:NU20", Typ: "Utskottsbetänkande", URL: "riksdagen.se/sv/dokument-och-lagar/dokument/betankande/finansiering-och-riskdelning-vid-investeringar-i_hc01nu20" },
-        { Dokument: "Votering NU20", Typ: "Voteringsprotokoll", URL: "riksdagen.se/sv/dokument-och-lagar/dokument/omrostning/omrostning-betankande-202425nu20" },
-        { Dokument: "HD01NU13", Typ: "Betänkande (väntar)", URL: "riksdagen.se/sv/dokument-och-lagar/dokument/betankande/energipolitik_hd01nu13" },
-        { Dokument: "HD01NU17", Typ: "Betänkande (väntar)", URL: "riksdagen.se/sv/dokument-och-lagar/dokument/betankande/elmarknadsfraagor_hd01nu17" },
-      ],
-    },
+    // ════════════════════════════════════════════════════════════════════════
+    // METODIK OCH KÄLLOR
+    // ════════════════════════════════════════════════════════════════════════
 
-    // ══════════════════════════════════════════════════════════════════════
-    // METODIK
-    // ══════════════════════════════════════════════════════════════════════
     {
       type: "methodology",
-      title: "Hur denna rapport togs fram",
-      content: "Denna rapport kombinerar automatiserad analys av riksdagsdata med manuell research. Vi analyserade 88 anföranden från kärnkraftsdebatten, 6000+ röster i Näringsutskottet under 2025, och partiernas historiska positioner. Prediktionerna baseras på röstmönster, inte på spekulationer om partiernas interna diskussioner.",
+      title: "Metodik",
+      content:
+        "Denna rapport bygger på primärdata från riksdagens öppna API:er. Voteringsdata hämtades direkt från stg_voteringlista och aggregerades per parti och punkt. Anföranden analyserades via mart_person_timeline. Intressentpositioner verifierades mot publicerade remissvar och pressmeddelanden.",
       data: [
-        { steg: "1. Datainsamling", beskrivning: "Riksdagsdata via öppna API:er (propositioner, voteringar, anföranden)" },
-        { steg: "2. Mönsteranalys", beskrivning: "Identifiering av röstmönster per parti och utskott" },
-        { steg: "3. Prediktionsmodell", beskrivning: "Baserat på historiska mönster + mandatfördelning" },
-        { steg: "4. Validering", beskrivning: "Jämförelse med tidigare prediktioner (strandskydd: korrekt)" },
+        {
+          steg: "1. Voteringsdata",
+          beskrivning:
+            "Hämtade alla röster för HC01NU20 från riksdagens API. Totalt 305 röstande ledamöter per punkt.",
+        },
+        {
+          steg: "2. Debattanalys",
+          beskrivning:
+            "Analyserade 88 anföranden från debatten 21 maj 2025. Identifierade nyckeltalare per parti.",
+        },
+        {
+          steg: "3. Intressentverifiering",
+          beskrivning:
+            "Verifierade varje intressentposition mot publicerade remissvar och pressmeddelanden med datum och URL.",
+        },
+        {
+          steg: "4. Mönsteranalys",
+          beskrivning:
+            "Jämförde röstmönster mellan punkter för att identifiera pragmatism vs principiellt motstånd.",
+        },
       ],
     },
 
-    // ══════════════════════════════════════════════════════════════════════
-    // UPPFÖLJNING
-    // ══════════════════════════════════════════════════════════════════════
+    {
+      type: "table",
+      title: "Primärkällor",
+      data: [
+        {
+          Dokument: "Proposition 2024/25:150",
+          Typ: "Proposition",
+          Datum: "2025-03-27",
+          URL: "riksdagen.se/sv/dokument-och-lagar/dokument/proposition/finansiering-och-riskdelning-vid-investeringar-i_hc03150",
+        },
+        {
+          Dokument: "Betänkande 2024/25:NU20",
+          Typ: "Utskottsbetänkande",
+          Datum: "2025-05-16",
+          URL: "riksdagen.se/sv/dokument-och-lagar/dokument/betankande/finansiering-och-riskdelning-vid-investeringar-i_hc01nu20",
+        },
+        {
+          Dokument: "Protokoll 2024/25:120",
+          Typ: "Kammarprotokoll",
+          Datum: "2025-05-21",
+          URL: "riksdagen.se/sv/dokument-och-lagar/dokument/protokoll/protokoll-202425120-onsdagen-den-21-maj_hc09120",
+        },
+        {
+          Dokument: "Voteringsdata HC01NU20",
+          Typ: "API-data",
+          Datum: "2025-05-21",
+          URL: "data.riksdagen.se (stg_voteringlista)",
+        },
+      ],
+    },
+
     {
       type: "callout",
       title: "Uppföljning",
-      content: "Vi kommer uppdatera denna rapport när besluten fattas. Bookmark denna sida för att se om vår prediktion stämde. Vill du ha notifikation? Kontakta oss.",
+      content:
+        "Denna rapport uppdateras när HD01NU13, HD01NU16 och HD01NU17 går till omröstning. Vår bedömning valideras då mot faktiskt utfall.",
       highlight: "prediction-correct",
     },
   ],
