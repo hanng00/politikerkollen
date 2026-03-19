@@ -42,6 +42,8 @@ export interface ReportSection {
   supportingFacts?: string[];
   evidence?: Array<{ type: string; data: unknown }>;
   takeaway?: string;
+  // Executive summary v2 fields
+  implications?: Array<{ target: string; action: string }>;
 }
 
 export interface Report {

@@ -1101,7 +1101,7 @@ interface ExecutiveSummaryV2Implication {
 }
 
 function ExecutiveSummaryV2Section({ section }: { section: ReportSection }) {
-  const metrics = section.data as ExecutiveSummaryV2Data[];
+  const metrics = section.data as unknown as ExecutiveSummaryV2Data[];
   const implications = (section as unknown as { implications?: ExecutiveSummaryV2Implication[] }).implications;
 
   return (
@@ -1288,22 +1288,24 @@ function getSectionLevel(type: string): 1 | 2 | 3 {
 }
 
 function getTocItems(sections: ReportSection[]): TocItem[] {
-  return sections
-    .map((section, index) => {
-      if (!section.title) return null;
-      if (section.type === "narrative" && !section.title) return null;
-      if (section.type === "divider") return null;
-      
-      const level = getSectionLevel(section.type);
-      
-      return {
-        id: generateSectionId(section, index),
-        title: section.title,
-        type: section.type,
-        level,
-      };
-    })
-    .filter((item): item is TocItem => item !== null);
+  const items: TocItem[] = [];
+  
+  sections.forEach((section, index) => {
+    if (!section.title) return;
+    if (section.type === "narrative" && !section.title) return;
+    if (section.type === "divider") return;
+
+    const level = getSectionLevel(section.type);
+
+    items.push({
+      id: generateSectionId(section, index),
+      title: section.title,
+      type: section.type,
+      level,
+    });
+  });
+  
+  return items;
 }
 
 export default function ReportClient({ report }: { report: Report }) {
