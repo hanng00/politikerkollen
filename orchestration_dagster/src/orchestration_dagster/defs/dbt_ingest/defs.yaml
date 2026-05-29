@@ -1,7 +1,0 @@
-type: orchestration_dagster.lib.custom_dbt_component.CustomDbtProjectComponent
-
-attributes:
-  select: "resource_type:model"
-  project:
-    project_dir: "{{ env('DBT_PROJECT_DIR', project_root + '/../transformations_dbt') }}"
-    profiles_dir: "{{ env('DBT_PROJECT_DIR', project_root + '/../transformations_dbt') }}"

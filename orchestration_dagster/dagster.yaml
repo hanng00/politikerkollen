@@ -1,9 +1,0 @@
-# Dagster instance configuration for LOCAL DEVELOPMENT
-# Uses SQLite (default) - no external dependencies needed
-
-run_launcher:
-  module: dagster.core.launcher
-  class: DefaultRunLauncher
-
-telemetry:
-  enabled: false
