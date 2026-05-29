@@ -7,6 +7,7 @@ export {
   getPromiseScores,
   getPromiseScoreById,
   getPartyEvidenceScorecard,
+  getPartyScorecardById,
 } from './queries';
 
 export type {
@@ -14,4 +15,6 @@ export type {
   PromiseScore,
   GetPromiseScoresRequest,
   GetPromiseScoresResponse,
+  PartyScorecard,
+  CategoryFulfillment,
 } from './types';

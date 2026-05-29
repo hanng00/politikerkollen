@@ -238,7 +238,7 @@ Resources:
       Timeout: 30
       MemorySize: 1024
       Events:
-        # Legacy route kept for backward compatibility (redirects to new filters)
+        # Legacy route kept for backward compatibility
         ContradictionsFiltersOptions:
           Type: Api
           Properties:
@@ -255,7 +255,7 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
-        # New promise-based routes
+        # Promise routes
         PromiseScoresOptions:
           Type: Api
           Properties:
@@ -288,19 +288,55 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
-        PromiseScorecardOptions:
+        Keepalive:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties: { Sourcemap: true }
+
+  # =============================================================================
+  # Parties API (public, no auth) — /parties/*
+  # =============================================================================
+
+  PartiesApi:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs22.x
+      Handler: src/features/parties/handler.handler
+      Timeout: 30
+      MemorySize: 1024
+      Events:
+        ScorecardOptions:
           Type: Api
           Properties:
             RestApiId: !Ref Api
-            Path: /promises/scorecard
+            Path: /parties/scorecard
             Method: OPTIONS
             Auth:
               Authorizer: NONE
-        PromiseScorecard:
+        Scorecard:
           Type: Api
           Properties:
             RestApiId: !Ref Api
-            Path: /promises/scorecard
+            Path: /parties/scorecard
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        ScorecardByIdOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /parties/scorecard/{partyId}
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
+        ScorecardById:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /parties/scorecard/{partyId}
             Method: GET
             Auth:
               Authorizer: NONE

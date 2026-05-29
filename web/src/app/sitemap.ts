@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { PARTY_ABBREVS } from "@/lib/parties";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || "https://politikerkollen.org";
@@ -41,12 +42,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
+      url: `${BASE_URL}/parti`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
       url: `${BASE_URL}/manifesto`,
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.5,
     },
   ];
+
+  const partyPages: MetadataRoute.Sitemap = PARTY_ABBREVS.map((party) => ({
+    url: `${BASE_URL}/parti/${party}`,
+    lastModified: new Date(),
+    changeFrequency: "weekly" as const,
+    priority: 0.8,
+  }));
 
   const politicians = await fetchPoliticianIds();
   const politicianPages: MetadataRoute.Sitemap = politicians.map((p) => ({
@@ -56,5 +70,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  return [...staticPages, ...politicianPages];
+  return [...staticPages, ...partyPages, ...politicianPages];
 }

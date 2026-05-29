@@ -104,6 +104,11 @@ export function PromiseScoreCardCompact({
                 >
                   {partyName} {score.promise_year}
                 </Badge>
+                {score.source_type === "tidoavtalet" && (
+                  <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-500">
+                    Tidöavtalet
+                  </Badge>
+                )}
                 <Badge variant="secondary" className="text-[10px]">
                   {CATEGORY_NAMES[score.category] ?? score.category}
                 </Badge>

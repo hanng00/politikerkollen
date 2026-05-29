@@ -1,16 +1,11 @@
 /**
- * Accountability API — Lambda handler for API Gateway.
- * Handles /promises/* routes for promise accountability.
+ * Parties API — Lambda handler for API Gateway.
+ * Handles /parties/* routes for party-level data.
  */
 
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { keepalive } from '../../utils/motherduck';
-import {
-  getPromiseFilters,
-  getPromiseScores,
-  getPromiseScoreById,
-} from './queries';
-import type { GetPromiseScoresRequest } from './types';
+import { getPartyEvidenceScorecard, getPartyScorecardById } from '../accountability/queries';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,35 +28,21 @@ function param(event: APIGatewayProxyEvent, key: string): string | undefined {
 type RouteHandler = (event: APIGatewayProxyEvent) => Promise<APIGatewayProxyResult>;
 
 const routes: Record<string, Record<string, RouteHandler>> = {
-  '/contradictions/filters': {
-    GET: async () => {
-      const filters = await getPromiseFilters();
-      return json(filters);
+  '/parties/scorecard': {
+    GET: async (event) => {
+      const category = param(event, 'category');
+      const data = await getPartyEvidenceScorecard(category);
+      return json({ data });
     },
   },
 
-  '/promises/scores': {
+  '/parties/scorecard/{partyId}': {
     GET: async (event) => {
-      const request: GetPromiseScoresRequest = {
-        party: param(event, 'party'),
-        category: param(event, 'category'),
-        evidence_direction: param(event, 'evidence_direction'),
-        outcome: param(event, 'outcome') as 'positive' | 'negative' | 'contradictory' | undefined,
-        limit: parseInt(param(event, 'limit') || '20', 10),
-        offset: parseInt(param(event, 'offset') || '0', 10),
-      };
-      const { data, total } = await getPromiseScores(request);
-      return json({ data, meta: { total, limit: request.limit, offset: request.offset } });
-    },
-  },
-
-  '/promises/scores/{promiseId}': {
-    GET: async (event) => {
-      const promiseId = event.pathParameters?.promiseId;
-      if (!promiseId) return error('Missing promiseId', 400);
-      const promise = await getPromiseScoreById(promiseId);
-      if (!promise) return error('Promise not found', 404);
-      return json({ data: promise });
+      const partyId = event.pathParameters?.partyId;
+      if (!partyId) return error('Missing partyId', 400);
+      const scorecard = await getPartyScorecardById(partyId);
+      if (!scorecard) return error('Party not found', 404);
+      return json({ data: scorecard });
     },
   },
 };

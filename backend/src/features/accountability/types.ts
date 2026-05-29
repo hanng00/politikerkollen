@@ -29,6 +29,7 @@ export interface PromiseScore {
   promise_year: number;
   promise_text: string;
   category: string;
+  source_type: 'valmanifest' | 'tidoavtalet';
   
   // Composite assessment
   composite_score: number;
@@ -73,3 +74,41 @@ export interface GetPromiseScoresResponse {
 }
 
 export const DEFAULT_LIMIT = 20;
+
+/** Category-level fulfillment breakdown */
+export interface CategoryFulfillment {
+  category: string;
+  total: number;
+  implemented_count: number;
+  partial_count: number;
+  fulfillment_rate: number;
+}
+
+/** Full party scorecard with detailed breakdown */
+export interface PartyScorecard {
+  party: string;
+  party_name: string;
+  total_promises: number;
+  
+  // Counts by outcome
+  implemented_count: number;
+  partial_count: number;
+  championed_count: number;
+  supported_count: number;
+  contradictory_count: number;
+  opposed_count: number;
+  unclear_count: number;
+  
+  // Derived metrics
+  positive_count: number;
+  fulfillment_rate: number;
+  avg_score: number;
+  
+  // Category breakdown
+  best_categories: CategoryFulfillment[];
+  worst_categories: CategoryFulfillment[];
+  
+  // Source breakdown
+  valmanifest_count: number;
+  tidoavtalet_count: number;
+}

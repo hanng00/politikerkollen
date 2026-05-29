@@ -20,6 +20,12 @@ interface PromiseForMeta {
   promise_text: string;
   has_contradiction: boolean;
   assessment_label: string;
+  evidence_direction: string;
+  motion_supported_count: number;
+  motion_bifall_count: number;
+  motion_opposed_count: number;
+  proposition_count: number;
+  source_type: string;
   top_evidence: Array<{
     source_titel: string;
     signal_description: string;
@@ -58,18 +64,28 @@ export async function generateMetadata({
   const partyName =
     PARTY_NAMES[promise.promise_party] ?? promise.promise_party.toUpperCase();
 
-  const bestEvidence = promise.top_evidence[0];
+  const sourceLabel = promise.source_type === "tidoavtalet"
+    ? "Tidöavtalet"
+    : `valmanifestet ${promise.promise_year}`;
 
-  const title = promise.has_contradiction
-    ? `${partyName}: Motsägelse`
-    : `${partyName}: ${promise.assessment_label}`;
+  const supportedCount =
+    Number(promise.motion_supported_count || 0) +
+    Number(promise.motion_bifall_count || 0) +
+    Number(promise.proposition_count || 0);
+  const opposedCount = Number(promise.motion_opposed_count || 0);
 
-  const descParts = [`Lovade: "${promise.promise_text}"`];
-  if (bestEvidence) {
-    descParts.push(`Bevis: ${bestEvidence.source_titel} (${bestEvidence.signal_description})`);
-  }
+  const promiseShort = promise.promise_text.length > 60
+    ? promise.promise_text.slice(0, 57) + "..."
+    : promise.promise_text;
 
-  const description = descParts.join(" ");
+  const title = `${partyName} lovade "${promiseShort}" — ${promise.assessment_label}`;
+
+  const voteParts: string[] = [];
+  if (supportedCount > 0) voteParts.push(`${supportedCount} röstningar för`);
+  if (opposedCount > 0) voteParts.push(`${opposedCount} emot`);
+  const voteStr = voteParts.length > 0 ? ` ${voteParts.join(", ")}.` : "";
+
+  const description = `${partyName} lovade i ${sourceLabel}: "${promiseShort}" AI-analys av riksdagens voteringsprotokoll visar: ${promise.assessment_label}.${voteStr}`;
 
   return {
     title,

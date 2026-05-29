@@ -21,64 +21,29 @@ interface PromiseOG {
   motion_bifall_count: number;
   motion_opposed_count: number;
   proposition_count: number;
+  source_type: string;
 }
 
 const partyColors: Record<string, string> = {
-  S: "#E8112D",
-  M: "#52BDEC",
-  SD: "#DDDD00",
-  C: "#009933",
-  V: "#DA291C",
-  KD: "#6366f1",
-  L: "#006AB3",
-  MP: "#83CF39",
-  s: "#E8112D",
-  m: "#52BDEC",
-  sd: "#DDDD00",
-  c: "#009933",
-  v: "#DA291C",
-  kd: "#6366f1",
-  l: "#006AB3",
-  mp: "#83CF39",
+  S: "#E8112D", M: "#52BDEC", SD: "#DDDD00", C: "#009933",
+  V: "#DA291C", KD: "#6366f1", L: "#006AB3", MP: "#83CF39",
+  s: "#E8112D", m: "#52BDEC", sd: "#DDDD00", c: "#009933",
+  v: "#DA291C", kd: "#6366f1", l: "#006AB3", mp: "#83CF39",
 };
 
 const partyNames: Record<string, string> = {
-  S: "Socialdemokraterna",
-  M: "Moderaterna",
-  SD: "Sverigedemokraterna",
-  C: "Centerpartiet",
-  V: "Vänsterpartiet",
-  KD: "Kristdemokraterna",
-  L: "Liberalerna",
-  MP: "Miljöpartiet",
-  s: "Socialdemokraterna",
-  m: "Moderaterna",
-  sd: "Sverigedemokraterna",
-  c: "Centerpartiet",
-  v: "Vänsterpartiet",
-  kd: "Kristdemokraterna",
-  l: "Liberalerna",
-  mp: "Miljöpartiet",
+  S: "Socialdemokraterna", M: "Moderaterna", SD: "Sverigedemokraterna",
+  C: "Centerpartiet", V: "Vänsterpartiet", KD: "Kristdemokraterna",
+  L: "Liberalerna", MP: "Miljöpartiet",
+  s: "Socialdemokraterna", m: "Moderaterna", sd: "Sverigedemokraterna",
+  c: "Centerpartiet", v: "Vänsterpartiet", kd: "Kristdemokraterna",
+  l: "Liberalerna", mp: "Miljöpartiet",
 };
 
 const directionColors: Record<string, string> = {
-  implemented: "#22c55e",
-  partial: "#14b8a6",
-  championed: "#3b82f6",
-  supported: "#71717a",
-  contradictory: "#f59e0b",
-  opposed: "#ef4444",
+  implemented: "#22c55e", partial: "#14b8a6", championed: "#3b82f6",
+  supported: "#71717a", contradictory: "#f59e0b", opposed: "#ef4444",
   unclear: "#71717a",
-};
-
-const directionEmoji: Record<string, string> = {
-  implemented: "✓",
-  partial: "~",
-  championed: "↑",
-  supported: "·",
-  contradictory: "⚡",
-  opposed: "✗",
-  unclear: "?",
 };
 
 async function fetchPromise(id: string): Promise<PromiseOG | null> {
@@ -96,6 +61,11 @@ async function fetchPromise(id: string): Promise<PromiseOG | null> {
 function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength - 1) + "…";
+}
+
+function needsDarkText(party: string): boolean {
+  const p = party.toLowerCase();
+  return p === "sd" || p === "mp";
 }
 
 export default async function Image({
@@ -132,12 +102,11 @@ export default async function Image({
   const partyColor = partyColors[promise.promise_party] ?? "#6366f1";
   const partyName = partyNames[promise.promise_party] ?? promise.promise_party;
   const dirColor = directionColors[promise.evidence_direction] ?? "#71717a";
-  const dirSymbol = directionEmoji[promise.evidence_direction] ?? "?";
   const supportedCount =
-    promise.motion_supported_count +
-    promise.motion_bifall_count +
-    promise.proposition_count;
-  const opposedCount = promise.motion_opposed_count;
+    Number(promise.motion_supported_count || 0) +
+    Number(promise.motion_bifall_count || 0) +
+    Number(promise.proposition_count || 0);
+  const opposedCount = Number(promise.motion_opposed_count || 0);
 
   return new ImageResponse(
     (
@@ -150,132 +119,133 @@ export default async function Image({
           backgroundColor: "#0f0f12",
           color: "#fafafa",
           fontFamily: "sans-serif",
-          padding: 60,
+          padding: 0,
         }}
       >
-        {/* Top: branding */}
+        {/* Colored accent bar at top */}
+        <div style={{ display: "flex", height: 6, backgroundColor: dirColor, width: "100%" }} />
+
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
+            flexDirection: "column",
+            flex: 1,
+            padding: "48px 60px 40px 60px",
           }}
         >
-          <div style={{ fontSize: 20, color: "#71717a" }}>
-            Politikerkollen
-          </div>
+          {/* Top row: party badge + source label */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 8,
-              backgroundColor: partyColor,
-              color:
-                promise.promise_party === "SD" ||
-                promise.promise_party === "sd" ||
-                promise.promise_party === "MP" ||
-                promise.promise_party === "mp"
-                  ? "#000"
-                  : "#fff",
-              padding: "6px 16px",
-              borderRadius: 6,
-              fontSize: 20,
-              fontWeight: 600,
+              gap: 12,
             }}
           >
-            {partyName} {promise.promise_year}
-          </div>
-        </div>
-
-        {/* Middle: Promise text */}
-        <div
-          style={{
-            display: "flex",
-            flex: 1,
-            flexDirection: "column",
-            justifyContent: "center",
-            gap: 32,
-          }}
-        >
-          {/* "Lovade" label */}
-          <div
-            style={{
-              display: "flex",
-              fontSize: 14,
-              fontWeight: 600,
-              textTransform: "uppercase",
-              letterSpacing: 2,
-              color: "#a1a1aa",
-            }}
-          >
-            Lovade
-          </div>
-
-          {/* Promise text */}
-          <div
-            style={{
-              display: "flex",
-              fontSize: 32,
-              fontWeight: 400,
-              lineHeight: 1.35,
-              color: "#fafafa",
-            }}
-          >
-            &ldquo;{truncate(promise.promise_text, 180)}&rdquo;
-          </div>
-        </div>
-
-        {/* Bottom: Assessment bar */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            borderTop: `3px solid ${dirColor}`,
-            paddingTop: 20,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div
-              style={{
-                display: "flex",
-                fontSize: 14,
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: 2,
-                color: "#a1a1aa",
-              }}
-            >
-              Agerade
-            </div>
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 8,
-                fontSize: 24,
+                backgroundColor: partyColor,
+                color: needsDarkText(promise.promise_party) ? "#000" : "#fff",
+                padding: "8px 20px",
+                borderRadius: 8,
+                fontSize: 22,
                 fontWeight: 700,
-                color: dirColor,
               }}
             >
-              <span>{dirSymbol}</span>
-              <span>{promise.assessment_label}</span>
+              {partyName}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                fontSize: 20,
+                color: "#71717a",
+              }}
+            >
+              {promise.source_type === "tidoavtalet"
+                ? "Tidöavtalet 2022"
+                : `Valmanifest ${promise.promise_year}`}
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 24, fontSize: 18 }}>
-            {supportedCount > 0 && (
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <span style={{ fontWeight: 700 }}>{supportedCount}</span>
-                <span style={{ color: "#71717a" }}>stödda</span>
+          {/* Promise text — the hero */}
+          <div
+            style={{
+              display: "flex",
+              flex: 1,
+              alignItems: "center",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                fontSize: 38,
+                fontWeight: 400,
+                lineHeight: 1.4,
+                color: "#fafafa",
+              }}
+            >
+              &ldquo;{truncate(promise.promise_text, 160)}&rdquo;
+            </div>
+          </div>
+
+          {/* Bottom: assessment + stats + CTA */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              borderTop: "1px solid #27272a",
+              paddingTop: 24,
+            }}
+          >
+            {/* Assessment verdict */}
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  backgroundColor: dirColor + "20",
+                  border: `1.5px solid ${dirColor}50`,
+                  padding: "8px 20px",
+                  borderRadius: 8,
+                }}
+              >
+                <span style={{ fontSize: 22, fontWeight: 700, color: dirColor }}>
+                  {promise.assessment_label}
+                </span>
               </div>
-            )}
-            {opposedCount > 0 && (
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <span style={{ fontWeight: 700 }}>{opposedCount}</span>
-                <span style={{ color: "#71717a" }}>emot</span>
+
+              {/* Vote counts */}
+              <div style={{ display: "flex", gap: 16, fontSize: 18 }}>
+                {supportedCount > 0 && (
+                  <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                    <span style={{ fontWeight: 700, color: "#22c55e" }}>{supportedCount}</span>
+                    <span style={{ color: "#71717a" }}>för</span>
+                  </div>
+                )}
+                {opposedCount > 0 && (
+                  <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                    <span style={{ fontWeight: 700, color: "#ef4444" }}>{opposedCount}</span>
+                    <span style={{ color: "#71717a" }}>emot</span>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+
+            {/* CTA / branding */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 18, color: "#71717a" }}>
+                politikerkollen.org
+              </span>
+              <span style={{ fontSize: 18, color: "#a1a1aa" }}>
+                →
+              </span>
+              <span style={{ fontSize: 18, color: "#fafafa", fontWeight: 600 }}>
+                Se hela analysen
+              </span>
+            </div>
           </div>
         </div>
       </div>

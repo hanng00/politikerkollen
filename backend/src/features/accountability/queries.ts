@@ -3,8 +3,19 @@
  */
 
 import { query } from '../../utils/motherduck';
-import type { GetPromiseScoresRequest, PromiseScore, PromiseEvidence } from './types';
+import type { GetPromiseScoresRequest, PromiseScore, PromiseEvidence, PartyScorecard, CategoryFulfillment } from './types';
 import { DEFAULT_LIMIT } from './types';
+
+const PARTY_NAMES: Record<string, string> = {
+  s: 'Socialdemokraterna',
+  m: 'Moderaterna',
+  sd: 'Sverigedemokraterna',
+  c: 'Centerpartiet',
+  v: 'Vänsterpartiet',
+  kd: 'Kristdemokraterna',
+  l: 'Liberalerna',
+  mp: 'Miljöpartiet',
+};
 
 /** Raw row from DB where top_evidence is a JSON string */
 interface PromiseScoreRow extends Omit<PromiseScore, 'top_evidence'> {
@@ -111,6 +122,7 @@ export async function getPromiseScores(
       promise_year,
       promise_text,
       category,
+      source_type,
       composite_score,
       evidence_strength,
       evidence_direction,
@@ -156,6 +168,7 @@ export async function getPromiseScoreById(promiseId: string): Promise<PromiseSco
       promise_year,
       promise_text,
       category,
+      source_type,
       composite_score,
       evidence_strength,
       evidence_direction,
@@ -234,4 +247,115 @@ export async function getPartyEvidenceScorecard(category?: string): Promise<Arra
     avg_score: number;
   }>(sql);
   return result.data;
+}
+
+/**
+ * Get detailed scorecard for a single party
+ */
+export async function getPartyScorecardById(partyId: string): Promise<PartyScorecard | null> {
+  const normalizedParty = partyId.toLowerCase();
+  
+  // Main aggregation query
+  const mainSql = `
+    SELECT
+      promise_party as party,
+      COUNT(*) as total_promises,
+      COALESCE(SUM(CASE WHEN evidence_direction = 'implemented' THEN 1 ELSE 0 END), 0) as implemented_count,
+      COALESCE(SUM(CASE WHEN evidence_direction = 'partial' THEN 1 ELSE 0 END), 0) as partial_count,
+      COALESCE(SUM(CASE WHEN evidence_direction = 'championed' THEN 1 ELSE 0 END), 0) as championed_count,
+      COALESCE(SUM(CASE WHEN evidence_direction = 'supported' THEN 1 ELSE 0 END), 0) as supported_count,
+      COALESCE(SUM(CASE WHEN evidence_direction = 'contradictory' THEN 1 ELSE 0 END), 0) as contradictory_count,
+      COALESCE(SUM(CASE WHEN evidence_direction = 'opposed' THEN 1 ELSE 0 END), 0) as opposed_count,
+      COALESCE(SUM(CASE WHEN evidence_direction = 'unclear' THEN 1 ELSE 0 END), 0) as unclear_count,
+      COALESCE(SUM(CASE WHEN evidence_direction IN ('implemented', 'partial', 'championed', 'supported') THEN 1 ELSE 0 END), 0) as positive_count,
+      ROUND(AVG(composite_score), 3) as avg_score,
+      COALESCE(SUM(CASE WHEN source_type = 'valmanifest' THEN 1 ELSE 0 END), 0) as valmanifest_count,
+      COALESCE(SUM(CASE WHEN source_type = 'tidoavtalet' THEN 1 ELSE 0 END), 0) as tidoavtalet_count
+    FROM ${MART_SCHEMA}.mart_promise_score
+    WHERE LOWER(promise_party) = '${normalizedParty}'
+    GROUP BY promise_party
+  `;
+
+  const mainResult = await query<{
+    party: string;
+    total_promises: number;
+    implemented_count: number;
+    partial_count: number;
+    championed_count: number;
+    supported_count: number;
+    contradictory_count: number;
+    opposed_count: number;
+    unclear_count: number;
+    positive_count: number;
+    avg_score: number;
+    valmanifest_count: number;
+    tidoavtalet_count: number;
+  }>(mainSql);
+
+  if (mainResult.data.length === 0) {
+    return null;
+  }
+
+  const main = mainResult.data[0]!;
+
+  // Category breakdown query
+  const categorySql = `
+    SELECT
+      category,
+      COUNT(*) as total,
+      COALESCE(SUM(CASE WHEN evidence_direction = 'implemented' THEN 1 ELSE 0 END), 0) as implemented_count,
+      COALESCE(SUM(CASE WHEN evidence_direction = 'partial' THEN 1 ELSE 0 END), 0) as partial_count
+    FROM ${MART_SCHEMA}.mart_promise_score
+    WHERE LOWER(promise_party) = '${normalizedParty}'
+    GROUP BY category
+    HAVING COUNT(*) >= 2
+  `;
+
+  const categoryResult = await query<{
+    category: string;
+    total: number;
+    implemented_count: number;
+    partial_count: number;
+  }>(categorySql);
+
+  // Calculate fulfillment rate for each category
+  const categories: CategoryFulfillment[] = categoryResult.data.map((c) => ({
+    category: c.category,
+    total: Number(c.total),
+    implemented_count: Number(c.implemented_count),
+    partial_count: Number(c.partial_count),
+    fulfillment_rate: Math.round(
+      ((Number(c.implemented_count) + Number(c.partial_count)) / Number(c.total)) * 100
+    ),
+  }));
+
+  // Sort by fulfillment rate
+  const sortedCategories = [...categories].sort((a, b) => b.fulfillment_rate - a.fulfillment_rate);
+  
+  const totalPromises = Number(main.total_promises);
+  const implementedCount = Number(main.implemented_count);
+  const partialCount = Number(main.partial_count);
+  const fulfillmentRate = totalPromises > 0 
+    ? Math.round(((implementedCount + partialCount) / totalPromises) * 100)
+    : 0;
+
+  return {
+    party: main.party,
+    party_name: PARTY_NAMES[main.party.toLowerCase()] ?? main.party.toUpperCase(),
+    total_promises: totalPromises,
+    implemented_count: implementedCount,
+    partial_count: partialCount,
+    championed_count: Number(main.championed_count),
+    supported_count: Number(main.supported_count),
+    contradictory_count: Number(main.contradictory_count),
+    opposed_count: Number(main.opposed_count),
+    unclear_count: Number(main.unclear_count),
+    positive_count: Number(main.positive_count),
+    fulfillment_rate: fulfillmentRate,
+    avg_score: Number(main.avg_score) || 0,
+    best_categories: sortedCategories.slice(0, 3),
+    worst_categories: sortedCategories.slice(-3).reverse(),
+    valmanifest_count: Number(main.valmanifest_count),
+    tidoavtalet_count: Number(main.tidoavtalet_count),
+  };
 }

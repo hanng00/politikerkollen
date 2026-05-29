@@ -6,6 +6,7 @@ import type {
   PromiseScoresResponse,
   FetchPromiseScoresOptions,
   PartyEvidenceScore,
+  PartyScorecard,
 } from "@/types";
 
 const API_ENDPOINT = process.env.NEXT_PUBLIC_API_ENDPOINT;
@@ -97,7 +98,7 @@ async function fetchPromiseScoreById(id: string): Promise<PromiseScore> {
 async function fetchPartyEvidenceScorecard(category?: string): Promise<PartyEvidenceScore[]> {
   const params = new URLSearchParams();
   if (category) params.set("category", category);
-  const url = `${API_ENDPOINT}/promises/scorecard${params.toString() ? `?${params}` : ""}`;
+  const url = `${API_ENDPOINT}/parties/scorecard${params.toString() ? `?${params}` : ""}`;
   const res = await fetch(url);
 
   if (!res.ok) {
@@ -166,8 +167,31 @@ export function useAdjacentPromises(
 
 export function usePartyEvidenceScorecard(category?: string) {
   return useQuery({
-    queryKey: ["promises", "evidence-scorecard", category],
+    queryKey: ["parties", "scorecard", category],
     queryFn: () => fetchPartyEvidenceScorecard(category),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+async function fetchPartyScorecardById(partyId: string): Promise<PartyScorecard> {
+  const res = await fetch(`${API_ENDPOINT}/parties/scorecard/${partyId}`);
+
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error("Partiet hittades inte");
+    }
+    throw new Error(`Failed to fetch party scorecard: ${res.status}`);
+  }
+
+  const json = await res.json();
+  return json.data;
+}
+
+export function usePartyScorecardById(partyId: string) {
+  return useQuery({
+    queryKey: ["parties", "scorecard", partyId],
+    queryFn: () => fetchPartyScorecardById(partyId),
+    enabled: !!partyId,
     staleTime: 5 * 60 * 1000,
   });
 }
