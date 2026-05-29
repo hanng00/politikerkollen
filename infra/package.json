@@ -2,15 +2,14 @@
   "name": "politikerkollen-infra",
   "version": "1.0.0",
   "type": "module",
-  "description": "CDK infrastructure for Politikerkollen - cost-optimized Dagster on AWS",
+  "description": "Optional CDK (e.g. Dagster EC2). Core ECR/VPC/secrets live in orchestration_stepfunctions SAM.",
   "scripts": {
     "build": "bun build src/app.ts --outdir dist --target node",
     "cdk": "cdk",
     "synth": "cdk synth",
     "diff": "cdk diff",
     "deploy": "cdk deploy --all",
-    "deploy:dev": "cdk deploy --all -c environment=dev",
-    "deploy:prod": "cdk deploy --all -c environment=prod",
+    "deploy:dagster": "cdk deploy --all -c deployDagster=true",
     "destroy": "cdk destroy --all",
     "typecheck": "tsc --noEmit"
   },

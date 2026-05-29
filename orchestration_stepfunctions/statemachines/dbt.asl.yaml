@@ -1,0 +1,136 @@
+Comment: Politikerkollen dbt — run transformations in MotherDuck via transformations_dbt container
+StartAt: RouteDbtRun
+States:
+  RouteDbtRun:
+    Type: Choice
+    Comment: Branch on optional select and fullRefresh
+    Choices:
+      - And:
+          - Variable: $.select
+            IsPresent: true
+          - Not:
+              Variable: $.select
+              StringEquals: ""
+          - Variable: $.fullRefresh
+            IsPresent: true
+          - Variable: $.fullRefresh
+            BooleanEquals: true
+        Next: BuildWithSelectFullRefresh
+      - And:
+          - Variable: $.select
+            IsPresent: true
+          - Not:
+              Variable: $.select
+              StringEquals: ""
+        Next: BuildWithSelect
+      - And:
+          - Variable: $.fullRefresh
+            IsPresent: true
+          - Variable: $.fullRefresh
+            BooleanEquals: true
+        Next: BuildAllFullRefresh
+    Default: BuildAll
+
+  BuildAll:
+    Type: Task
+    Comment: dbt build (incremental)
+    Resource: arn:aws:states:::ecs:runTask.sync
+    Parameters:
+      LaunchType: FARGATE
+      Cluster: ${EcsCluster}
+      TaskDefinition: ${TaskDefinition}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets.$: States.StringSplit('${Subnets}', ',')
+          SecurityGroups.$: States.Array('${SecurityGroups}')
+          AssignPublicIp: ENABLED
+      Overrides:
+        ContainerOverrides:
+          - Name: container
+            Command:
+              - build
+    ResultPath: $.result
+    End: true
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: DbtFailed
+
+  BuildAllFullRefresh:
+    Type: Task
+    Comment: dbt build --full-refresh
+    Resource: arn:aws:states:::ecs:runTask.sync
+    Parameters:
+      LaunchType: FARGATE
+      Cluster: ${EcsCluster}
+      TaskDefinition: ${TaskDefinition}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets.$: States.StringSplit('${Subnets}', ',')
+          SecurityGroups.$: States.Array('${SecurityGroups}')
+          AssignPublicIp: ENABLED
+      Overrides:
+        ContainerOverrides:
+          - Name: container
+            Command:
+              - build
+              - --full-refresh
+    ResultPath: $.result
+    End: true
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: DbtFailed
+
+  BuildWithSelect:
+    Type: Task
+    Comment: dbt build --select
+    Resource: arn:aws:states:::ecs:runTask.sync
+    Parameters:
+      LaunchType: FARGATE
+      Cluster: ${EcsCluster}
+      TaskDefinition: ${TaskDefinition}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets.$: States.StringSplit('${Subnets}', ',')
+          SecurityGroups.$: States.Array('${SecurityGroups}')
+          AssignPublicIp: ENABLED
+      Overrides:
+        ContainerOverrides:
+          - Name: container
+            Command.$: States.Array('build', '--select', $.select)
+    ResultPath: $.result
+    End: true
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: DbtFailed
+
+  BuildWithSelectFullRefresh:
+    Type: Task
+    Comment: dbt build --select --full-refresh
+    Resource: arn:aws:states:::ecs:runTask.sync
+    Parameters:
+      LaunchType: FARGATE
+      Cluster: ${EcsCluster}
+      TaskDefinition: ${TaskDefinition}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets.$: States.StringSplit('${Subnets}', ',')
+          SecurityGroups.$: States.Array('${SecurityGroups}')
+          AssignPublicIp: ENABLED
+      Overrides:
+        ContainerOverrides:
+          - Name: container
+            Command.$: States.Array('build', '--select', $.select, '--full-refresh')
+    ResultPath: $.result
+    End: true
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: DbtFailed
+
+  DbtFailed:
+    Type: Fail
+    Error: DbtError
+    Cause: dbt task failed

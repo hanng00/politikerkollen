@@ -81,10 +81,10 @@ def _get_partition_suffix(context: AssetExecutionContext) -> str:
 
 @dg.asset(
     key=cognition_asset_key("valmanifest_promises"),
-    deps=[dbt_asset_key("stg_valmanifest")],
+    deps=[dbt_asset_key("stg_valmanifest"), dbt_asset_key("stg_tidoavtalet")],
     group_name=GROUP_NAME,
     partitions_def=election_year_partitions,
-    description="Extract promises from party manifestos using LLM. Partitioned by election year.",
+    description="Extract promises from party manifestos and Tidöavtalet using LLM. Partitioned by election year.",
 )
 def valmanifest_promises(
     context: AssetExecutionContext,

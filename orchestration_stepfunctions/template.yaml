@@ -1,0 +1,509 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Politikerkollen Orchestration — Step Functions + Fargate on the account default VPC,
+  ECR repos politikerkollen/*, one Secrets Manager JSON (MotherDuck + OpenAI). Admin Function URL
+  has no auth (add API Gateway + Cognito or similar before exposing broadly).
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs22.x
+    Architectures: [arm64]
+
+Resources:
+  # ===========================================================================
+  # ECR + secrets (no separate CDK stack)
+  # ===========================================================================
+  IngestionEcrRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: politikerkollen/ingestion
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {"rules":[{"rulePriority":1,"description":"Keep last 5","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":5},"action":{"type":"expire"}}]}
+
+  CognitionEcrRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: politikerkollen/cognition
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {"rules":[{"rulePriority":1,"description":"Keep last 5","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":5},"action":{"type":"expire"}}]}
+
+  DbtEcrRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: politikerkollen/dbt
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {"rules":[{"rulePriority":1,"description":"Keep last 5","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":5},"action":{"type":"expire"}}]}
+
+  PipelineSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: politikerkollen/pipeline-secrets
+      Description: JSON keys "token" (MotherDuck) and "key" (OpenAI)
+      SecretString: '{"token":"REPLACE_ME","key":"REPLACE_ME"}'
+
+  VpcLookupFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: politikerkollen-vpc-lookup
+      Handler: app.handler
+      Runtime: python3.12
+      Timeout: 60
+      CodeUri: vpc_lookup/
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [ec2:DescribeVpcs, ec2:DescribeSubnets]
+              Resource: "*"
+
+  VpcLookupCloudFormationPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref VpcLookupFunction
+      Action: lambda:InvokeFunction
+      Principal: cloudformation.amazonaws.com
+      SourceArn: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AWS::StackName}/*
+
+  DefaultVpcLookup:
+    Type: Custom::PolitikerkollenDefaultVpc
+    DependsOn: VpcLookupCloudFormationPermission
+    Properties:
+      ServiceToken: !GetAtt VpcLookupFunction.Arn
+
+  # ===========================================================================
+  # ECS Cluster + Security
+  # ===========================================================================
+  EcsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: politikerkollen-ecs-tasks
+      GroupDescription: Security group for ECS Fargate tasks
+      VpcId: !GetAtt DefaultVpcLookup.VpcId
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+
+  EcsCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: politikerkollen
+      ClusterSettings:
+        - Name: containerInsights
+          Value: disabled
+      CapacityProviders: [FARGATE, FARGATE_SPOT]
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: FARGATE_SPOT
+          Weight: 1
+        - CapacityProvider: FARGATE
+          Weight: 0
+
+  # ===========================================================================
+  # IAM Roles
+  # ===========================================================================
+  EcsExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: politikerkollen-ecs-execution
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: SecretsAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref PipelineSecret
+
+  EcsTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: politikerkollen-ecs-task
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+
+  StepFunctionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: politikerkollen-stepfunctions
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: EcsAndEvents
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [ecs:RunTask, ecs:StopTask, ecs:DescribeTasks]
+                Resource: "*"
+                Condition:
+                  ArnEquals:
+                    ecs:cluster: !GetAtt EcsCluster.Arn
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource:
+                  - !GetAtt EcsExecutionRole.Arn
+                  - !GetAtt EcsTaskRole.Arn
+              - Effect: Allow
+                Action: [events:PutTargets, events:PutRule, events:DescribeRule]
+                Resource:
+                  # ECS RunTask.sync (ingestion / cognition / dbt state machines)
+                  - !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctionsGetEventsForECSTaskRule
+                  # Nested states:startExecution.sync (full-pipeline state machine)
+                  - !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctionsGetEventsForStepFunctionsExecutionRule
+              # Named ARNs (no !Ref to state machines) to avoid circular dependency with Role property
+              - Effect: Allow
+                Action: [states:StartExecution]
+                Resource:
+                  - !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:politikerkollen-ingestion
+                  - !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:politikerkollen-cognition
+                  - !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:politikerkollen-dbt
+                  - !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:politikerkollen-full-pipeline
+              - Effect: Allow
+                Action:
+                  - states:DescribeExecution
+                  - states:GetExecutionHistory
+                  - states:StopExecution
+                Resource: !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:execution:*:*
+
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: politikerkollen-scheduler
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StartStateMachine
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: states:StartExecution
+                Resource:
+                  - !Ref FullPipelineStateMachine
+
+  # ===========================================================================
+  # CloudWatch Logs
+  # ===========================================================================
+  IngestionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/politikerkollen/ingestion
+      RetentionInDays: 7
+
+  CognitionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/politikerkollen/cognition
+      RetentionInDays: 7
+
+  DbtLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/politikerkollen/dbt
+      RetentionInDays: 7
+
+  # ===========================================================================
+  # ECS Task Definitions
+  # ===========================================================================
+  IngestionTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: politikerkollen-ingestion
+      Cpu: "512"
+      Memory: "1024"
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      ExecutionRoleArn: !GetAtt EcsExecutionRole.Arn
+      TaskRoleArn: !GetAtt EcsTaskRole.Arn
+      ContainerDefinitions:
+        - Name: container
+          Image: !Sub "${IngestionEcrRepository.RepositoryUri}:latest"
+          Essential: true
+          Secrets:
+            - Name: MOTHERDUCK_ACCESS_TOKEN
+              ValueFrom: !Sub "${PipelineSecret}:token::"
+          Environment:
+            - Name: DATABASE_NAME
+              Value: spatial_dagster
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref IngestionLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+
+  CognitionTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: politikerkollen-cognition
+      Cpu: "1024"
+      Memory: "2048"
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      ExecutionRoleArn: !GetAtt EcsExecutionRole.Arn
+      TaskRoleArn: !GetAtt EcsTaskRole.Arn
+      ContainerDefinitions:
+        - Name: container
+          Image: !Sub "${CognitionEcrRepository.RepositoryUri}:latest"
+          Essential: true
+          Secrets:
+            - Name: MOTHERDUCK_ACCESS_TOKEN
+              ValueFrom: !Sub "${PipelineSecret}:token::"
+            - Name: OPENAI_API_KEY
+              ValueFrom: !Sub "${PipelineSecret}:key::"
+          Environment:
+            - Name: DATABASE_NAME
+              Value: spatial_dagster
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref CognitionLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+
+  DbtTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: politikerkollen-dbt
+      Cpu: "1024"
+      Memory: "2048"
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      ExecutionRoleArn: !GetAtt EcsExecutionRole.Arn
+      TaskRoleArn: !GetAtt EcsTaskRole.Arn
+      ContainerDefinitions:
+        - Name: container
+          Image: !Sub "${DbtEcrRepository.RepositoryUri}:latest"
+          Essential: true
+          Secrets:
+            - Name: MOTHERDUCK_ACCESS_TOKEN
+              ValueFrom: !Sub "${PipelineSecret}:token::"
+          Environment:
+            - Name: DATABASE_NAME
+              Value: spatial_dagster
+            - Name: DBT_TARGET
+              Value: dev
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref DbtLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+
+  # ===========================================================================
+  # Step Functions State Machines
+  # ===========================================================================
+  IngestionStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: politikerkollen-ingestion
+      DefinitionUri: statemachines/ingestion.asl.yaml
+      DefinitionSubstitutions:
+        EcsCluster: !GetAtt EcsCluster.Arn
+        TaskDefinition: !Ref IngestionTaskDefinition
+        Subnets: !GetAtt DefaultVpcLookup.SubnetIds
+        SecurityGroups: !Ref EcsSecurityGroup
+      Role: !GetAtt StepFunctionsRole.Arn
+      Type: STANDARD
+
+  CognitionStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: politikerkollen-cognition
+      DefinitionUri: statemachines/cognition.asl.yaml
+      DefinitionSubstitutions:
+        EcsCluster: !GetAtt EcsCluster.Arn
+        TaskDefinition: !Ref CognitionTaskDefinition
+        Subnets: !GetAtt DefaultVpcLookup.SubnetIds
+        SecurityGroups: !Ref EcsSecurityGroup
+      Role: !GetAtt StepFunctionsRole.Arn
+      Type: STANDARD
+
+  DbtStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: politikerkollen-dbt
+      DefinitionUri: statemachines/dbt.asl.yaml
+      DefinitionSubstitutions:
+        EcsCluster: !GetAtt EcsCluster.Arn
+        TaskDefinition: !Ref DbtTaskDefinition
+        Subnets: !GetAtt DefaultVpcLookup.SubnetIds
+        SecurityGroups: !Ref EcsSecurityGroup
+      Role: !GetAtt StepFunctionsRole.Arn
+      Type: STANDARD
+
+  FullPipelineStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: politikerkollen-full-pipeline
+      DefinitionUri: statemachines/full-pipeline.asl.yaml
+      DefinitionSubstitutions:
+        IngestionStateMachineArn: !Ref IngestionStateMachine
+        DbtStateMachineArn: !Ref DbtStateMachine
+        CognitionStateMachineArn: !Ref CognitionStateMachine
+      Role: !GetAtt StepFunctionsRole.Arn
+      Type: STANDARD
+
+  # ===========================================================================
+  # EventBridge Scheduler — daily full pipeline
+  # ===========================================================================
+  # Runs incremental ingestion → dbt → cognition at 03:00 UTC daily.
+  DailyFullPipelineSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: politikerkollen-daily-full-pipeline
+      Description: Daily ingestion, dbt, and cognition at 3 AM UTC
+      ScheduleExpression: cron(0 3 * * ? *)
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      State: ENABLED
+      Target:
+        Arn: !Ref FullPipelineStateMachine
+        RoleArn: !GetAtt SchedulerRole.Arn
+        Input: '{"ingestion":{"mode":"incremental"},"dbt":{},"cognition":{"task":"full-pipeline","year":"2022","realtime":false}}'
+
+  # ===========================================================================
+  # Admin UI
+  # ===========================================================================
+  AdminFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: politikerkollen-admin
+      Handler: src/handler.handler
+      Timeout: 60
+      MemorySize: 512
+      Environment:
+        Variables:
+          INGESTION_STATE_MACHINE_ARN: !Ref IngestionStateMachine
+          COGNITION_STATE_MACHINE_ARN: !Ref CognitionStateMachine
+          DBT_STATE_MACHINE_ARN: !Ref DbtStateMachine
+          FULL_PIPELINE_STATE_MACHINE_ARN: !Ref FullPipelineStateMachine
+          ECS_CLUSTER: !GetAtt EcsCluster.Arn
+          INGESTION_LOG_GROUP: !Ref IngestionLogGroup
+          COGNITION_LOG_GROUP: !Ref CognitionLogGroup
+          DBT_LOG_GROUP: !Ref DbtLogGroup
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - states:StartExecution
+                - states:ListExecutions
+                - states:DescribeExecution
+                - states:StopExecution
+                - states:GetExecutionHistory
+              Resource:
+                - !Ref IngestionStateMachine
+                - !Ref CognitionStateMachine
+                - !Ref DbtStateMachine
+                - !Ref FullPipelineStateMachine
+            - Effect: Allow
+              Action:
+                - states:DescribeExecution
+                - states:GetExecutionHistory
+                - states:StopExecution
+              Resource: !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:execution:*:*
+            - Effect: Allow
+              Action: [ecs:ListTasks, ecs:DescribeTasks]
+              Resource: "*"
+              Condition:
+                ArnEquals:
+                  ecs:cluster: !GetAtt EcsCluster.Arn
+            - Effect: Allow
+              Action: [logs:GetLogEvents, logs:FilterLogEvents]
+              Resource:
+                - !Sub ${IngestionLogGroup.Arn}:*
+                - !Sub ${CognitionLogGroup.Arn}:*
+                - !Sub ${DbtLogGroup.Arn}:*
+      FunctionUrlConfig:
+        AuthType: NONE
+        Cors:
+          AllowOrigins: ["*"]
+          AllowMethods: [GET, POST]
+          AllowHeaders: ["*"]
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Sourcemap: true
+        External: ["@aws-sdk/*"]
+
+Outputs:
+  EcsClusterArn:
+    Value: !GetAtt EcsCluster.Arn
+
+  IngestionStateMachineArn:
+    Value: !Ref IngestionStateMachine
+
+  CognitionStateMachineArn:
+    Value: !Ref CognitionStateMachine
+
+  DbtStateMachineArn:
+    Value: !Ref DbtStateMachine
+
+  FullPipelineStateMachineArn:
+    Value: !Ref FullPipelineStateMachine
+
+  AdminUrl:
+    Value: !GetAtt AdminFunctionUrl.FunctionUrl
+
+  # For Dagster compatibility - can use these task definitions
+  IngestionTaskDefinitionArn:
+    Value: !Ref IngestionTaskDefinition
+    Export:
+      Name: !Sub ${AWS::StackName}-IngestionTaskDef
+
+  CognitionTaskDefinitionArn:
+    Value: !Ref CognitionTaskDefinition
+    Export:
+      Name: !Sub ${AWS::StackName}-CognitionTaskDef
+
+  DbtTaskDefinitionArn:
+    Value: !Ref DbtTaskDefinition
+    Export:
+      Name: !Sub ${AWS::StackName}-DbtTaskDef
+
+  EcsSubnets:
+    Value: !GetAtt DefaultVpcLookup.SubnetIds
+    Export:
+      Name: !Sub ${AWS::StackName}-Subnets
+
+  PipelineSecretArn:
+    Value: !Ref PipelineSecret
+
+  EcsSecurityGroup:
+    Value: !Ref EcsSecurityGroup
+    Export:
+      Name: !Sub ${AWS::StackName}-SecurityGroup

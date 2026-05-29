@@ -1,0 +1,69 @@
+name: Deploy Orchestration Stack
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'orchestration_stepfunctions/**'
+      - '.github/workflows/deploy-orchestration.yml'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: eu-north-1
+  STACK_NAME: politikerkollen-orchestration
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup SAM CLI
+        uses: aws-actions/setup-sam@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        working-directory: orchestration_stepfunctions
+        run: npm install
+
+      - name: SAM Build
+        working-directory: orchestration_stepfunctions
+        run: sam build
+
+      - name: SAM Deploy
+        working-directory: orchestration_stepfunctions
+        run: |
+          sam deploy \
+            --stack-name ${{ env.STACK_NAME }} \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset
+
+      - name: Get outputs
+        id: outputs
+        run: |
+          ADMIN_URL=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }} \
+            --query "Stacks[0].Outputs[?OutputKey=='AdminUrl'].OutputValue" \
+            --output text)
+          echo "Admin UI: $ADMIN_URL"
+          echo "admin_url=$ADMIN_URL" >> $GITHUB_OUTPUT
+
+      - name: Summary
+        run: |
+          echo "## Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Admin UI:** ${{ steps.outputs.outputs.admin_url }}" >> $GITHUB_STEP_SUMMARY

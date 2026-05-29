@@ -1,0 +1,268 @@
+Comment: Politikerkollen Cognition Pipeline - LLM-based data processing
+StartAt: RouteTask
+States:
+  RouteTask:
+    Type: Choice
+    Comment: Route to the appropriate cognition task
+    Choices:
+      - Variable: $.task
+        StringEquals: full-pipeline
+        Next: ExtractPromises
+      - Variable: $.task
+        StringEquals: extract-promises
+        Next: ExtractPromisesOnly
+      - Variable: $.task
+        StringEquals: embed-promises
+        Next: EmbedPromisesOnly
+      - Variable: $.task
+        StringEquals: build-source-texts
+        Next: BuildSourceTextsOnly
+      - Variable: $.task
+        StringEquals: embed-sources
+        Next: EmbedSourcesOnly
+      - Variable: $.task
+        StringEquals: match-promises
+        Next: MatchPromisesOnly
+    Default: InvalidTask
+
+  # Full pipeline - runs all steps in sequence
+  ExtractPromises:
+    Type: Task
+    Comment: Extract promises from party manifestos using LLM
+    Resource: arn:aws:states:::ecs:runTask.sync
+    Parameters:
+      LaunchType: FARGATE
+      Cluster: ${EcsCluster}
+      TaskDefinition: ${TaskDefinition}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets.$: States.StringSplit('${Subnets}', ',')
+          SecurityGroups.$: States.Array('${SecurityGroups}')
+          AssignPublicIp: ENABLED
+      Overrides:
+        ContainerOverrides:
+          - Name: container
+            Command.$: States.Array('extract-promises', '--year', $.year)
+    ResultPath: $.extractResult
+    Next: EmbedPromises
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: CognitionFailed
+
+  EmbedPromises:
+    Type: Task
+    Comment: Generate embeddings for extracted promises
+    Resource: arn:aws:states:::ecs:runTask.sync
+    Parameters:
+      LaunchType: FARGATE
+      Cluster: ${EcsCluster}
+      TaskDefinition: ${TaskDefinition}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets.$: States.StringSplit('${Subnets}', ',')
+          SecurityGroups.$: States.Array('${SecurityGroups}')
+          AssignPublicIp: ENABLED
+      Overrides:
+        ContainerOverrides:
+          - Name: container
+            Command.$: States.Array('embed-promises', '--year', $.year)
+    ResultPath: $.embedPromisesResult
+    Next: BuildSourceTexts
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: CognitionFailed
+
+  BuildSourceTexts:
+    Type: Task
+    Comment: Extract plain text from source HTML
+    Resource: arn:aws:states:::ecs:runTask.sync
+    Parameters:
+      LaunchType: FARGATE
+      Cluster: ${EcsCluster}
+      TaskDefinition: ${TaskDefinition}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets.$: States.StringSplit('${Subnets}', ',')
+          SecurityGroups.$: States.Array('${SecurityGroups}')
+          AssignPublicIp: ENABLED
+      Overrides:
+        ContainerOverrides:
+          - Name: container
+            Command.$: States.Array('build-source-texts', '--riksmote-year', $.year)
+    ResultPath: $.buildSourceTextsResult
+    Next: EmbedSources
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: CognitionFailed
+
+  EmbedSources:
+    Type: Task
+    Comment: Generate embeddings for source documents
+    Resource: arn:aws:states:::ecs:runTask.sync
+    Parameters:
+      LaunchType: FARGATE
+      Cluster: ${EcsCluster}
+      TaskDefinition: ${TaskDefinition}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets.$: States.StringSplit('${Subnets}', ',')
+          SecurityGroups.$: States.Array('${SecurityGroups}')
+          AssignPublicIp: ENABLED
+      Overrides:
+        ContainerOverrides:
+          - Name: container
+            Command.$: States.Array('embed-sources', '--riksmote-year', $.year)
+    ResultPath: $.embedSourcesResult
+    Next: MatchPromises
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: CognitionFailed
+
+  MatchPromises:
+    Type: Task
+    Comment: Match promises to source documents
+    Resource: arn:aws:states:::ecs:runTask.sync
+    Parameters:
+      LaunchType: FARGATE
+      Cluster: ${EcsCluster}
+      TaskDefinition: ${TaskDefinition}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets.$: States.StringSplit('${Subnets}', ',')
+          SecurityGroups.$: States.Array('${SecurityGroups}')
+          AssignPublicIp: ENABLED
+      Overrides:
+        ContainerOverrides:
+          - Name: container
+            Command.$: States.Array('match-promises', '--year', $.year)
+    ResultPath: $.matchResult
+    End: true
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: CognitionFailed
+
+  # Standalone tasks (when running individual steps)
+  ExtractPromisesOnly:
+    Type: Task
+    Resource: arn:aws:states:::ecs:runTask.sync
+    Parameters:
+      LaunchType: FARGATE
+      Cluster: ${EcsCluster}
+      TaskDefinition: ${TaskDefinition}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets.$: States.StringSplit('${Subnets}', ',')
+          SecurityGroups.$: States.Array('${SecurityGroups}')
+          AssignPublicIp: ENABLED
+      Overrides:
+        ContainerOverrides:
+          - Name: container
+            Command.$: States.Array('extract-promises', '--year', $.year)
+    End: true
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: CognitionFailed
+
+  EmbedPromisesOnly:
+    Type: Task
+    Resource: arn:aws:states:::ecs:runTask.sync
+    Parameters:
+      LaunchType: FARGATE
+      Cluster: ${EcsCluster}
+      TaskDefinition: ${TaskDefinition}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets.$: States.StringSplit('${Subnets}', ',')
+          SecurityGroups.$: States.Array('${SecurityGroups}')
+          AssignPublicIp: ENABLED
+      Overrides:
+        ContainerOverrides:
+          - Name: container
+            Command.$: States.Array('embed-promises', '--year', $.year)
+    End: true
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: CognitionFailed
+
+  BuildSourceTextsOnly:
+    Type: Task
+    Resource: arn:aws:states:::ecs:runTask.sync
+    Parameters:
+      LaunchType: FARGATE
+      Cluster: ${EcsCluster}
+      TaskDefinition: ${TaskDefinition}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets.$: States.StringSplit('${Subnets}', ',')
+          SecurityGroups.$: States.Array('${SecurityGroups}')
+          AssignPublicIp: ENABLED
+      Overrides:
+        ContainerOverrides:
+          - Name: container
+            Command.$: States.Array('build-source-texts', '--riksmote-year', $.year)
+    End: true
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: CognitionFailed
+
+  EmbedSourcesOnly:
+    Type: Task
+    Resource: arn:aws:states:::ecs:runTask.sync
+    Parameters:
+      LaunchType: FARGATE
+      Cluster: ${EcsCluster}
+      TaskDefinition: ${TaskDefinition}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets.$: States.StringSplit('${Subnets}', ',')
+          SecurityGroups.$: States.Array('${SecurityGroups}')
+          AssignPublicIp: ENABLED
+      Overrides:
+        ContainerOverrides:
+          - Name: container
+            Command.$: States.Array('embed-sources', '--riksmote-year', $.year)
+    End: true
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: CognitionFailed
+
+  MatchPromisesOnly:
+    Type: Task
+    Resource: arn:aws:states:::ecs:runTask.sync
+    Parameters:
+      LaunchType: FARGATE
+      Cluster: ${EcsCluster}
+      TaskDefinition: ${TaskDefinition}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets.$: States.StringSplit('${Subnets}', ',')
+          SecurityGroups.$: States.Array('${SecurityGroups}')
+          AssignPublicIp: ENABLED
+      Overrides:
+        ContainerOverrides:
+          - Name: container
+            Command.$: States.Array('match-promises', '--year', $.year)
+    End: true
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: CognitionFailed
+
+  InvalidTask:
+    Type: Fail
+    Error: InvalidTask
+    Cause: "Unknown task. Valid: full-pipeline, extract-promises, embed-promises, build-source-texts, embed-sources, match-promises"
+
+  CognitionFailed:
+    Type: Fail
+    Error: CognitionError
+    Cause: Cognition task failed

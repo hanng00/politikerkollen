@@ -1,0 +1,237 @@
+Comment: Politikerkollen Ingestion Pipeline - Ingest data from Riksdagen API
+StartAt: ChooseMode
+States:
+  ChooseMode:
+    Type: Choice
+    Choices:
+      - Variable: $.mode
+        StringEquals: backfill
+        Next: BackfillSingleResource
+      - Variable: $.mode
+        StringEquals: single
+        Next: RunSingleResource
+    Default: IncrementalIngestion
+
+  IncrementalIngestion:
+    Type: Parallel
+    Comment: Run all incremental ingestion tasks in parallel
+    Branches:
+      - StartAt: IngestAnforande
+        States:
+          IngestAnforande:
+            Type: Task
+            Resource: arn:aws:states:::ecs:runTask.sync
+            Parameters:
+              LaunchType: FARGATE
+              Cluster: ${EcsCluster}
+              TaskDefinition: ${TaskDefinition}
+              NetworkConfiguration:
+                AwsvpcConfiguration:
+                  Subnets.$: States.StringSplit('${Subnets}', ',')
+                  SecurityGroups.$: States.Array('${SecurityGroups}')
+                  AssignPublicIp: ENABLED
+              Overrides:
+                ContainerOverrides:
+                  - Name: container
+                    Command:
+                      - run
+                      - anforande
+            ResultPath: $.result
+            End: true
+
+      - StartAt: IngestVoteringlista
+        States:
+          IngestVoteringlista:
+            Type: Task
+            Resource: arn:aws:states:::ecs:runTask.sync
+            Parameters:
+              LaunchType: FARGATE
+              Cluster: ${EcsCluster}
+              TaskDefinition: ${TaskDefinition}
+              NetworkConfiguration:
+                AwsvpcConfiguration:
+                  Subnets.$: States.StringSplit('${Subnets}', ',')
+                  SecurityGroups.$: States.Array('${SecurityGroups}')
+                  AssignPublicIp: ENABLED
+              Overrides:
+                ContainerOverrides:
+                  - Name: container
+                    Command:
+                      - run
+                      - voteringlista
+            ResultPath: $.result
+            End: true
+
+      - StartAt: IngestDokumentlista
+        States:
+          IngestDokumentlista:
+            Type: Task
+            Resource: arn:aws:states:::ecs:runTask.sync
+            Parameters:
+              LaunchType: FARGATE
+              Cluster: ${EcsCluster}
+              TaskDefinition: ${TaskDefinition}
+              NetworkConfiguration:
+                AwsvpcConfiguration:
+                  Subnets.$: States.StringSplit('${Subnets}', ',')
+                  SecurityGroups.$: States.Array('${SecurityGroups}')
+                  AssignPublicIp: ENABLED
+              Overrides:
+                ContainerOverrides:
+                  - Name: container
+                    Command:
+                      - run
+                      - dokumentlista
+            ResultPath: $.result
+            End: true
+
+      - StartAt: IngestDokumentstatus
+        States:
+          IngestDokumentstatus:
+            Type: Task
+            Resource: arn:aws:states:::ecs:runTask.sync
+            Parameters:
+              LaunchType: FARGATE
+              Cluster: ${EcsCluster}
+              TaskDefinition: ${TaskDefinition}
+              NetworkConfiguration:
+                AwsvpcConfiguration:
+                  Subnets.$: States.StringSplit('${Subnets}', ',')
+                  SecurityGroups.$: States.Array('${SecurityGroups}')
+                  AssignPublicIp: ENABLED
+              Overrides:
+                ContainerOverrides:
+                  - Name: container
+                    Command:
+                      - run
+                      - dokumentstatus
+            ResultPath: $.result
+            End: true
+
+      - StartAt: IngestPersonlista
+        States:
+          IngestPersonlista:
+            Type: Task
+            Resource: arn:aws:states:::ecs:runTask.sync
+            Parameters:
+              LaunchType: FARGATE
+              Cluster: ${EcsCluster}
+              TaskDefinition: ${TaskDefinition}
+              NetworkConfiguration:
+                AwsvpcConfiguration:
+                  Subnets.$: States.StringSplit('${Subnets}', ',')
+                  SecurityGroups.$: States.Array('${SecurityGroups}')
+                  AssignPublicIp: ENABLED
+              Overrides:
+                ContainerOverrides:
+                  - Name: container
+                    Command:
+                      - run
+                      - personlista
+            ResultPath: $.result
+            End: true
+
+      - StartAt: IngestValmanifest
+        States:
+          IngestValmanifest:
+            Type: Task
+            Resource: arn:aws:states:::ecs:runTask.sync
+            Parameters:
+              LaunchType: FARGATE
+              Cluster: ${EcsCluster}
+              TaskDefinition: ${TaskDefinition}
+              NetworkConfiguration:
+                AwsvpcConfiguration:
+                  Subnets.$: States.StringSplit('${Subnets}', ',')
+                  SecurityGroups.$: States.Array('${SecurityGroups}')
+                  AssignPublicIp: ENABLED
+              Overrides:
+                ContainerOverrides:
+                  - Name: container
+                    Command:
+                      - run
+                      - valmanifest
+            ResultPath: $.result
+            End: true
+
+      - StartAt: IngestTidoavtalet
+        States:
+          IngestTidoavtalet:
+            Type: Task
+            Resource: arn:aws:states:::ecs:runTask.sync
+            Parameters:
+              LaunchType: FARGATE
+              Cluster: ${EcsCluster}
+              TaskDefinition: ${TaskDefinition}
+              NetworkConfiguration:
+                AwsvpcConfiguration:
+                  Subnets.$: States.StringSplit('${Subnets}', ',')
+                  SecurityGroups.$: States.Array('${SecurityGroups}')
+                  AssignPublicIp: ENABLED
+              Overrides:
+                ContainerOverrides:
+                  - Name: container
+                    Command:
+                      - run
+                      - tidoavtalet
+            ResultPath: $.result
+            End: true
+    End: true
+    Catch:
+      - ErrorEquals:
+          - States.ALL
+        ResultPath: $.error
+        Next: IngestionFailed
+
+  RunSingleResource:
+    Type: Task
+    Comment: Run a single resource ingestion
+    Resource: arn:aws:states:::ecs:runTask.sync
+    Parameters:
+      LaunchType: FARGATE
+      Cluster: ${EcsCluster}
+      TaskDefinition: ${TaskDefinition}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets.$: States.StringSplit('${Subnets}', ',')
+          SecurityGroups.$: States.Array('${SecurityGroups}')
+          AssignPublicIp: ENABLED
+      Overrides:
+        ContainerOverrides:
+          - Name: container
+            Command.$: States.Array('run', $.resource)
+    End: true
+    Catch:
+      - ErrorEquals:
+          - States.ALL
+        ResultPath: $.error
+        Next: IngestionFailed
+
+  BackfillSingleResource:
+    Type: Task
+    Comment: Run backfill for a single resource with date range
+    Resource: arn:aws:states:::ecs:runTask.sync
+    Parameters:
+      LaunchType: FARGATE
+      Cluster: ${EcsCluster}
+      TaskDefinition: ${TaskDefinition}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets.$: States.StringSplit('${Subnets}', ',')
+          SecurityGroups.$: States.Array('${SecurityGroups}')
+          AssignPublicIp: ENABLED
+      Overrides:
+        ContainerOverrides:
+          - Name: container
+            Command.$: States.Array('run', $.resource, '--start-date', $.startDate, '--end-date', $.endDate)
+    End: true
+    Catch:
+      - ErrorEquals:
+          - States.ALL
+        ResultPath: $.error
+        Next: IngestionFailed
+
+  IngestionFailed:
+    Type: Fail
+    Error: IngestionError
+    Cause: One or more ingestion tasks failed

@@ -1,0 +1,49 @@
+Comment: Politikerkollen full pipeline — ingestion then dbt then cognition (nested state machines)
+StartAt: RunIngestion
+States:
+  RunIngestion:
+    Type: Task
+    Resource: arn:aws:states:::states:startExecution.sync
+    Comment: Wait for ingestion state machine
+    Parameters:
+      StateMachineArn: ${IngestionStateMachineArn}
+      Input.$: States.JsonToString($.ingestion)
+    ResultPath: $.ingestionExecution
+    Next: RunDbt
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: FullPipelineFailed
+
+  RunDbt:
+    Type: Task
+    Resource: arn:aws:states:::states:startExecution.sync
+    Comment: Wait for dbt state machine
+    Parameters:
+      StateMachineArn: ${DbtStateMachineArn}
+      Input.$: States.JsonToString($.dbt)
+    ResultPath: $.dbtExecution
+    Next: RunCognition
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: FullPipelineFailed
+
+  RunCognition:
+    Type: Task
+    Resource: arn:aws:states:::states:startExecution.sync
+    Comment: Wait for cognition state machine
+    Parameters:
+      StateMachineArn: ${CognitionStateMachineArn}
+      Input.$: States.JsonToString($.cognition)
+    ResultPath: $.cognitionExecution
+    End: true
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: FullPipelineFailed
+
+  FullPipelineFailed:
+    Type: Fail
+    Error: FullPipelineError
+    Cause: A stage in the full pipeline failed

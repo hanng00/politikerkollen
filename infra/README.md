@@ -1,62 +1,53 @@
-# Politikerkollen Infrastructure
+# Politikerkollen infrastructure (CDK)
 
-Cost-optimized Dagster on AWS (~$10-15/month).
+One naming scheme per AWS account (no `dev` / `prod` path segments in ECR or Secrets Manager). **The profile picks the account**; resources are always under `politikerkollen/…`.
 
-## Architecture
+## Stacks
 
-```
-ECS Cluster (Fargate)
-├── dagster-webserver (always on)     → UI at :3000
-├── dagster-daemon (always on, Spot)  → schedules/sensors
-└── task containers (on-demand, Spot) → ingestion (dlt), dbt
-         │
-         ▼
-    MotherDuck (serverless DuckDB)
-```
+1. **`Politikerkollen-Core`** (default) — VPC (public subnets, **no NAT**), ECR `politikerkollen/{ingestion,dbt,cognition}`, secret `politikerkollen/motherduck-token`.
 
-**Cost savings:** Public subnets only (no NAT), Fargate Spot, minimal logging.
+2. **`Politikerkollen-Dagster`** (optional) — Dagster EC2 + ECR `politikerkollen/dagster`, Postgres secret `politikerkollen/dagster-postgres`.  
+   Only when you pass **`-c deployDagster=true`**.
 
 ## Deploy
 
 ```bash
 cd infra
-bun install
+npm install
 
-# First time only
-bunx cdk bootstrap
+npx cdk bootstrap   # once per account/region
 
-# Deploy
-bun run deploy:prod        # or deploy:dev
+# Core only (typical for Step Functions + Fargate)
+npx cdk deploy --all --profile your-profile
+
+# Include optional Dagster EC2
+npx cdk deploy --all --profile your-profile -c deployDagster=true
 ```
 
-## Post-Deploy
+## Outputs (core)
+
+- **VpcId**, **PublicSubnetIds**
+- **IngestionRepoUri**, **DbtRepoUri**, **CognitionRepoUri**
+- **MotherDuckSecretArn**, **SetMotherDuckToken**
+
+## MotherDuck token
+
+From repo root (same profile as CDK):
 
 ```bash
-# 1. Set MotherDuck token
-aws secretsmanager put-secret-value \
-  --secret-id politikerkollen/prod/motherduck-token \
-  --secret-string '{"token": "YOUR_TOKEN"}'
-
-# 2. Get Dagster login credentials (auto-generated)
-aws secretsmanager get-secret-value \
-  --secret-id politikerkollen/prod/dagster-auth \
-  --query SecretString --output text | jq .
-
-# 3. Build & push images (from project root)
-aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin <ACCOUNT>.dkr.ecr.eu-north-1.amazonaws.com
-
-docker build -t <ACCOUNT>.dkr.ecr.eu-north-1.amazonaws.com/politikerkollen-prod/ingestion:latest -f ingestion/Dockerfile .
-docker build -t <ACCOUNT>.dkr.ecr.eu-north-1.amazonaws.com/politikerkollen-prod/dbt:latest -f transformations_dbt/Dockerfile .
-docker build -t <ACCOUNT>.dkr.ecr.eu-north-1.amazonaws.com/politikerkollen-prod/dagster:latest -f orchestration_dagster/Dockerfile .
-docker push --all-tags <ACCOUNT>.dkr.ecr.eu-north-1.amazonaws.com/politikerkollen-prod
-
-# 4. Restart services
-aws ecs update-service --cluster politikerkollen-prod --service dagster-webserver --force-new-deployment
-aws ecs update-service --cluster politikerkollen-prod --service dagster-daemon --force-new-deployment
+AWS_PROFILE=enya-test MOTHERDUCK_TOKEN='your-token' ./scripts/set-motherduck-token.sh
 ```
 
-## Tear Down
+Or use the `SetMotherDuckToken` output from `cdk deploy` with `aws secretsmanager put-secret-value` manually.
 
-```bash
-bunx cdk destroy --all
-```
+## Push images & deploy Step Functions
+
+From repo root: `./scripts/push-pipeline-images.sh`, then `./scripts/sam-deploy-orchestration.sh` (see file headers for env vars).
+
+## Migrating from older `…-dev-…` / `…/dev/…` resources
+
+ECR repos and secret names changed. Either adopt new names in CI/SAM or destroy the old core stack and redeploy; update GitHub secrets and Step Functions image URIs to match new ECR paths.
+
+## Destroy order
+
+If both stacks exist: destroy **Politikerkollen-Dagster** first, then **Politikerkollen-Core**.

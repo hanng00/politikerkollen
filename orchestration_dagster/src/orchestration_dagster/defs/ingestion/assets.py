@@ -365,3 +365,45 @@ def valmanifest(
         "resource": "valmanifest",
         "exit_code": result.exit_code,
     }
+
+
+@dg.asset(
+    key=AssetKey(["raw_snd", "tidoavtalet"]),
+    group_name=SND_GROUP_NAME,
+    description="Ingest Tidöavtalet (coalition agreement between M, KD, L, SD 2022-2026). Static dataset - full refresh on each run.",
+)
+def tidoavtalet(
+    context: AssetExecutionContext,
+    container_executor: ContainerExecutor,
+    secrets_resource: SecretsResource,
+):
+    """Ingest Tidöavtalet data via ContainerExecutor.
+
+    This is a static dataset containing the coalition agreement between
+    M, KD, L, and SD (2022-2026). Full refresh on each run.
+    """
+    command, env_vars = _build_snd_ingestion_command("tidoavtalet", secrets_resource)
+
+    result = container_executor.execute(
+        context=context,
+        image="politikerkollen/ingestion:latest",
+        command=command,
+        env_vars=env_vars,
+        name="ingest_tidoavtalet",
+    )
+
+    if not result.success:
+        raise dg.Failure(
+            f"Ingestion failed with exit code {result.exit_code}",
+            metadata={
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "resource": "tidoavtalet",
+            },
+        )
+
+    return {
+        "status": "success",
+        "resource": "tidoavtalet",
+        "exit_code": result.exit_code,
+    }

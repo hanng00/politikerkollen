@@ -1,0 +1,11 @@
+version = 0.1
+
+# Admin Function URL is open (no auth) — protect with Cognito/API GW or private networking if needed.
+
+[default.deploy.parameters]
+stack_name = "politikerkollen-orchestration"
+region = "eu-north-1"
+capabilities = "CAPABILITY_NAMED_IAM"
+confirm_changeset = false
+fail_on_empty_changeset = false
+resolve_s3 = true
