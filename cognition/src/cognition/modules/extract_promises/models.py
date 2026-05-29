@@ -112,7 +112,7 @@ def get_extraction_instructions() -> str:
         promise_fields.append(f"- {field_name}: {desc}")
     fields_list = "\n".join(promise_fields)
 
-    return f"""You are an expert at extracting political promises from Swedish party manifestos (partiprogram and valmanifest).
+    return f"""You are an expert at extracting political promises from Swedish political documents, including party manifestos (partiprogram and valmanifest) and coalition agreements (such as Tidöavtalet).
 
 ## What is a Promise?
 
@@ -133,8 +133,9 @@ For each promise, extract these fields:
 
 ## Guidelines
 
-- Be thorough but precise. A typical manifesto contains 10-50 concrete promises.
+- Be thorough but precise. A typical manifesto contains 10-50 concrete promises. A coalition agreement may contain 50-150 specific commitments.
 - If the document is very short or contains no clear promises, return an empty list with a note in extraction_notes.
 - Always include the exact source quote so the promise can be verified.
 - Write promise_text in Swedish as a clear, standalone statement.
+- For coalition agreements: extract each concrete policy commitment as a separate promise, even if they appear in a list. Focus on verifiable actions, not process descriptions (e.g., "utredning ska tillsättas" is a promise; "projektet leds av en arbetsgrupp" is not).
 """

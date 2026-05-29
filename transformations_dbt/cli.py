@@ -16,20 +16,17 @@ from pathlib import Path
 
 def run_dbt_command(command: str, select: str | None = None, full_refresh: bool = False, target: str | None = None):
     """Run a dbt command."""
-    # Get target from env or argument
     dbt_target = target or os.environ.get("DBT_TARGET", "dev")
-    
-    # Build dbt command
+
     cmd = ["dbt", command]
-    
+
     if select:
         cmd.extend(["--select", select])
-    
+
     if full_refresh:
         cmd.append("--full-refresh")
-    
-    if target:
-        cmd.extend(["--target", dbt_target])
+
+    cmd.extend(["--target", dbt_target])
     
     # Set working directory to dbt project root
     project_dir = Path(__file__).parent

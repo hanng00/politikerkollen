@@ -11,6 +11,7 @@ status for each document ID from the parent dokumentlista resource.
 Pattern: Parent-child relationship using dlt's rest_api_source
 - Parent: dokumentlista (provides dok_id values)
 - Child: dokumentstatus (fetches /dokumentstatus/{dok_id}.json for each)
+- 404 / empty responses are ignored (same pattern as anforande); some ids disappear from the API over time.
 """
 
 from typing import Any, Dict
@@ -108,6 +109,11 @@ def get_child_resource() -> dict:
             "data_selector": "dokumentstatus",
             # Single entity endpoint - no pagination needed
             "paginator": "single_page",
+            # Riksdagen sometimes returns 404 for removed or invalid dok ids; skip without failing the run
+            "response_actions": [
+                {"status_code": 404, "action": "ignore"},
+                {"content": "", "action": "ignore"},
+            ],
         },
         # Include id from parent to ensure we have the key in output
         "include_from_parent": ["id"],

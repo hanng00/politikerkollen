@@ -35,6 +35,8 @@ sources:
     tables:
       - name: valmanifest
         description: "Swedish party programs and election manifestos from 1897 to present"
+      - name: tidoavtalet
+        description: "Tidöavtalet coalition agreement between M, KD, L, SD (2022-2026)"
 
   - name: cognition
     database: spatial_dagster

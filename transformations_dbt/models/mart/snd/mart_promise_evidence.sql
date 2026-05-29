@@ -44,7 +44,8 @@ promises as (
         year,
         promise_text,
         source_quote,
-        category
+        category,
+        source_type
     from {{ ref('stg_valmanifest_promises') }}
 ),
 
@@ -134,6 +135,7 @@ matches_with_sources as (
         p.year as promise_year,
         p.promise_text,
         p.category,
+        p.source_type,
         sd.dok_typ as source_dok_typ,
         sd.titel as source_titel,
         sd.source_summary,
@@ -159,6 +161,7 @@ motion_evidence as (
         mws.promise_year,
         mws.promise_text,
         mws.category,
+        mws.source_type,
         mws.source_dok_typ,
         mws.source_titel,
         mws.source_summary,
@@ -235,6 +238,7 @@ proposition_evidence as (
         mws.promise_year,
         mws.promise_text,
         mws.category,
+        mws.source_type,
         mws.source_dok_typ,
         mws.source_titel,
         mws.source_summary,
@@ -316,6 +320,7 @@ select
     promise_year,
     promise_text,
     category,
+    source_type,
     source_dok_typ,
     source_titel,
     source_summary,

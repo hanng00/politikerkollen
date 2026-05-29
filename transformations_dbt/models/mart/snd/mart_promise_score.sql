@@ -26,6 +26,7 @@ with evidence as (
         promise_year,
         promise_text,
         category,
+        source_type,
         match_id,
         source_dok_id,
         source_dok_typ,
@@ -57,6 +58,7 @@ promise_aggregates as (
         any_value(promise_year) as promise_year,
         any_value(promise_text) as promise_text,
         any_value(category) as category,
+        any_value(source_type) as source_type,
         
         -- Composite score: weighted average of non-zero signals, capped at [-1, 1]
         -- Using average prevents score inflation from many weak signals
@@ -154,6 +156,7 @@ select
     promise_year,
     promise_text,
     category,
+    source_type,
     composite_score,
     
     -- Evidence strength based on count and weight

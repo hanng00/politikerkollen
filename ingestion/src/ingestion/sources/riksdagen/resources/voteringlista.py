@@ -9,6 +9,7 @@ See docs/ingestion/riksdagen-api.md for details.
 """
 
 import logging
+import os
 from typing import Callable, Iterator
 
 import dlt
@@ -46,6 +47,28 @@ def _filter_sessions_by_date(
         s for s in sessions if int(s[:4]) <= end_year and int(s[:4]) + 1 >= start_year
     ]
     return filtered or sessions
+
+
+def _sessions_for_run(start_date: str | None, end_date: str | None) -> list[str]:
+    """
+    Riksdagen has no reliable incremental API for voteringlista — without a date window
+    we default to the newest riksmöten only so nightly jobs stay fast.
+
+    ALL_RIKSMOTE_SESSIONS is ordered newest-first. Override count with env
+    VOTINGLISTA_INCREMENTAL_SESSIONS (default 3). Set VOTINGLISTA_FULL_GRID=1 to
+    restore the old behaviour (all sessions × valkrets × parti).
+    """
+    if start_date or end_date:
+        return _filter_sessions_by_date(ALL_RIKSMOTE_SESSIONS, start_date, end_date)
+    if os.environ.get("VOTINGLISTA_FULL_GRID", "").strip() in ("1", "true", "yes"):
+        return ALL_RIKSMOTE_SESSIONS
+    raw = os.environ.get("VOTINGLISTA_INCREMENTAL_SESSIONS", "3")
+    try:
+        n = int(raw)
+    except ValueError:
+        n = 3
+    n = max(1, min(n, len(ALL_RIKSMOTE_SESSIONS)))
+    return ALL_RIKSMOTE_SESSIONS[:n]
 
 
 def _make_fetch_fn(params: dict) -> Callable[[], list[dict]]:
@@ -90,6 +113,8 @@ def create_source(
     The start_date/end_date are used to select which riksmöte sessions to fetch,
     NOT to filter individual records. systemdatum is unreliable (empty for old data,
     represents system entry time not vote date for new data).
+
+    With no date args, only the newest N riksmöten are queried (see `_sessions_for_run`).
     """
 
     @dlt.resource(
@@ -100,7 +125,7 @@ def create_source(
     )
     def voteringlista_resource() -> Iterator[Callable[[], list[dict]]]:
         """Yield callables for each API combination. DLT executes them in its thread pool."""
-        sessions = _filter_sessions_by_date(ALL_RIKSMOTE_SESSIONS, start_date, end_date)
+        sessions = _sessions_for_run(start_date, end_date)
         total = len(sessions) * len(ALL_VALKRETSAR) * len(ALL_PARTIES)
         logger.info(f"Yielding {total} fetch tasks for DLT parallel execution")
 

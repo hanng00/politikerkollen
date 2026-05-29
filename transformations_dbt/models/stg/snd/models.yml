@@ -1,6 +1,74 @@
 version: 2
 
 models:
+  - name: stg_tidoavtalet
+    description: |
+      Staging model for Tidöavtalet - coalition agreement between M, KD, L, SD (2022-2026).
+      
+      Source: https://kristdemokraterna.se/arkiv/nyheter/2022/2022-10-14-overenskommelse-for-sverige---tidoavtalet
+      
+      One row per coalition party - same document text attributed to each party.
+      This allows the cognition pipeline to extract and attribute promises per party.
+    columns:
+      - name: document_id
+        description: |
+          Primary key - format: {party_id}-{year}-t
+          Examples: 'm-2022-t', 'kd-2022-t', 'l-2022-t', 'sd-2022-t'
+        tests:
+          - not_null
+          - unique
+
+      - name: year
+        description: "Publication year (2022)."
+        tests:
+          - not_null
+
+      - name: party_id
+        description: "Coalition party: m, kd, l, or sd."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['m', 'kd', 'l', 'sd']
+
+      - name: parti
+        description: "Full party name in Swedish."
+        tests:
+          - not_null
+
+      - name: type_id
+        description: "Document type code - always 't' for Tidöavtalet."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['t']
+
+      - name: document_type
+        description: "Always 'Tidöavtalet'."
+        tests:
+          - not_null
+
+      - name: title
+        description: "Document title: 'Tidöavtalet - Överenskommelse för Sverige'."
+
+      - name: source
+        description: "Source URL for the document."
+
+      - name: text_content
+        description: "Full text content of Tidöavtalet."
+
+      - name: text_length
+        description: "Character count of text_content."
+
+      - name: _dlt_load_id
+        description: "DLT load identifier."
+        tests:
+          - not_null
+
+      - name: _dlt_id
+        description: "DLT record identifier."
+        tests:
+          - not_null
+
   - name: stg_valmanifest
     description: |
       Staging model for Swedish party programs and election manifestos from SND (Swedish National Data Service).

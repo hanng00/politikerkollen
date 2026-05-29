@@ -39,6 +39,8 @@ COPY --from=builder --chown=root:root /app /app
 
 # Ensure the virtual environment is used by default
 ENV PATH="/app/.venv/bin:$PATH"
+# Timely CloudWatch logs (rest_api / dlt can run quietly for a long time between lines)
+ENV PYTHONUNBUFFERED=1
 
 # Make CLI executable
 RUN chmod +x cli.py

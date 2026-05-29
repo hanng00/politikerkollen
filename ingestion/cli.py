@@ -25,7 +25,7 @@ from ingestion.sources.riksdagen.resources import (
     personlista,
     voteringlista,
 )
-from ingestion.sources.snd import valmanifest
+from ingestion.sources.snd import tidoavtalet, valmanifest
 
 
 def setup_dlt() -> None:
@@ -105,6 +105,7 @@ def run_resource(
         "personlista": personlista.create_source,
         "voteringlista": voteringlista.create_source,
         "valmanifest": valmanifest.create_source,
+        "tidoavtalet": tidoavtalet.create_source,
     }
     
     if resource_name not in resource_map:
@@ -114,7 +115,7 @@ def run_resource(
     create_source_fn = resource_map[resource_name]
     if resource_name in ["anforandelista", "anforande", "dokumentlista", "dokumentstatus", "voteringlista"]:
         source = create_source_fn(start_date=start_date, end_date=end_date)
-    elif resource_name == "valmanifest":
+    elif resource_name in ["valmanifest", "tidoavtalet"]:
         source = create_source_fn()
     else:
         source = create_source_fn()
@@ -131,7 +132,7 @@ def run_resource(
         destination = create_motherduck_destination(database_name=database_name)
     
     # Determine pipeline and dataset names based on source
-    if resource_name == "valmanifest":
+    if resource_name in ["valmanifest", "tidoavtalet"]:
         pipeline_name = f"raw_snd_{resource_name}"
         dataset_name = "raw_snd"
     else:
@@ -147,7 +148,10 @@ def run_resource(
     )
     
     logger.info(f"Pipeline created: {dlt_pipeline.pipeline_name}")
-    
+    logger.info(
+        "Starting pipeline.run() (extract + normalize + load; may run quietly for a long time)"
+    )
+
     # Run pipeline
     info = dlt_pipeline.run(source)
     
@@ -188,7 +192,7 @@ def main():
     
     # Run command
     run_parser = subparsers.add_parser("run", help="Run ingestion for a resource")
-    run_parser.add_argument("resource", choices=["anforandelista", "anforande", "dokumentlista", "dokumentstatus", "personlista", "voteringlista", "valmanifest"])
+    run_parser.add_argument("resource", choices=["anforandelista", "anforande", "dokumentlista", "dokumentstatus", "personlista", "voteringlista", "valmanifest", "tidoavtalet"])
     run_parser.add_argument("--start-date", help="Start date (YYYY-MM-DD) for backfill")
     run_parser.add_argument("--end-date", help="End date (YYYY-MM-DD) for backfill")
     run_parser.add_argument("--database", help="Database name (default: from DATABASE_NAME env or 'spatial_dagster')")

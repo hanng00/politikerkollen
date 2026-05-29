@@ -13,6 +13,8 @@ Pattern: Parent-child relationship using dlt's rest_api_source
 - Child: anforande (fetches /anforande/{dok_id}-{anforande_nummer}.json for each)
 """
 
+import os
+
 from dlt.sources.rest_api import rest_api_source
 
 from ..http_client import get_client_config
@@ -108,6 +110,15 @@ def requires_pagination() -> bool:
     return True
 
 
+def _anforandelista_paginator_dates(
+    start_date: str | None, end_date: str | None
+) -> tuple[str | None, str | None]:
+    """Args for RiksmotePaginator: backfill uses explicit range; else optional list `d` via env."""
+    if start_date and end_date:
+        return start_date, end_date
+    return (start_date or os.environ.get("ANFORANDE_LIST_AFTER_DATE"), end_date)
+
+
 def get_paginator(start_date: str | None = None, end_date: str | None = None):
     """Get the paginator for the parent anforandelista resource."""
     return anforandelista.get_paginator(start_date, end_date)
@@ -135,10 +146,15 @@ def create_source(
 
     Returns:
         Configured dlt source with anforande resource.
+
+    Incremental tuning: when not in backfill mode, set env ANFORANDE_LIST_AFTER_DATE=YYYY-MM-DD
+    so the parent anforandelista requests pass API parameter `d` (speeches after that date),
+    reducing work per riksmöte. Unset = previous behaviour (no `d` on list calls).
     """
     parent_config = get_parent_resource(start_date, end_date)
     child_config = get_child_resource()
-    paginator = get_paginator(start_date, end_date)
+    pl_start, pl_end = _anforandelista_paginator_dates(start_date, end_date)
+    paginator = get_paginator(pl_start, pl_end)
 
     # Uses shared client with increased timeouts for resilience
     client_config = get_client_config()
