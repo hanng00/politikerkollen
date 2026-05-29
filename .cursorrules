@@ -21,7 +21,7 @@ shadcn/ui in this project uses **Base UI** (`@base-ui/react`), NOT Radix UI. Key
 - **ingestion/**: Python, dlt (data load tool), MotherDuck
 - **orchestration_dagster/**: Dagster, Docker, ECS
 - **transformations_dbt/**: dbt-core, dbt-duckdb
-- **infra/**: AWS CDK, EC2, Cognito, DynamoDB
+- **infra/**: optional legacy AWS CDK (e.g. Dagster EC2); core pipeline infra is `orchestration_stepfunctions/` SAM
 
 ## Code Conventions
 

@@ -12,6 +12,5 @@ dist
 build
 .git
 .gitignore
-README.md
 tests
 *.log
