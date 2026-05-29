@@ -95,7 +95,7 @@ export const strandskyddReport: Report = {
       politicians: [
         { name: "Martin Kinnunen", party: "SD", imageUrl: "https://data.riksdagen.se/filarkiv/bilder/ledamot/57cbe134-829b-4fb8-9cc1-ce2f1cd02f3b_192.jpg", role: "Ordförande MJU – drev frågan i utskottet" },
         { name: "Rebecka Le Moine", party: "MP", imageUrl: "https://data.riksdagen.se/filarkiv/bilder/ledamot/67e327d0-b2ca-47eb-802a-c140187f0e0c_192.jpg", role: "Ledande kritiker – varnade för allemansrätten" },
-        { name: "Romina Pourmokhtari", party: "L", imageUrl: "https://data.riksdagen.se/filarkiv/bilder/ledamot/e5e5e5e5-5e5e-4e5e-8e5e-5e5e5e5e5e5e_192.jpg", role: "Klimat- och miljöminister – ansvarig för propositionen" },
+        { name: "Romina Pourmokhtari", party: "L", imageUrl: "https://data.riksdagen.se/filarkiv/bilder/ledamot/1009b507-a1ca-4f1c-924d-4c2edd3c9c7d_192.jpg", role: "Klimat- och miljöminister – ansvarig för propositionen" },
       ],
     },
 

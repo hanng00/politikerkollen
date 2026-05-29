@@ -99,7 +99,7 @@ export const energiReportV2: Report = {
               party: "V",
               context: "I dag ska jag ha den viktigaste debatten jag haft i riksdagen under min tid. Debatten handlar om finansiering och riskdelning av investeringar i ny kärnkraft.",
               date: "2025-05-21",
-              imageUrl: "https://data.riksdagen.se/filarkiv/bilder/ledamot/0f77e517-8d8e-4e08-8897-bf3b0c3e3e3e_192.jpg",
+              imageUrl: "https://data.riksdagen.se/filarkiv/bilder/ledamot/a2c4e9f3-6d4a-4994-9351-66ce4c752905_192.jpg",
             },
           ],
         },
