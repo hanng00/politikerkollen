@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   useAccountabilityFilters,
 } from "@/hooks/useAccountability";
+import { LoopPromo } from "@/components/loops/LoopPromo";
 import { PartyScorecard } from "../PartyScorecard";
 import { PromiseFeed } from "../PromiseFeed";
 import { PromiseFilters, type OutcomeFilter } from "../PromiseFilters";
@@ -74,6 +75,16 @@ function LoftenContent() {
         selectedCategory={selectedCategory}
         selectedOutcome={selectedOutcome}
       />
+
+      {/* Experiment-gated funnel entry: A/B tested in production via the harness. */}
+      <div className="page-container py-6">
+        <LoopPromo
+          experiment="sveket"
+          title="Få ditt sveks-kvitto"
+          body="Välj ett parti och se vilka vallöften som hållits – och brutits – sedan 2022."
+          cta="Skapa kvitto"
+        />
+      </div>
     </>
   );
 }

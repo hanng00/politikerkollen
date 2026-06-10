@@ -316,4 +316,46 @@
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+
+  /* Live counter pulse dot (Löftesmätaren) */
+  @keyframes pk-live-pulse {
+    0% {
+      box-shadow: 0 0 0 0 var(--color-destructive);
+      opacity: 1;
+    }
+    70% {
+      box-shadow: 0 0 0 10px transparent;
+      opacity: 1;
+    }
+    100% {
+      box-shadow: 0 0 0 0 transparent;
+      opacity: 1;
+    }
+  }
+  .pk-live-dot {
+    animation: pk-live-pulse 2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  }
+
+  /* Story progress bar fill (Riksdagen Wrapped) */
+  @keyframes pk-story-progress {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+  .pk-story-progress {
+    transform-origin: left center;
+    animation: pk-story-progress linear forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pk-live-dot {
+      animation: none;
+    }
+    .pk-story-progress {
+      animation-duration: 0.01ms !important;
+    }
+  }
 }

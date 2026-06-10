@@ -4,8 +4,8 @@ on:
   push:
     branches: [main]
     paths:
-      - 'orchestration_stepfunctions/**'
-      - '.github/workflows/deploy-orchestration.yml'
+      - "orchestration_stepfunctions/**"
+      - ".github/workflows/deploy-orchestration.yml"
   workflow_dispatch:
 
 env:
@@ -21,11 +21,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Set AWS Role
+        run: |
+          if [[ "${{ github.ref_name }}" == "main" ]]; then
+            echo "AWS_ROLE=arn:aws:iam::694282668108:role/github-actions" >> $GITHUB_ENV
+          else
+            echo "AWS_ROLE=arn:aws:iam::030847345012:role/github-actions" >> $GITHUB_ENV
+          fi
+
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE }}
+          aws-region: eu-west-1
 
       - name: Setup SAM CLI
         uses: aws-actions/setup-sam@v2
@@ -33,7 +40,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: "22"
 
       - name: Install dependencies
         working-directory: orchestration_stepfunctions
