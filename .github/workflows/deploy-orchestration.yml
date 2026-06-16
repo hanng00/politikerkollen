@@ -32,7 +32,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE }}
-          aws-region: eu-west-1
+          aws-region: eu-north-1
 
       - name: Setup SAM CLI
         uses: aws-actions/setup-sam@v2
